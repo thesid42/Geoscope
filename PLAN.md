@@ -55,3 +55,8 @@ Use generic population/service/zone roles; accept existing park inputs as an ali
 - [x] Run local tests and preview browser checks; resolve findings.
 - [x] Complete advisor review and regression checks (37 tests on Windows and Linux).
 - [ ] Run real gVisor and live Vultr/NetBird acceptance checks when infrastructure is available.
+
+
+## React migration
+
+The user requested a React frontend while retaining FastAPI, followed by a push to the existing public Geoscope repository. The frontend lives in `web/`, uses Vite and React components, and builds to `web/dist`. FastAPI retains the analysis and worker APIs and serves only compiled frontend assets. Docker builds the frontend in a separate Node stage. Verification uses frontend DOM tests, a production build, backend HTTP tests, and container checks; no further browser checks are performed, per the user's instruction.

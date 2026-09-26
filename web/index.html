@@ -1,47 +1,14 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f4f7f6"><title>GeoScope — analysis, mapped</title>
-  <link rel="preconnect" href="https://unpkg.com"><link rel="preconnect" href="https://tile.openstreetmap.org">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="/assets/styles.css">
-</head>
-<body>
-  <header class="topbar"><a class="brand" href="/"><span class="brand-icon">⌖</span> GEOSCOPE</a><div class="topmeta"><span class="live-dot"></span><span id="worker-label">Checking worker</span><span class="top-divider"></span><span>FIELD NOTE&nbsp; 01</span></div></header>
-  <main class="shell">
-    <section class="intro"><div><div class="eyebrow">POPULATION · PLACES · PATTERNS</div><h1>Ask a question.<br>See it on the map.</h1><p class="lede">A geospatial analyst for service access, candidate sites, and population inside supplied zones. Inspect the method, map, and generated code.</p></div><div class="issue-stamp"><span>RESEARCH<br>DESK</span><span class="stamp-mark">✳</span></div></section>
-    <div class="workspace">
-      <aside class="controls">
-        <div class="section-heading"><span class="number">01</span><div><h2>Set the study area</h2><p>Choose source features and an analysis.</p></div></div>
-        <label for="dataset">Population + places or zones</label>
-        <select id="dataset"><option value="sf2020">Loading source…</option></select>
-        <div class="source-note" id="source-note"></div>
-        <label class="upload-label" for="upload">Or bring your own GeoJSON <span>↗</span></label>
-        <input id="upload" type="file" accept=".json,.geojson,application/geo+json,application/json">
-        <label for="analysis-mode" class="mode-label">Analysis</label><select id="analysis-mode"><option value="access">Service access</option><option value="compare">Compare candidate sites</option><option value="exposure">Population inside zones</option></select>
-        <div class="field-grid">
-          <div id="threshold-group"><label for="threshold">Access threshold</label><div class="unit-input"><input id="threshold" type="number" min="100" max="5000" step="100" value="400"><span>m</span></div></div>
-          <div id="distance-type"><label>Distance type</label><div class="static-input">Straight line <span>↗</span></div></div>
-        </div>
-        <div id="candidate-controls" class="hidden"><div class="section-heading second"><span class="number">02</span><div><h2>Compare candidate sites</h2><p>Use longitude, latitude in EPSG:4326. Drag pins or edit.</p></div></div>
-        <div class="candidate-row"><span class="candidate-tag a">A</span><label for="candidate-a-lon">Candidate A</label><div class="coordinate"><input id="candidate-a-lon" type="number" step="0.0001" value="-122.3310" aria-label="Candidate A longitude"><input id="candidate-a-lat" type="number" step="0.0001" value="47.6120" aria-label="Candidate A latitude"></div></div>
-        <div class="candidate-row"><span class="candidate-tag b">B</span><label for="candidate-b-lon">Candidate B</label><div class="coordinate"><input id="candidate-b-lon" type="number" step="0.0001" value="-122.3160" aria-label="Candidate B longitude"><input id="candidate-b-lat" type="number" step="0.0001" value="47.6150" aria-label="Candidate B latitude"></div></div></div>
-        <label for="question" class="question-label">What should the agent answer?</label><textarea id="question" rows="3">Which candidate serves more residents within 400 meters, and how much does each reduce average distance?</textarea>
-        <div class="access-key-wrap"><label for="access-key">Analysis access key</label><input id="access-key" type="password" placeholder="Provided by your research lead" autocomplete="off"><small>Needed to start a run. The key stays in this tab.</small></div>
-        <button id="run-button" class="run-button" disabled><span class="button-icon">↗</span><span>Run the analysis</span><span class="button-arrow">→</span></button>
-        <div class="method-note"><span class="note-icon">ⓘ</span><p>Distances are straight-line in a local projected CRS. Census polygon representative points provide a population proxy; routes, access barriers, and actual use are not measured. Exposure assigns each polygon’s full population weight by its representative point and is an approximation.</p></div>
-      </aside>
-      <section class="map-panel">
-        <div class="map-head"><div><div class="eyebrow">SPATIAL OVERVIEW</div><h2 id="map-title">Study area</h2></div><div class="map-legend"><span><i class="legend-dot people"></i>Population</span><span><i class="legend-dot park"></i>Service</span><span><i class="legend-dot zone"></i>Zone</span><span id="candidate-legend"><i class="legend-dot cand"></i>Candidate</span></div></div>
-        <div id="map" aria-label="Map of population tracts, parks and proposed sites"></div>
-        <div class="map-foot"><span id="feature-count">Loading map data…</span><span>© OpenStreetMap contributors</span></div>
-        <div id="result-panel" class="result-panel hidden"><div class="result-top"><div><div class="eyebrow">AGENT FINDINGS</div><h2 id="result-title">Access comparison</h2></div><span id="result-status" class="status-pill">In progress</span></div><p id="summary"></p><div id="metrics" class="metrics"></div><details><summary>Method + agent plan</summary><pre id="plan"></pre><div class="caveats" id="caveats"></div></details><div class="downloads" id="downloads"></div><details class="trace"><summary>Run trace</summary><div id="logs"></div></details></div>
-      </section>
-    </div>
-    <footer><span>GEOSCOPE / A SMALL GIS AGENT</span><span>Metrics and map are checked against a fixed GIS reference.</span></footer>
-  </main>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="/assets/app.js" defer></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f7f6" />
+    <meta name="description" content="GeoScope — a geospatial analyst for access, candidate sites, and population inside supplied zones." />
+    <title>GeoScope — analysis, mapped</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

@@ -2,7 +2,7 @@
 
 GeoScope is a sandboxed geospatial analyst for service access, candidate locations, and population inside supplied zones. Bring population data and facilities such as clinics, schools, libraries, shelters, or parks; the same workflow measures proximity and compares proposed locations. Bring zone boundaries to estimate how much population falls inside them. The included San Francisco parks and 2020 Census snapshot is one documented example, not a complete current inventory. A synthetic fixture is provided for UI exploration.
 
-The browser talks to a public HTTPS controller. The controller calls [Vultr Serverless Inference](https://docs.vultr.com/how-to-use-vultr-serverless-inference-in-python) and a private worker over NetBird. The worker runs model-authored Python only in disposable Linux Docker containers using gVisor `runsc`, with no network, a read-only input mount, resource limits, and bounded output. NetBird runs on the trusted VM hosts only. Neither access tokens nor NetBird credentials enter the analysis container.
+The React frontend talks to a FastAPI controller over HTTPS. Vite builds the frontend, and FastAPI serves its compiled assets alongside the existing API. The controller calls [Vultr Serverless Inference](https://docs.vultr.com/how-to-use-vultr-serverless-inference-in-python) and a private worker over NetBird. The worker runs model-authored Python only in disposable Linux Docker containers using gVisor `runsc`, with no network, a read-only input mount, resource limits, and bounded output. NetBird runs on the trusted VM hosts only. Neither access tokens nor NetBird credentials enter the analysis container.
 
 ## Input data and local preview
 
@@ -10,9 +10,11 @@ Uploads are GeoJSON FeatureCollections with EPSG:4326 longitude/latitude coordin
 
 Access mode requires population and service features and reports distance to the nearest service within the selected threshold (default 800 m). Compare mode has the same input requirements plus `candidate_a` and `candidate_b` as longitude/latitude pairs near the study area; the candidates are compared by population newly served within the threshold. Exposure mode requires population features and at least one zone polygon; zones are unioned, so overlapping zones do not double count population. Uploads must fit the configured 20 MiB and feature limits. Download the synthetic fixture at `GET /api/datasets/demo` or the San Francisco snapshot at `GET /api/datasets/real`; the latter's sources, dates, filters, hashes, and caveats are documented in [the data README](data/real/README.md).
 
-For a local UI and data preview on Windows PowerShell, install the dependencies and start only the controller:
+For a local UI and data preview on Windows PowerShell, use Node.js 24 and Python 3.12 or newer. Build the React frontend, then start FastAPI:
 
 ```powershell
+npm --prefix web ci
+npm --prefix web run build
 python -m pip install -r requirements.txt
 $env:APP_DATA_DIR = ".\local-data"
 python -m uvicorn app.controller:app --host 127.0.0.1 --port 8000
@@ -20,9 +22,18 @@ python -m uvicorn app.controller:app --host 127.0.0.1 --port 8000
 
 Open `http://127.0.0.1:8000`. This preview needs no API keys, but analysis submission stays disabled until its access token, Vultr model credentials, and isolated worker are configured. The Windows host cannot run the gVisor worker; it refuses to execute without Linux Docker advertising `runsc` and the local sandbox image. A Windows `runc` container is not evidence of sandbox containment.
 
-See `requirements.txt` for Python dependencies. On a configured Linux worker, run `uvicorn app.worker:app --host <NETBIRD_WORKER_IP> --port 8100` only after following the deployment setup below.
+For frontend development, leave FastAPI running on port 8000 and use a second terminal:
 
-For browser-only result testing without cloud services, run `python verification/ui_fixture_server.py` and open `http://127.0.0.1:8766`. Its displayed banner and fixed test access key distinguish it from the production controller. It returns mocked results and never executes generated code; keep it on loopback and do not use its output as analysis or containment evidence.
+```powershell
+npm --prefix web run dev
+```
+
+Vite serves React on `http://127.0.0.1:5173` and proxies `/api` to FastAPI. Set `GEOSCOPE_API_PROXY` only when using another local backend address. Keep Vultr and worker secrets on the backend; do not put them in frontend environment variables. A missing production build returns a helpful 503 at `/`, while the API remains available. The Dockerfile builds React in a Node stage and copies only `web/dist` into the Python runtime image.
+
+See `web/package.json` and its lockfile for frontend dependencies, and `requirements.txt` for Python dependencies. On a configured Linux worker, run `uvicorn app.worker:app --host <NETBIRD_WORKER_IP> --port 8100` only after following the deployment setup below.
+
+For optional manual UI exploration without cloud services, build the frontend first, then run `python verification/ui_fixture_server.py` and open `http://127.0.0.1:8766`. Its displayed banner and fixed test access key distinguish it from the production controller. It returns mocked results and never executes generated code; keep it on loopback and do not use its output as analysis or containment evidence.
+
 ## Deployment
 
 Use two Linux VMs: a public controller VM with HTTPS terminated by a managed load balancer or host reverse proxy, and a worker VM with no public listener on TCP 8100. Use a dedicated NetBird account or project/groups for these peers. The worker should have at least 4 GiB RAM for two concurrent 768 MiB jobs plus the OS and runtime. The worker's Docker group membership grants root-equivalent control of that worker, so keep it dedicated and do not run unrelated workloads.
@@ -42,3 +53,15 @@ Useful operator files: [controller compose](deploy/controller.compose.yaml), [wo
 The repository contains deployment instructions and configurable deployment files. No cloud VMs, Vultr credentials, NetBird account, public URL, or recording have been provisioned in this environment. Do not describe the service as live or claim real gVisor containment until the deployment and demo harness have succeeded on the actual worker. Record the HTTPS URL, commit/repository location, demo recording, and real worker evidence in the submission materials once available.
 
 Implementation and acceptance scope are recorded in [PLAN.md](PLAN.md); checks actually run are recorded in [VERIFICATION.md](VERIFICATION.md). With `APP_DATA_DIR` set to a writable local directory, run the full local suite with `python -m pytest -q --basetemp=tmp/pytest-local`; the deployment policy helper tests can also be run alone with `python -m pytest -q tests/test_deployment_netbird.py --basetemp=tmp/pytest-deployment`. These temporary directories are disposable pytest output. The suite uses controlled substitutes for cloud services; it does not establish live containment or deployment.
+
+
+## Automated checks
+
+```powershell
+npm --prefix web test
+npm --prefix web run build
+$env:APP_DATA_DIR = ".\local-data"
+python -m pytest -q --basetemp=tmp/pytest-local
+```
+
+Frontend tests run in a simulated DOM without launching a browser. Python tests cover the FastAPI API and compiled-asset boundary. Browser checks are not part of this migration, as requested. The prior screenshot and browser evidence in `verification/` belong to the earlier static frontend.

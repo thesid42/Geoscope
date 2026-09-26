@@ -27,9 +27,19 @@ settings = Settings.from_env()
 settings.data_dir.mkdir(parents=True, exist_ok=True)
 DATASET_DIR = settings.data_dir / "datasets"
 DATASET_DIR.mkdir(parents=True, exist_ok=True)
-WEB_DIR = Path(__file__).resolve().parents[1] / "web"
+WEB_DIR = Path(__file__).resolve().parents[1] / "web" / "dist"
 app = FastAPI(title="GeoScope", docs_url=None, redoc_url=None)
-app.mount("/assets", StaticFiles(directory=WEB_DIR), name="assets")
+
+
+class FrontendAssets(StaticFiles):
+    """Allow API-only development before the React bundle has been built."""
+
+    async def check_config(self) -> None:
+        if Path(self.directory).exists():
+            await super().check_config()
+
+
+app.mount("/assets", FrontendAssets(directory=WEB_DIR / "assets", check_dir=False), name="assets")
 
 
 @app.middleware("http")
@@ -246,7 +256,14 @@ def _select_local_crs(dataset: dict[str, Any], candidates: list[list[float]]) ->
 
 @app.get("/")
 def index():
-    return FileResponse(WEB_DIR / "index.html")
+    index_path = WEB_DIR / "index.html"
+    if not index_path.is_file():
+        return JSONResponse(
+            {"detail": "The React frontend is not built. Run npm ci and npm run build in web/, or use the Vite development server."},
+            status_code=503,
+            headers={"Cache-Control": "no-store"},
+        )
+    return FileResponse(index_path, headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/api/config")

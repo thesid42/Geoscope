@@ -2,6 +2,15 @@
 
 This file records checks actually performed. A passing test using mocked infrastructure does not demonstrate that cloud deployment or sandbox containment works.
 
+## React migration — 2026-09-26
+
+- Frontend converted to React 19.3 with Vite 8.3; Leaflet is bundled through npm. FastAPI remains the backend. The lockfile is committed; node_modules and dist are excluded from Git.
+- Clean npm install, production build, and **9 Vitest/Testing Library tests passed**. Tests use a simulated DOM and a mocked Leaflet adapter. They cover request cancellation, pending submission controls, normalized authentication, null metrics, error states, map lifecycle, and safe popup text. Advisor independently reran the same 9 tests and found no blocking findings.
+- **40 backend tests passed on Windows and Linux**, including three new frontend-serving tests: API availability before building, entrypoint caching, and compiled-asset lookup/source isolation. Python discovery is restricted to tests/ so it does not traverse Node dependencies or temporary output.
+- The final multi-stage Docker image built successfully from the lockfile. The Python runtime contains compiled frontend assets; the Node build environment stays in the build stage.
+- `verification/frontend_smoke.py` passed against the actual packaged app with no network and a read-only root: generated JavaScript/CSS URLs returned 200, raw source/package paths returned 404, and existing configuration/data APIs remained available. The 470-feature official dataset is intact. The only Linux test warning was Starlette's existing TestClient HTTPX deprecation.
+- **No browser checks were performed for this migration**, as requested. Earlier browser checks and the stored screenshot below describe the previous static frontend. Live Vultr, gVisor, and NetBird checks remain pending.
+
 ## Environment inspected
 
 - Workspace: E:\Projects\Agent Arena, Windows/PowerShell.
@@ -10,7 +19,7 @@ This file records checks actually performed. A passing test using mocked infrast
 - Docker runtimes: runc and nvidia; runsc/gVisor is absent.
 - No Vultr or NetBird configuration found among relevant environment variable names. Unrelated credentials were not used.
 
-## Test suite
+## Initial implementation test suite (before React migration)
 
 - Final suite: **37 passed on Windows and 37 passed on Linux** on 2026-09-26. Covers controller HTTP behavior, bounded agent repair with mocked services, malformed/nonfinite data, reference verification, worker configuration/cleanup, and NetBird policy management.
 - Windows used Python 3.14 and workspace-local pytest temporary directories. Linux used Python 3.12 with FastAPI 0.141.1, Starlette 1.7.0, HTTPX 0.28.1, and Pydantic 2.13.5 in the controller image. The only Linux warning was Starlette's TestClient HTTPX deprecation.

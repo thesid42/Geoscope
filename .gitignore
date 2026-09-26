@@ -16,3 +16,7 @@ local-data/
 .pytest-*-tmp/
 .http-contract-bootstrap-*/
 /*.pdf
+
+web/node_modules/
+web/dist/
+web/coverage/

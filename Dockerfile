@@ -1,10 +1,17 @@
+FROM node:24-alpine AS frontend
+WORKDIR /frontend
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
-COPY web ./web
+COPY --from=frontend /frontend/dist ./web/dist
 COPY data/real ./data/real
 RUN useradd --uid 10001 --create-home app \
     && mkdir -p /data \

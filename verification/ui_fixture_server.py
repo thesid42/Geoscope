@@ -238,7 +238,7 @@ async def show_fixture_banner(request: Request, call_next):
     </div><script>
     document.addEventListener('DOMContentLoaded',()=>{{const b=document.getElementById('fixture-fail-next');b.addEventListener('click',async()=>{{const r=await fetch('/__fixture/fail-next',{{method:'POST'}});document.getElementById('fixture-failure-state').textContent=r.ok?' · next run will fail':' · could not arm failure';}})}});
     </script>"""
-    body = body.replace('<header class="topbar">', fixture_banner + '<header class="topbar">', 1)
+    body = body.replace('<body>', '<body>' + fixture_banner, 1)
     return HTMLResponse(body, headers={"Cache-Control": "no-store"})
 
 

@@ -14,3 +14,7 @@ deploy/worker.env
 tmp
 output
 data/real/raw
+
+**/node_modules
+web/dist
+web/coverage
