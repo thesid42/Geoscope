@@ -1,61 +1,123 @@
-# GeoScope
+# Geoscope
 
-GeoScope is a sandboxed geospatial analyst for service access, candidate locations, and population inside supplied zones. Bring population data and facilities such as clinics, schools, libraries, shelters, or parks; the same workflow measures proximity and compares proposed locations. Bring zone boundaries to estimate how much population falls inside them. The included San Francisco parks and 2020 Census snapshot is one documented example, not a complete current inventory. A land-aware SF mock scenario also checks proposed building footprints against modeled plots and obstructions, then displays the selected proposal in Three.js.
+Geoscope is a geospatial analysis app built with **React, FastAPI, Leaflet, and Three.js**. Select a local area, propose a clinic or library, compare candidate plots, and inspect the proposed building in 3D. Land checks cover the whole building footprint, setbacks, plot boundaries, and supplied obstacles before a site is ranked.
 
-The React frontend talks to a FastAPI controller over HTTPS. Vite builds the frontend, and FastAPI serves its compiled assets alongside the existing API. The controller calls [Vultr Serverless Inference](https://docs.vultr.com/how-to-use-vultr-serverless-inference-in-python) and a private worker over NetBird. The worker runs model-authored Python only in disposable Linux Docker containers using gVisor `runsc`, with no network, a read-only input mount, resource limits, and bounded output. NetBird runs on the trusted VM hosts only. Neither access tokens nor NetBird credentials enter the analysis container.
+The repository includes a working **San Francisco mock simulation** and a separate production agent workflow designed for **Vultr Serverless Inference, gVisor sandboxes, and NetBird**. Cloud deployment and live containment verification are still pending.
 
-## Input data and local preview
+## What you can do
 
-Uploads are GeoJSON FeatureCollections with EPSG:4326 longitude/latitude coordinates (RFC default WGS84; if a `crs` member is present it must identify EPSG:4326 or CRS84). Features use `properties.layer` values `population`, `service`, or `zone`; the legacy value `park` is treated as `service`. Population features need a finite, nonnegative numeric `properties.population`. Points, Polygons, and MultiPolygons are accepted; zones must be polygon geometries. Keep feature IDs stable where present because output maps preserve IDs, geometries, and source properties. The app's analysis uses projected local UTM metres and population polygon representative points.
+| Workflow | Result |
+| --- | --- |
+| Facility scenario | Select an area, choose a clinic, library, school, or community centre, and rank up to three eligible plots with a 3D building preview. |
+| Service access | Estimate population proximity to supplied facilities. |
+| Candidate comparison | Compare two proposed locations against an existing service network. |
+| Population inside zones | Estimate population assigned to supplied boundaries, accounting for overlapping zones. |
 
-Access mode requires population and service features and reports distance to the nearest service within the selected threshold (default 800 m). Compare mode has the same input requirements plus `candidate_a` and `candidate_b` as longitude/latitude pairs near the study area; the candidates are compared by population newly served within the threshold. Exposure mode requires population features and at least one zone polygon; zones are unioned, so overlapping zones do not double count population. Uploads must fit the configured 20 MiB and feature limits. Download the synthetic fixture at `GET /api/datasets/demo` or the San Francisco snapshot at `GET /api/datasets/real`; the latter's sources, dates, filters, hashes, and caveats are documented in [the data README](data/real/README.md).
+Results include metrics, GeoJSON, the input request, analysis code, and a run trace. The local mock enables the facility scenario only; the configured production controller supports all four workflows.
 
-For a local UI and data preview on Windows PowerShell, use Node.js 24 and Python 3.12 or newer. Build the React frontend, then start FastAPI:
+## Quick start: SF mock demo
+
+Requirements: **Node.js 24**, **Python 3.12 or newer**, and a WebGL-capable browser for the 3D view. Run these commands from the repository root in PowerShell:
 
 ```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
 npm --prefix web ci
 npm --prefix web run build
-python -m pip install -r requirements.txt
-$env:APP_DATA_DIR = ".\local-data"
-python -m uvicorn app.controller:app --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m verification.scenario_demo_server --port 8765
 ```
 
-Open `http://127.0.0.1:8000`. This preview needs no API keys, but analysis submission stays disabled until backend credentials, public guest access, and the isolated worker are configured. No token is entered or stored in the UI. The Windows host cannot run the gVisor worker; it refuses to execute without Linux Docker advertising `runsc` and the local sandbox image. A Windows `runc` container is not evidence of sandbox containment.
+On macOS/Linux, use `.venv/bin/python` instead of `.\.venv\Scripts\python.exe`. Open **http://127.0.0.1:8765**; use that exact host because the mock checks the request origin. FastAPI serves both the API and the built React frontend, so this demo needs only one server process.
 
-For frontend development, leave FastAPI running on port 8000 and use a second terminal:
+1. Keep the SF mock dataset selected and choose a facility type.
+2. Use **Select area on map** to mark two opposite corners, or edit the coordinate bounds.
+3. Set the building width, depth, height, and setback, then run the analysis.
+4. Select a ranked plot to inspect its proposed footprint and building in the orbitable 3D view.
+5. Inspect rejected plots and download the calculation artifacts. Changing scenario inputs clears the old result and requires another run.
+
+With the default 24 × 18 m footprint and 3 m setback, **four of seven modeled plots qualify**. The other plots are building-blocked, restricted, or too small. A 100 × 100 m footprint fits none of them.
+
+### What the mock verifies
+
+| Data or execution | SF mock |
+| --- | --- |
+| Population | 12 unchanged observed 2020 Census tracts from the bundled SF snapshot. |
+| Plots, buildings, restrictions, services | Explicitly simulated features placed at SF coordinates. |
+| Land checks | Computed containment, setbacks, declared permitted uses, and collisions against the modeled land inventory. |
+| Analysis execution | Fixed trusted local calculations; no LLM, generated-code execution, cloud worker, or gVisor. |
+| Real-world availability or permits | Not established by the mock. |
+
+The 3D scene uses the checked footprint on flat ground. Height affects its appearance; width, depth, and setback affect site eligibility and placement. See [SF mock provenance](data/real-scenario/README.md) and its [manifest](data/real-scenario/manifest.json).
+
+### Stop the app
+
+Press **Ctrl+C** in the demo terminal. This stops both the API and the served frontend. When using separate FastAPI and Vite development terminals, press **Ctrl+C in each terminal**. Stop a Compose controller with:
 
 ```powershell
+docker compose --file deploy/controller.compose.yaml down
+```
+
+## Production architecture
+
+The live workflow is: **React → FastAPI controller on Vultr → Vultr Serverless Inference → private worker over NetBird → disposable gVisor container → verified results**.
+
+The controller plans, generates analysis code, and makes bounded repair attempts. The separate worker executes generated code and a fixed GIS reference in isolated containers, compares their metrics and geometry, and returns checked artifacts. Sandboxes have no outbound network, read-only input, resource limits, bounded output, and verified cleanup. The worker refuses execution without the required `runsc` runtime; NetBird connects the trusted hosts and does not replace sandbox isolation. Provider keys, access tokens, and NetBird credentials never enter analysis containers.
+
+The Dockerfile builds React in a Node stage and copies only compiled assets into the FastAPI runtime. The mock server is a separate development entry point, not a fallback when production infrastructure is unavailable.
+
+## Environment configuration
+
+There is **no API-token field in the UI**. Provider and worker credentials stay in the backend environment. `APP_ACCESS_TOKEN` signs opaque HttpOnly guest cookies and also supports private programmatic bearer access; its value is never sent to React.
+
+| Variable | Purpose |
+| --- | --- |
+| `VULTR_SERVERLESS_INFERENCE_API_KEY` | Backend inference credential. |
+| `VULTR_MODEL_ID` | Exact model ID available in the account's Vultr catalog. |
+| `WORKER_URL` | Worker URL on its private NetBird address. |
+| `WORKER_TOKEN` | Shared controller-to-worker secret. |
+| `APP_ACCESS_TOKEN` | Random server secret of at least 32 bytes for public guest sessions and private API access. |
+| `PUBLIC_ANALYSIS_ENABLED` | Set to `true` to allow browser guests to start jobs; defaults to disabled. |
+| `PUBLIC_ORIGIN` | Exact browser origin, including scheme and port where applicable. |
+| `APP_DATA_DIR` | Writable directory for uploaded datasets, run records, and artifacts. |
+
+Start from [.env.example](.env.example) for local configuration or [deploy/controller.env.example](deploy/controller.env.example) for Compose. Do not commit filled-in environment files or put secrets in frontend environment variables. `.env` is loaded only when requested by the process runner; Compose loads `deploy/controller.env`.
+
+Public mode permits visitor jobs subject to concurrency, input, and storage caps. It is not a login system. Guest uploads and runs are isolated by signed 24-hour sessions, writes require the configured Origin, and private responses are not cached. Keep public mode disabled for private API-only access. The loopback mock configures its own origin and generates an ephemeral server secret unless one is already configured; use a stable backend secret if mock sessions must survive restarts.
+
+## Frontend and backend development
+
+For the live-controller path, install `requirements.txt`, create a local `.env`, and set `APP_DATA_DIR` to a writable local path. For Vite development set `PUBLIC_ORIGIN=http://127.0.0.1:5173`. Run these in separate terminals:
+
+```powershell
+# Terminal 1: FastAPI (analysis requires configured Vultr and worker services)
+.\.venv\Scripts\python.exe -m uvicorn app.controller:app --env-file .env --host 127.0.0.1 --port 8000
+
+# Terminal 2: React with hot reload
 npm --prefix web run dev
 ```
 
-Vite serves React on `http://127.0.0.1:5173` and proxies `/api` to FastAPI. Set `GEOSCOPE_API_PROXY` only when using another local backend address. Keep Vultr and worker secrets on the backend; do not put them in frontend environment variables. A missing production build returns a helpful 503 at `/`, while the API remains available. The Dockerfile builds React in a Node stage and copies only `web/dist` into the Python runtime image.
+Vite runs at **http://127.0.0.1:5173** and proxies `/api` to FastAPI on port 8000. `GEOSCOPE_API_PROXY` can override that backend address. A controller without inference/worker configuration still exposes the map preview but disables analysis. For a mock with no cloud setup, use the quick start above instead.
 
-See `web/package.json` and its lockfile for frontend dependencies, and `requirements.txt` for Python dependencies. On a configured Linux worker, run `uvicorn app.worker:app --host <NETBIRD_WORKER_IP> --port 8100` only after following the deployment setup below.
+## Data and analysis contracts
 
-## SF land simulation and 3D proposals
+Uploads are GeoJSON FeatureCollections in EPSG:4326 longitude/latitude. If present, `crs` must identify EPSG:4326 or CRS84. Population features require a finite nonnegative `properties.population`. Preserve stable feature IDs.
 
-To run the interactive **local mock** without cloud credentials:
+| `properties.layer` | Geometry | Additional scenario requirements |
+| --- | --- | --- |
+| `population` | Point, Polygon, MultiPolygon | Population weight. Polygon weights are assigned through projected representative points. |
+| `service` | Point, Polygon, MultiPolygon | Matching `service_type` for scenario baselines. |
+| `park` | Point, Polygon, MultiPolygon | Legacy service alias in ordinary access/comparison; never counts as a clinic or library. |
+| `zone` | Polygon, MultiPolygon | Used by population-inside-zones analysis. |
+| `candidate_site` | Polygon, MultiPolygon | Unique string feature ID; `land_status: "available"`, nonempty `source`, and `allowed_services` containing the chosen service. |
+| `building`, `restricted` | Polygon, MultiPolygon | Obstructions excluded from proposed footprints and setbacks. |
 
-```powershell
-python -m pip install -r requirements-test.txt
-npm --prefix web ci
-npm --prefix web run build
-python -m verification.scenario_demo_server --port 8765
-```
+Scenario datasets also require top-level `land_inventory` with a `source`, ISO `as_of` date, and both `building_coverage` and `restriction_coverage` set to `complete_for_candidate_sites`. These are supplied declarations, not independent certification of ownership or permission. Missing obstruction coverage is not assumed clear. The [SF fixture](data/real-scenario/sf-mock.geojson) provides a complete worked input; regenerate it with `python scripts/generate_sf_mock_scenario.py`.
 
-Open `http://127.0.0.1:8765`. Select an area by two map corners (or edit bounds), choose clinic/library/school/community centre, set footprint dimensions and setback, then run. Choose a ranked plot to inspect its proposed building in the orbitable Three.js scene. Changing land assumptions or dimensions invalidates the old result and requires another calculation.
+Scenarios accept at most 5,000 features and 100 candidate plots. Each selected-area side must be 20 m–10 km. The search tries up to 81 deterministic anchors per plot at 0°/90°, checking the entire footprint plus setback against the plot, selected area, buildings, and restrictions. It ranks one placement per eligible plot by added population proximity, then weighted mean distance, then site ID. Alternatives are independent proposals. No fit found by this bounded search does not mean that every possible placement is impossible.
 
-The mock uses 12 observed SF Census tracts and seven explicitly modeled plots: four fit the default building, one has an obstruction, one is restricted, and one is too small. It calculates geometry and proximity locally from fixed trusted code; it does **not** run an LLM, generated program, cloud worker, or gVisor. The live controller still requires isolated execution. See [fixture provenance](data/real-scenario/README.md). Actual parcel availability, use permissions and existing buildings are not established by this mock.
+Only matching typed services count toward a scenario baseline, including services outside the selected area. Missing matching inventory means unknown existing access, not verified absence. Distances are straight-line metres in a local projected CRS; routes, terrain, capacity, and travel barriers are not modeled. Whole-tract population allocation is coarse for hyperlocal analysis and is not an exact count of nearby residents.
 
-Scenario input needs `population` and `candidate_site` polygons with stable unique IDs, `land_status: "available"`, a traceable `source`, and `allowed_services`. Optional `building` and `restricted` polygons act as obstacles; their declared inventory coverage must be complete for the candidate sites. `land_inventory` supplies `source`, `as_of`, `building_coverage` and `restriction_coverage` (both `complete_for_candidate_sites`). Service features need a matching `service_type`; parks and untyped services never count as clinics or libraries. Missing matching inventory is unknown access, not proof of no existing services.
-
-A candidate must contain the **whole footprint plus setback**, fit inside the selected area, and avoid every supplied building/restriction. Per plot, the search tests at most 81 deterministic anchors with 0/90-degree orientation. It returns up to three independent alternatives ranked by added population proximity, then mean distance, then site ID, and records rejected plots. A failed search means no fit was found under those tests, not that the plot can never be built on. Height changes the 3D massing only. Distances are projected straight-line measures; Census tract representative points allocate entire tract populations and are coarse for hyperlocal work. Verified land checks apply to supplied geometry and records; they do not independently establish ownership or planning approval.
-
-## Environment-only access
-
-`APP_ACCESS_TOKEN` stays on the backend: a randomly generated secret of at least 32 bytes signs HttpOnly, SameSite=Strict guest cookies and remains available for private programmatic bearer access. It is never sent to React. Set `PUBLIC_ANALYSIS_ENABLED=true` and `PUBLIC_ORIGIN` to the exact browser origin to enable guest analysis (use `http://127.0.0.1:5173` for Vite). All provider and worker credentials remain in the backend environment. `.env` files must be loaded by your process runner; Docker Compose loads `deploy/controller.env`.
-
-Public mode deliberately allows visitors to start jobs, subject to the existing concurrency, input and storage caps; it is not a login system. Uploaded datasets and runs are isolated by a signed 24-hour guest session, writes require the configured Origin, and responses are not cached. Keep public mode disabled when private API-only access is intended. The separate loopback mock server generates an ephemeral server secret automatically unless one is configured.
+The UI starts at a 400 m access threshold; the API default is 800 m. General uploads use the configured size/feature limits (20 MiB by default). Bundled data endpoints are `/api/datasets/demo`, `/api/datasets/real`, and `/api/datasets/localdemo`. The original SF parks/Census snapshot remains separate; see [its provenance](data/real/README.md).
 
 ## Deployment
 
@@ -71,21 +133,18 @@ Use two Linux VMs: a public controller VM with HTTPS terminated by a managed loa
 
 Useful operator files: [controller compose](deploy/controller.compose.yaml), [worker systemd unit](deploy/parkscope-worker.service), [NetBird policy helper](scripts/NetBird/policy.py), [worker installer](scripts/install-worker.sh), and [containment demo](scripts/deployment-demo.py).
 
-## Submission status
+## Verification and project status
 
-The repository contains deployment instructions and configurable deployment files. No cloud VMs, Vultr credentials, NetBird account, public URL, or recording have been provisioned in this environment. Do not describe the service as live or claim real gVisor containment until the deployment and demo harness have succeeded on the actual worker. Record the HTTPS URL, commit/repository location, demo recording, and real worker evidence in the submission materials once available.
-
-Implementation and acceptance scope are recorded in [PLAN.md](PLAN.md); checks actually run are recorded in [VERIFICATION.md](VERIFICATION.md). With `APP_DATA_DIR` set to a writable local directory, run the full local suite with `python -m pytest -q --basetemp=tmp/pytest-local`; the deployment policy helper tests can also be run alone with `python -m pytest -q tests/test_deployment_netbird.py --basetemp=tmp/pytest-deployment`. These temporary directories are disposable pytest output. The suite uses controlled substitutes for cloud services; it does not establish live containment or deployment.
-
-
-## Automated checks
+Latest recorded checks: **99 backend tests**, **15 frontend tests**, the production build, Docker packaging, and HTTP-only mock/asset checks passed. Frontend tests use a simulated DOM; geometry tests construct Three.js geometry without a browser. GPU appearance and browser interaction have not been checked for this version. See [VERIFICATION.md](VERIFICATION.md) for evidence and limits.
 
 ```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
 npm --prefix web test
 npm --prefix web run build
 $env:APP_DATA_DIR = ".\local-data"
-python -m pip install -r requirements-test.txt
-python -m pytest -q --basetemp=tmp/pytest-local
+.\.venv\Scripts\python.exe -m pytest -q --basetemp=tmp/pytest-local
 ```
 
-Frontend tests run in a simulated DOM without launching a browser. Python tests cover the FastAPI API and compiled-asset boundary. No further browser checks are performed, as requested. The prior screenshot and browser evidence in `verification/` belong to the earlier static frontend.
+With the mock server already running on port 8765, `python verification/scenario_http_smoke.py` checks clinic/library runs, rejected oversized footprints, downloads, and guest isolation without opening a browser.
+
+The SF mock is implemented. **Live Vultr, gVisor, and NetBird setup and acceptance checks remain pending.** Local tests do not establish cloud deployment or containment. The implementation plan is in [PLAN.md](PLAN.md); deployment files are in [deploy/](deploy/).
