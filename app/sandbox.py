@@ -105,10 +105,10 @@ class _BoundedPipe:
 
 
 def execute(code: str, data: dict[str, Any], *, timeout_seconds: int = 90) -> dict[str, Any]:
-    from app.reference import REFERENCE_CODE
+    from app.reference import reference_code
 
     try:
-        reference = _execute_once(REFERENCE_CODE, data, timeout_seconds=timeout_seconds)
+        reference = _execute_once(reference_code(data), data, timeout_seconds=timeout_seconds)
     except SandboxFailure as exc:
         raise SandboxFailure("Trusted dataset inspection failed before generated analysis.", stderr=exc.stderr, stdout=exc.stdout, timed_out=exc.timed_out) from exc
     actual = _execute_once(code, data, timeout_seconds=timeout_seconds)
@@ -119,7 +119,7 @@ def execute(code: str, data: dict[str, Any], *, timeout_seconds: int = 90) -> di
         exc.stderr = actual["stderr"]
         exc.stdout = actual["stdout"]
         raise
-    clean = {"mode": actual["result"]["mode"], "metrics": actual["result"]["metrics"], "reference_verified": True}
+    clean = {"mode": actual["result"]["mode"], "metrics": reference["result"]["metrics"], "reference_verified": True}
     if "comparison" in reference["result"]:
         clean["comparison"] = reference["result"]["comparison"]
     actual["result"] = clean
@@ -129,10 +129,10 @@ def execute(code: str, data: dict[str, Any], *, timeout_seconds: int = 90) -> di
 
 
 def inspect_data(data: dict[str, Any], *, timeout_seconds: int = 90) -> dict[str, Any]:
-    from app.reference import REFERENCE_CODE
+    from app.reference import reference_code
 
     try:
-        inspected = _execute_once(REFERENCE_CODE, data, timeout_seconds=timeout_seconds)
+        inspected = _execute_once(reference_code(data), data, timeout_seconds=timeout_seconds)
     except SandboxFailure as exc:
         raise SandboxFailure("Trusted dataset inspection failed before any model request.", stderr=exc.stderr, stdout=exc.stdout, timed_out=exc.timed_out) from exc
     return inspected["result"]
@@ -312,13 +312,19 @@ def _verify_result(actual: Any, expected: Any) -> None:
                 raise SandboxFailure(f"Generated metric object {path} did not match the verified schema.")
             for key in want:
                 compare(got[key], want[key], f"{path}.{key}")
+        elif isinstance(want, list):
+            if not isinstance(got, list) or len(got) != len(want):
+                raise SandboxFailure(f"Generated metric list {path} did not match the verified schema.")
+            for index, (actual_item, expected_item) in enumerate(zip(got, want)):
+                compare(actual_item, expected_item, f"{path}[{index}]")
         elif isinstance(want, bool) or want is None or isinstance(want, str):
             if type(got) is not type(want) or got != want:
                 raise SandboxFailure(f"Generated metric {path} did not match the trusted reference.")
         elif isinstance(want, (int, float)):
             if isinstance(got, bool) or not isinstance(got, (int, float)) or not math.isfinite(got):
                 raise SandboxFailure(f"Generated metric {path} was not a finite number.")
-            tolerance = 0 if isinstance(want, int) else 0.05
+            coordinate = path.endswith((".longitude", ".latitude")) or path.startswith("metrics.study_area[") or ".footprint.coordinates[" in path or path.startswith("metrics.building.")
+            tolerance = 0 if isinstance(want, int) else (1e-7 if coordinate else 0.05)
             if abs(got - want) > tolerance:
                 raise SandboxFailure(f"Generated metric {path} differed from the trusted reference.")
         else:
@@ -349,11 +355,14 @@ def _verify_map(actual_bytes: bytes | None, expected_bytes: bytes | None, reques
             if got.get("type") != "Feature" or got.get("id") != want.get("id") or got.get("geometry") != want.get("geometry"):
                 raise ValueError("feature identity or geometry")
             gp, wp = got.get("properties"), want.get("properties")
-            if not isinstance(gp, dict) or not isinstance(wp, dict) or set(gp) != set(wp) or gp.get(metric_key) is None:
+            if not isinstance(gp, dict) or not isinstance(wp, dict) or set(gp) != set(wp) or metric_key not in gp:
                 raise ValueError("missing metric property")
             if metric_key == "nearest_m":
                 value = gp[metric_key]
-                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or abs(value-wp[metric_key]) > 0.05:
+                if wp[metric_key] is None and request.get("analysis_mode") == "scenario":
+                    if value is not None:
+                        raise ValueError("unknown baseline distance")
+                elif isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or abs(value-wp[metric_key]) > 0.05:
                     raise ValueError("distance")
                 if gp.get("underserved") is not wp.get("underserved"):
                     raise ValueError("threshold flag")

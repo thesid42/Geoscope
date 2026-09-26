@@ -7,6 +7,8 @@ vi.mock('./components/LeafletMap.jsx', () => ({
   default: ({ mode }) => <div data-testid="map-view" data-mode={mode} />,
 }));
 
+vi.mock('./components/ScenarioViewer.jsx', () => ({ default: ({ candidate }) => <div data-testid="scenario-3d">{candidate.id}</div> }));
+
 const population = (id = 'p1', count = 50) => ({ type: 'Feature', id, properties: { layer: 'population', population: count, name: id }, geometry: { type: 'Point', coordinates: [-122.33, 47.61] } });
 const service = { type: 'Feature', id: 's1', properties: { layer: 'service', name: 'Library' }, geometry: { type: 'Point', coordinates: [-122.32, 47.61] } };
 const zone = { type: 'Feature', id: 'z1', properties: { layer: 'zone', name: 'Study zone' }, geometry: { type: 'Polygon', coordinates: [[[-122.34, 47.60], [-122.30, 47.60], [-122.30, 47.64], [-122.34, 47.64], [-122.34, 47.60]]] } };
@@ -55,9 +57,9 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-async function ready(user, key = 'test-access-key') {
+async function ready() {
   await waitFor(() => expect(screen.getByRole('button', { name: /Run the analysis/ })).toBeEnabled());
-  await user.type(screen.getByLabelText('Analysis access key'), key);
+  expect(screen.queryByLabelText('Analysis access key')).not.toBeInTheDocument();
 }
 
 describe('GeoScope React workflows', () => {
@@ -83,7 +85,7 @@ describe('GeoScope React workflows', () => {
     oldRequest.resolve(geojsonResponse(sfData));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.getByRole('heading', { name: 'Harborview · synthetic fixture' })).toBeInTheDocument();
-    expect(screen.getByText('1 population areas · 1 services · 1 zones')).toBeInTheDocument();
+    expect(screen.getByText(/1 population areas · 1 services · 1 zones · 0 candidate plots/)).toBeInTheDocument();
   });
 
   it('renders null exposure metrics as N/A and clears success cards after a polling HTTP failure', async () => {
@@ -122,7 +124,7 @@ describe('GeoScope React workflows', () => {
     expect(screen.queryByText('share of total population')).not.toBeInTheDocument();
   });
 
-  it('sends the session access key on uploads, polling, and artifact downloads', async () => {
+  it('uses same-origin requests without exposing an access token on uploads, polling, or downloads', async () => {
     const user = userEvent.setup();
     const fetchMock = baseFetch({});
     fetchMock.mockImplementation(async (url, init = {}) => {
@@ -141,18 +143,19 @@ describe('GeoScope React workflows', () => {
     vi.stubGlobal('fetch', fetchMock);
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     render(<App />);
-    await ready(user, '  test-access-key  ');
+    await ready();
     const file = new File([JSON.stringify(demoData)], 'fixture.geojson', { type: 'application/geo+json' });
     await user.upload(screen.getByLabelText(/bring your own GeoJSON/i), file);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/datasets', expect.objectContaining({ headers: { Authorization: 'Bearer test-access-key' } })));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => url === '/api/datasets' && init?.method === 'POST')).toBe(true));
     await screen.findByText('fixture.geojson');
     await user.click(screen.getByRole('button', { name: /Run the analysis/ }));
     await screen.findByText('Access fixture complete.');
     await user.click(screen.getByRole('button', { name: 'result.json ↓' }));
     await waitFor(() => expect(click).toHaveBeenCalled());
-    expect(fetchMock).toHaveBeenCalledWith('/api/runs/run-1/artifacts/result.json', expect.objectContaining({ headers: { Authorization: 'Bearer test-access-key' } }));
-    expect(fetchMock).toHaveBeenCalledWith('/api/runs/run-1', expect.objectContaining({ headers: { Authorization: 'Bearer test-access-key' }, signal: expect.any(AbortSignal) }));
-    expect(fetchMock).toHaveBeenCalledWith('/api/runs/run-1/map', expect.objectContaining({ headers: { Authorization: 'Bearer test-access-key' }, signal: expect.any(AbortSignal) }));
+    expect(fetchMock).toHaveBeenCalledWith('/api/runs/run-1/artifacts/result.json', expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledWith('/api/runs/run-1', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(fetchMock).toHaveBeenCalledWith('/api/runs/run-1/map', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    for (const [,init] of fetchMock.mock.calls) expect(init?.headers?.Authorization).toBeUndefined();
   });
 
 
@@ -216,4 +219,35 @@ describe('GeoScope React workflows', () => {
     await screen.findByText('sandbox unavailable');
     expect(screen.queryByText('Metrics and per-feature results matched a fixed GIS reference calculation.')).not.toBeInTheDocument();
   });
+});
+
+it('submits the SF mock scenario without a token, shows checked proposals, and invalidates changed dimensions', async () => {
+  const user = userEvent.setup();
+  const area = [-122.433,37.758,-122.417,37.776];
+  const ring = [[-122.426,37.766],[-122.424,37.766],[-122.424,37.768],[-122.426,37.768],[-122.426,37.766]];
+  const data = {type:'FeatureCollection',features:[population(),{type:'Feature',id:'plot-a',properties:{layer:'candidate_site'},geometry:{type:'Polygon',coordinates:[ring]}}]};
+  const candidate = {id:'plot-a',longitude:-122.425,latitude:37.767,newly_served_population:50,served_population:50,footprint:{type:'Polygon',coordinates:[ring]},land_check:{source:'Mock plot',setback_m:3}};
+  const completed = {id:'scenario-1',status:'completed',analysis_mode:'scenario',demo_mode:true,summary:'Mock checks completed.',logs:[],result:{reference_verified:false,geometry_verified:true,metrics:{service_type:'clinic',study_area:area,building:{width_m:24,depth_m:18,height_m:12,setback_m:3},eligible_sites:1,sites_evaluated:1,population_total:50,baseline:{weighted_mean_nearest_m:null},candidates:[candidate],site_checks:[],land_inventory:{source:'SF mock',as_of:'2026-09-26'},inventory_status:'no matching service inventory supplied'}}};
+  const mock = vi.fn(async (url,init={})=>{
+    if(url==='/api/config') return response(200,{...config,scenario_demo:{id:'localdemo'},supported_modes:['scenario'],demo_mode:true});
+    if(url==='/api/worker-status') return response(200,{ok:true,mock:true});
+    if(url==='/api/datasets/localdemo') return response(200,data);
+    if(url==='/api/runs' && init.method==='POST') return response(202,{id:'scenario-1',status:'queued'});
+    if(url==='/api/runs/scenario-1') return response(200,completed);
+    if(url==='/api/runs/scenario-1/map') return response(200,{type:'FeatureCollection',features:[]});
+    return response(404,{});
+  });
+  vi.stubGlobal('fetch',mock); render(<App/>); await ready();
+  expect(screen.getByLabelText('Analysis')).toHaveValue('scenario');
+  expect(screen.queryByLabelText('Analysis access key')).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button',{name:/Run the analysis/}));
+  await screen.findByText('Mock checks completed.');
+  expect(await screen.findByTestId('scenario-3d')).toHaveTextContent('plot-a');
+  const post=mock.mock.calls.find(([url,init])=>url==='/api/runs' && init.method==='POST');
+  expect(JSON.parse(post[1].body)).toMatchObject({analysis_mode:'scenario',study_area:area,service_type:'clinic',building:{width_m:24,depth_m:18,height_m:12,setback_m:3}});
+  expect(post[1].headers.Authorization).toBeUndefined();
+  await user.clear(screen.getByLabelText('Width (m)'));
+  await user.type(screen.getByLabelText('Width (m)'), '30');
+  expect(screen.queryByTestId('scenario-3d')).not.toBeInTheDocument();
+  expect(screen.queryByText('Mock checks completed.')).not.toBeInTheDocument();
 });

@@ -1,0 +1,4 @@
+# Additional GIS dependencies for trusted-reference unit tests and the mock demo only.
+-r requirements.txt
+shapely>=2.0.7,<3
+pyproj>=3.7,<4

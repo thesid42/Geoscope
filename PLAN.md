@@ -60,3 +60,10 @@ Use generic population/service/zone roles; accept existing park inputs as an ali
 ## React migration
 
 The user requested a React frontend while retaining FastAPI, followed by a push to the existing public Geoscope repository. The frontend lives in `web/`, uses Vite and React components, and builds to `web/dist`. FastAPI retains the analysis and worker APIs and serves only compiled frontend assets. Docker builds the frontend in a separate Node stage. Verification uses frontend DOM tests, a production build, backend HTTP tests, and container checks; no further browser checks are performed, per the user's instruction.
+
+
+## Hyperlocal land scenarios and 3D — accepted scope
+
+The user requested selected-area clinic/library/service hypotheses with Three.js buildings, required land feasibility within the simulation, then chose a San Francisco mock demo. Candidate points on a free grid were replaced by candidate plots with verified whole-footprint/setback containment, area containment, land-use declarations and building/restriction collision checks. Existing matching typed services determine baseline access. Ranked alternatives and their evidence are verified by the sandbox reference; the 3D view uses verified footprint geometry.
+
+The SF mock combines documented observed population with explicit synthetic land and services; it does not certify actual SF buildability. A separate loopback mock server runs fixed trusted calculations and says plainly that no cloud agent ran. Production keeps the Vultr/gVisor/NetBird execution boundary. User also requested no token field in the UI: provider keys and the signing/API secret stay in backend environment; opted-in guests use HttpOnly ownership-isolated cookies. No browser checks. Verification covers pure geometry, API/session isolation, React state and Three.js geometry, production build and HTTP demo requests.

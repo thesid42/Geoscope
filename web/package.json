@@ -13,7 +13,8 @@
   "dependencies": {
     "leaflet": "^1.9.4",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

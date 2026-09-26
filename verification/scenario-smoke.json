@@ -1,0 +1,27 @@
+{
+  "kind": "local_mock_http_checks",
+  "browser_used": false,
+  "cloud_agent_used": false,
+  "checks": [
+    {
+      "service_type": "clinic",
+      "plots_checked": 7,
+      "eligible_plots": 4,
+      "preferred_site": "sfmock-fit-04",
+      "additional_proxy_population": 6224
+    },
+    {
+      "service_type": "library",
+      "plots_checked": 7,
+      "eligible_plots": 4,
+      "preferred_site": "sfmock-fit-04",
+      "additional_proxy_population": 6224
+    },
+    {
+      "large_footprint_rejected": true,
+      "guest_isolation": true,
+      "artifact_roundtrip": true,
+      "origin_required": true
+    }
+  ]
+}

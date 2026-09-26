@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => {
   const bounds = { isValid: () => true, pad: () => bounds };
   const map = {
     setView: vi.fn(function () { return this; }),
-    fitBounds: vi.fn(), removeLayer: vi.fn(), remove: vi.fn(),
+    fitBounds: vi.fn(), removeLayer: vi.fn(), remove: vi.fn(), on: vi.fn(), off: vi.fn(),
   };
   const popups = [];
   const markers = [];
@@ -20,6 +20,7 @@ vi.mock('leaflet', () => ({
     control: { zoom: vi.fn(() => mocks.addedLayer()) },
     tileLayer: vi.fn(() => mocks.addedLayer()),
     divIcon: vi.fn((options) => options),
+    rectangle: vi.fn(() => mocks.addedLayer()),
     circleMarker: vi.fn(() => mocks.addedLayer()),
     geoJSON: vi.fn((data, options) => {
       for (const feature of data.features) {
@@ -84,4 +85,14 @@ describe('Leaflet map lifecycle', () => {
     expect(mocks.popups[0].querySelector('b').textContent).toBe(maliciousName);
     expect(mocks.popups[0].querySelector('img')).toBeNull();
   });
+});
+
+
+
+it('shows supplied parcel IDs as text in scenario marker tooltips', () => {
+  const id = '<img src=x onerror="alert(1)">';
+  render(<LeafletMap {...makeProps()} mode="scenario" scenarioCandidates={[{id,rank:1,longitude:-122.4,latitude:37.7}]} selectedCandidateId={id} />);
+  const tooltip = mocks.markers[0].bindTooltip.mock.calls[0][0];
+  expect(tooltip.textContent).toContain(id);
+  expect(tooltip.querySelector('img')).toBeNull();
 });

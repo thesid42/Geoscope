@@ -35,7 +35,7 @@ for index, feature in enumerate(request['features']):
         services.append(projected)
     elif role == 'zone':
         zones.append(projected)
-    else:
+    elif role not in ("candidate_site", "building", "restricted"):
         invalid.append(index)
 if invalid:
     raise ValueError(f'{len(invalid)} invalid geometries or attributes; first feature index: {invalid[0]}')
@@ -105,3 +105,10 @@ with open('/output/result.json','w',encoding='utf-8') as f:
 with open('/output/result.geojson','w',encoding='utf-8') as f:
     json.dump({'type':'FeatureCollection','features':mapped},f,allow_nan=False,separators=(',',':'))
 '''
+
+
+def reference_code(data):
+    if data.get("analysis_mode") == "scenario":
+        from app.scenario_reference import SCENARIO_REFERENCE_CODE
+        return SCENARIO_REFERENCE_CODE
+    return REFERENCE_CODE

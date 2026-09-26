@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path.cwd()))
 from fastapi.testclient import TestClient
-from app.controller import app
+from app.controller import app, WEB_DIR
 
 
 class AssetParser(HTMLParser):
@@ -31,7 +31,8 @@ assert response.headers["cache-control"] == "no-cache"
 parsed = AssetParser()
 parsed.feed(response.text)
 assert parsed.has_root and len(parsed.assets) >= 2, response.text
-for asset in parsed.assets:
+all_assets = sorted(set(parsed.assets) | {"/assets/" + p.name for p in (WEB_DIR / "assets").glob("*.js")})
+for asset in all_assets:
     assert asset.startswith("/assets/") and "/assets/assets/" not in asset, asset
     resource = client.get(asset)
     assert resource.status_code == 200 and len(resource.content) > 100, asset
@@ -42,4 +43,4 @@ for path in ("/src/App.jsx", "/package.json", "/assets/%2e%2e/package.json"):
 assert client.get("/api/config").status_code == 200
 assert client.get("/api/config").json()["analysis_enabled"] is False
 assert len(client.get("/api/datasets/real").json()["features"]) == 470
-print(json.dumps({"packaged_react_fastapi": "passed", "assets": parsed.assets, "browser_used": False}))
+print(json.dumps({"packaged_react_fastapi": "passed", "assets": all_assets, "browser_used": False}))

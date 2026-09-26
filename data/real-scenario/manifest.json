@@ -1,0 +1,67 @@
+{
+  "scenario_id": "sf-land-fit-mock",
+  "scenario_status": "MOCK_SIMULATION",
+  "generated_by": "scripts/generate_sf_mock_scenario.py",
+  "generated_on": "2026-09-26",
+  "bounds_wsen": [
+    -122.435794,
+    37.755295,
+    -122.416567,
+    37.775432
+  ],
+  "simulated_fixture_bounds_wsen": [
+    -122.433,
+    37.758,
+    -122.417,
+    37.776
+  ],
+  "population_source": {
+    "dataset_id": "sf-parks-census",
+    "file": "data/real/sf-parks-census.geojson",
+    "sha256": "c97fcf087060a3cab5fd82d220e2cbcfeab5f056ee24976977f2c645402944e6",
+    "snapshot_sha256_from_source_manifest": "c97fcf087060a3cab5fd82d220e2cbcfeab5f056ee24976977f2c645402944e6",
+    "source_manifest": "data/real/manifest.json",
+    "official_source_urls": [
+      "https://data.sfgov.org/resource/gtr9-ntp6.geojson?$limit=5000&$order=property_id",
+      "https://data.sfgov.org/resource/tmph-tgz9.geojson?$limit=1000&$order=geoid",
+      "https://tigerweb.geo.census.gov/arcgis/rest/services/Census2020/tigerWMS_Census2020/MapServer/6/query?where=STATE%3D%2706%27%20AND%20COUNTY%3D%27075%27&outFields=GEOID,NAME,POP100&returnGeometry=false&f=json"
+    ],
+    "selected_geoid_count": 12,
+    "selected_population_sum_2020": 40776,
+    "selected_geoids": [
+      "06075016801",
+      "06075016802",
+      "06075016900",
+      "06075020101",
+      "06075020102",
+      "06075020201",
+      "06075020202",
+      "06075020300",
+      "06075020601",
+      "06075020702",
+      "06075020801",
+      "06075020802"
+    ],
+    "method": "Copy the 12 listed official population tract features verbatim from the bundled normalized snapshot; no simulated population values are added."
+  },
+  "simulated_features": {
+    "candidate_sites": 7,
+    "expected_fit_cases": {
+      "fit": 4,
+      "blocked_by_building": 1,
+      "restricted": 1,
+      "too_small": 1
+    },
+    "candidate_geometry_method": "Axis-aligned rectangles created from nominal meter dimensions at the specified San Francisco lon/lat centers using local degree approximations.",
+    "buildings": "One simulated 56m x 46m footprint overlaps the building-blocked lot; no actual footprint source is represented.",
+    "restrictions": "One simulated restriction covers the restricted test lot; no legal/environmental restriction is represented.",
+    "service_points": [
+      "clinic",
+      "library"
+    ],
+    "all_simulated_records": true,
+    "availability_claim": "None. Candidate land_status is fixture logic only; city ownership and availability are unknown."
+  },
+  "output_file": "sf-mock.geojson",
+  "output_sha256": "79f45b45bc76ca59d0fce068b7341bfec34a87656221a869c6d3b25cb967fa84"
+}

@@ -2,6 +2,17 @@
 
 This file records checks actually performed. A passing test using mocked infrastructure does not demonstrate that cloud deployment or sandbox containment works.
 
+## Hyperlocal land scenarios — 2026-09-26
+
+- **15 frontend tests passed**, including token-free HTTP requests, scenario-only mock startup/submission, checked mock 3D eligibility, stale-result invalidation, safe map tooltips, and real Three.js footprint geometry construction. The production build passes; the lazy Three.js chunk has the standard >500 kB bundle-size advisory.
+- **99 backend tests passed** on Windows: parcel/area/setback containment, obstructions, holes and MultiPolygon gaps, rotated buildings, typed service filtering, deterministic rankings, tampered footprint/evidence rejection, strict area limits, signed cookies, CSRF, cross-guest isolation and owner recovery in a fresh process.
+- The actual SF fixture yields four eligible plots out of seven for the default 24 × 18 m footprint with a 3 m setback; modeled building-blocked, restricted and undersized plots are excluded. At 100 × 100 m no plot qualifies. Twelve unchanged 2020 population tracts are observed inputs; land and service features are simulated with separate provenance.
+- `verification/scenario_http_smoke.py` exercised live loopback HTTP requests for clinic and library proposals, downloads and maps, cross-guest denials and missing-Origin rejection. Output is saved in `verification/scenario-smoke.json`; this is an explicitly labeled local fixed-reference mock, not an LLM or cloud run.
+- `verification/scenario_reference_smoke.py` passed in the pinned Python 3.12 / Shapely 2.0.7 / PyProj 3.7.0 image with no network and read-only mounts. Rankings, areas, setbacks and large-footprint exclusions match host results. Only fixed trusted code executed under runc; this is dependency validation, not gVisor containment evidence.
+- The UI access-key field and bearer storage/header flow were removed. APP_ACCESS_TOKEN, provider keys and worker credentials stay server-side. Public browser use requires environment opt-in and uses HttpOnly signed guest sessions; this is intentionally public guest access with ownership isolation, not a private login system.
+- The final multi-stage Docker build passed from the npm lockfile. Packaged HTTP smoke served the React entrypoint, CSS, and lazy Three.js viewer chunk under a read-only, non-root, no-network runtime; unconfigured live analysis remained disabled.
+- No browser checks were performed. Three.js visual appearance and GPU rendering were not inspected in a browser. Live Vultr/gVisor/NetBird verification remains pending infrastructure.
+
 ## React migration — 2026-09-26
 
 - Frontend converted to React 19.3 with Vite 8.3; Leaflet is bundled through npm. FastAPI remains the backend. The lockfile is committed; node_modules and dist are excluded from Git.

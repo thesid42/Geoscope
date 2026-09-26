@@ -93,7 +93,7 @@ def test_unauthenticated_upload_is_rejected_before_geojson_parsing(client):
     )
 
     assert response.status_code == 401
-    assert "Unauthorized" in response.text or "access key" in response.text.lower()
+    assert "authentication" in response.text.lower()
     assert list(controller.DATASET_DIR.glob("*.geojson")) == []
     assert list(controller.DATASETS) == ["demo"]
 
@@ -110,7 +110,7 @@ def test_authenticated_upload_can_be_retrieved_with_ids_and_properties_intact(cl
     uploaded = response.json()
     dataset_id = uploaded["id"]
     assert uploaded["schema"]["population_features"] == 1
-    retrieved = client.get(f"/api/datasets/{dataset_id}")
+    retrieved = client.get(f"/api/datasets/{dataset_id}", headers=AUTH)
     assert retrieved.status_code == 200
     assert retrieved.json() == source
     persisted = controller.DATASET_DIR / f"{dataset_id}.geojson"

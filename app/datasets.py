@@ -53,8 +53,8 @@ def validate_geojson(data: Any, max_features: int = 100_000) -> dict[str, Any]:
         props = feature.get("properties")
         if not isinstance(geom, dict) or not isinstance(props, dict):
             raise ValueError(f"Feature {i + 1} needs geometry and properties.")
-        if props.get("layer") not in {"population", "service", "park", "zone"}:
-            raise ValueError(f"Feature {i + 1} must set properties.layer to population, service, park, or zone.")
+        if props.get("layer") not in {"population", "service", "park", "zone", "candidate_site", "building", "restricted"}:
+            raise ValueError(f"Feature {i + 1} must set properties.layer to population, service, park, zone, candidate_site, building, or restricted.")
         if geom.get("type") not in {"Point", "Polygon", "MultiPolygon"}:
             raise ValueError(f"Feature {i + 1} geometry must be Point, Polygon, or MultiPolygon.")
         coords = geom.get("coordinates")
@@ -86,8 +86,8 @@ def validate_geojson(data: Any, max_features: int = 100_000) -> dict[str, Any]:
         elif not isinstance(coords, (list, tuple)) or len(coords) not in (2, 3):
             raise ValueError(f"Feature {i + 1} Point coordinates must contain longitude, latitude, and optional elevation.")
         role = "service" if props["layer"] == "park" else props["layer"]
-        if role == "zone" and geom["type"] not in {"Polygon", "MultiPolygon"}:
-            raise ValueError(f"Zone feature {i + 1} must be Polygon or MultiPolygon.")
+        if role in {"zone", "candidate_site", "building", "restricted"} and geom["type"] not in {"Polygon", "MultiPolygon"}:
+            raise ValueError(f"Area feature {i + 1} must be Polygon or MultiPolygon.")
     if not any(f["properties"]["layer"] == "population" for f in features):
         raise ValueError("Dataset needs at least one population feature.")
     return data
@@ -137,6 +137,7 @@ def inspect_schema(data: dict[str, Any]) -> dict[str, Any]:
         "population_features": len(populations),
         "service_features": len(parks),
         "zone_features": len(zones),
+        "candidate_site_features": sum(f["properties"]["layer"] == "candidate_site" for f in features),
         "population_fields": {key: sorted(kinds) for key, kinds in field_types.items()},
         "geometry_types": sorted({f["geometry"]["type"] for f in features}),
         "representative_points": "population layer accepts Polygon/MultiPolygon and Point; analysis uses each geometry's representative point",
