@@ -1,0 +1,16 @@
+.git
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.env
+.env.*
+!.env.example
+**/*.env
+!**/*.env.example
+deploy/controller.env
+deploy/worker.env
+tmp
+output
+data/real/raw
