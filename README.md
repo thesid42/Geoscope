@@ -121,7 +121,7 @@ The UI starts at a 400 m access threshold; the API default is 800 m. General upl
 
 ## Deployment
 
-Follow the **[Vultr + NetBird setup guide](docs/VULTR_NETBIRD_SETUP.md)** for the complete configuration and copyable commands: two Ubuntu VMs, Docker/gVisor, NetBird enrollment and restricted access, Vultr inference, server-only secrets, HTTPS, live execution checks, and operating commands.
+Follow the **[six-step Vultr + NetBird setup](docs/VULTR_NETBIRD_SETUP.md)**. One preparation command per VM installs the required packages; the guide covers NetBird, configuration, HTTPS, and live checks. Detailed installation steps and troubleshooting are in the [advanced reference](docs/VULTR_NETBIRD_ADVANCED.md).
 
 The controller serves the built React frontend and FastAPI API behind Caddy. The separate worker listens only on its NetBird address; generated code runs in disposable gVisor containers. Keep the worker dedicated because its Docker access grants control of that host. The guide includes both containment probes and a real agent run over HTTPS; deployment remains unverified until those checks pass on Vultr.
 

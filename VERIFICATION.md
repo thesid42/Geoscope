@@ -54,6 +54,12 @@ This file records checks actually performed. A passing test using mocked infrast
 
 - The explicitly labeled `verification/ui_fixture_server.py` drove the real controller/UI with fixed substitute worker and model responses. Access, candidate comparison, zero-population `N/A`, and success-to-failure clearing passed. Artifact HTTP delivery returned 200, and one actual downloaded JSON file matched its fixture. The browser automation's download-event wait timed out despite that file being saved; repeated download events were not reliable. These are UI checks only, not live inference or containment evidence.
 - Final UI changes guard dataset readiness and stale map responses, delay revoking download URLs, and display download errors. JavaScript syntax and the final keyboard run passed after these changes. The fixture was stopped after QA; it is separate from production and must stay on loopback.
+## Simplified deployment setup (2026-09-26)
+
+- The new `scripts/prepare-vultr.sh` and all 35 Bash command blocks in the short/advanced guides passed syntax checks; three embedded Python snippets parsed and 16 local links/anchors resolved.
+- Eight checks passed in a disposable offline container with package/service commands mocked: controller and worker preparation, invalid-role rejection, unsupported-OS rejection, non-root rejection, preservation of existing containers, package failure, and failed gVisor probe handling.
+- These checks did not install packages on a Vultr VM, start application servers, enroll NetBird peers, or prove live gVisor execution. The deployment acceptance checks below remain required.
+
 ## Requires actual deployment
 
 - Live inference with a model available to the user's Vultr account.
