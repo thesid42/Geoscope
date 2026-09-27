@@ -172,6 +172,20 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
   const minutesLabel = (x) => x == null ? 'N/A' : `${Number(x).toFixed(1)} min`;
   const facilityName = facilityLabel(m.service_type);
   const pluralFacility = facilityPlural(m.service_type);
+  if (!TERMINAL.has(run.status)) {
+    const progressMessage = run.status === 'starting' ? 'Starting your analysis…'
+      : run.status === 'queued' ? 'Waiting for the analysis worker…'
+      : run.result ? 'Preparing your results…' : 'Calculating and checking your results…';
+    return <div className="result-panel result-pending">
+      <section className="analysis-progress" role="status" aria-label="Analysis progress" aria-atomic="true">
+        <span className="analysis-spinner" aria-hidden="true" />
+        <h2>Analysis in progress</h2>
+        <p className="analysis-progress-message">{progressMessage}</p>
+        <p className="analysis-progress-hint">Results will appear here automatically when the analysis finishes.</p>
+      </section>
+      <div className="result-footer"><RunTechnicalDetails run={run} files={files} onDownload={onDownload} downloadError={downloadError} failed={false} verified={false} /></div>
+    </div>;
+  }
   if (run.status === 'completed' && run.result && run.analysis_mode === 'scenario' && verified) {
     const best = selectedScenarioCandidate ?? m.candidates?.[0] ?? null;
     const existingCount = m.existing_services_in_area ?? m.existing_service_counts?.[m.service_type] ?? null;
@@ -534,6 +548,7 @@ export default function App() {
     setRunStarting(true); setRun({ id: null, status: 'starting', analysis_mode: mode, logs: [] }); setSelectedScenarioCandidate(null); setResultMap(null); setResultMapError(''); setDownloadError('');
     try {
       const created = await readJson(await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json', }, body: JSON.stringify(request) }));
+      setRun({ analysis_mode: mode, logs: [], ...created });
       setActiveRunId(created.id); activeRunIdRef.current = created.id;
     } catch (error) { setRun({ id: null, status: 'failed', analysis_mode: mode, error: error.message || 'Could not start run.', logs: [] }); }
     finally { setRunStarting(false); }

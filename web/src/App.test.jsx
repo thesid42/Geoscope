@@ -182,6 +182,7 @@ describe('GeoScope React workflows', () => {
     await user.selectOptions(screen.getByLabelText('Task'), 'access');
     await user.click(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Design & compare|Check facility sites|Run the analysis/ }));
     expect(await screen.findByText(/Could not retrieve run status: worker unavailable/)).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Analysis progress' })).not.toBeInTheDocument();
     expect(screen.queryByText('Zero-population test result.')).not.toBeInTheDocument();
     expect(screen.queryByText('share of total population')).not.toBeInTheDocument();
   });
@@ -284,6 +285,7 @@ describe('GeoScope React workflows', () => {
     render(<App />);
     await ready(user);
     await user.click(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Design & compare|Check facility sites|Run the analysis/ }));
+    expect(screen.getByRole('status', { name: 'Analysis progress' })).toHaveTextContent('Starting your analysis');
     expect(screen.getByLabelText('Dataset')).toBeDisabled();
     expect(screen.getByLabelText('Task')).toBeDisabled();
     await user.click(screen.getByText('Data sources & upload'));
@@ -292,6 +294,7 @@ describe('GeoScope React workflows', () => {
     expect(JSON.parse(post[1].body).dataset_id).toBe('sf2020');
     pendingCreate.resolve(geojsonResponse({ id: 'run-pending', status: 'queued' }, 202));
     await screen.findByText('Access fixture complete.');
+    expect(screen.queryByRole('status', { name: 'Analysis progress' })).not.toBeInTheDocument();
   });
 
   it('shows checking state, retries worker readiness without reloading the selected dataset, and updates the reason', async () => {
@@ -801,5 +804,47 @@ describe('Dashboard onboarding', () => {
     render(<App />);
     await screen.findByText('Use the workspace to explore the datasets available on this installation.');
     expect(screen.queryByRole('button', { name: /Try a/ })).not.toBeInTheDocument();
+  });
+});
+
+
+describe('Right-panel analysis loader', () => {
+  it('stays visible through queued and running states, then yields to completed results', async () => {
+    const user = userEvent.setup();
+    const firstPoll = deferred();
+    const lastPoll = deferred();
+    let polls = 0;
+    const normalFetch = baseFetch();
+    vi.stubGlobal('fetch', vi.fn((url, init) => url === '/api/runs/run-1' ? (++polls === 1 ? firstPoll.promise : lastPoll.promise) : normalFetch(url, init)));
+    render(<App />);
+    await ready();
+    await user.click(screen.getByRole('button', { name: 'Compare locations' }));
+    expect(await screen.findByText('Waiting for the analysis worker…')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Analysis progress' })).toHaveTextContent('Results will appear here automatically');
+    await act(async () => { firstPoll.resolve(response(200, { id: 'run-1', status: 'running', analysis_mode: 'compare', logs: [] })); });
+    expect(await screen.findByText('Calculating and checking your results…')).toBeInTheDocument();
+    await waitFor(() => expect(polls).toBe(2), { timeout: 2000 });
+    await act(async () => { lastPoll.resolve(response(200, completedAccess)); });
+    expect(await screen.findByText('Access fixture complete.')).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Analysis progress' })).not.toBeInTheDocument();
+  });
+
+  it.each(['creation failure', 'interrupted run'])('removes the loader on %s', async (failure) => {
+    const user = userEvent.setup();
+    const pending = deferred();
+    const normalFetch = baseFetch();
+    vi.stubGlobal('fetch', vi.fn((url, init) => {
+      if (failure === 'creation failure' && url === '/api/runs' && init?.method === 'POST') return pending.promise;
+      if (failure === 'interrupted run' && url === '/api/runs/run-1') return pending.promise;
+      return normalFetch(url, init);
+    }));
+    render(<App />);
+    await ready();
+    await user.click(screen.getByRole('button', { name: 'Compare locations' }));
+    expect(screen.getByRole('status', { name: 'Analysis progress' })).toBeInTheDocument();
+    await act(async () => { pending.resolve(failure === 'creation failure' ? response(503, { detail: 'Unable to start analysis' }) : response(200, { id: 'run-1', status: 'interrupted', analysis_mode: 'compare', error: 'Run was interrupted', logs: [] })); });
+    expect(await screen.findByRole('heading', { name: 'Run stopped' })).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Analysis progress' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Compare locations' })).toBeEnabled();
   });
 });
