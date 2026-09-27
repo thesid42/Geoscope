@@ -47,7 +47,7 @@ export default function ScenarioViewer({ area, candidate, building: buildingInpu
   const hostRef = useRef(null); const resetViewRef = useRef(null);
   const [view, setView] = useState('closeup'); const [error, setError] = useState(''); const [tiles, setTiles] = useState({ loaded: 0, failed: 0, total: 9 });
   const model = useMemo(() => makeScenarioSceneData({ area, candidate, building, dataset }), [area, candidate, building, dataset]);
-  const dimensions = `${building.width_m} × ${building.depth_m} × ${building.height_m} m`;
+  const dimensions = [building.width_m, building.depth_m, building.height_m].map((value) => Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })).join(' \u00d7 ') + ' m';
   useEffect(() => {
     const host = hostRef.current; if (!host) return undefined;
     let renderer; let controls; let frame; let observer; let dead = false;
@@ -144,7 +144,7 @@ export default function ScenarioViewer({ area, candidate, building: buildingInpu
         {error && <div className="scenario-3d-error" role="status">{error}</div>}
         <div className="scenario-map-credit">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a></div>
       </div>
-      {!error && <div className="scenario-tile-status" role="status">{tileStatus}</div>}
+      {!error && (tiles.loaded + tiles.failed < tiles.total || tiles.failed > 0) && <div className="scenario-tile-status" role="status">{tileStatus}</div>}
       <details className="scenario-extras">
         <summary>Legend &amp; notes</summary>
         <div className="scenario-context-key" aria-label="3D scene legend">{agentic && <><span>Orange: proposed building</span><span>Green: reserved open space</span></>}<span>Teal: selected plot</span><span>Purple: other plots</span><span>Blue: study area</span><span>Red: restrictions</span><span>Green: services</span><span>Gray: buildings</span></div>

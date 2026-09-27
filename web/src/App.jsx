@@ -189,55 +189,73 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
       }
       return candidate.design?.usable_open_space_pct == null ? 'N/A' : `${Number(candidate.design.usable_open_space_pct).toFixed(0)}%`;
     };
-    const agenticRankLabel = accessRanked ? 'newly served' : 'usable open space';
-    const bestHeadline = !best ? '' : agentic
-      ? (accessRanked && best.access?.baseline_known === true
-        ? `${n(best.access?.newly_served_population)} newly served · ${minutesLabel(best.access?.mean_walk_reduction_minutes)} shorter walks · ${best.design?.usable_open_space_pct == null ? 'open space unknown' : `${Number(best.design.usable_open_space_pct).toFixed(0)}% open space`}`
-        : `${areaLabel(best.design?.gross_floor_area_m2)} floor area · ${best.design?.floors ?? '—'} floors · ${best.design?.usable_open_space_pct == null ? 'open-space result unknown' : `${Number(best.design.usable_open_space_pct).toFixed(0)}% usable open space`}`)
-      : best.nearest_existing_service_m == null
-        ? `${areaLabel(best.plot_area_m2)} plot · no mapped ${facilityName} in the inventory`
-        : `${areaLabel(best.plot_area_m2)} plot · ${d(best.nearest_existing_service_m)} from nearest mapped ${facilityName}`;
+    const agenticRankLabel = (candidate) => accessRanked && candidate.access?.baseline_known === true ? 'newly served' : 'open space';
+    const access = best?.access ?? {};
+    const hasBaseline = access.status === 'available' && access.baseline_known === true;
+    const gain = hasBaseline ? access.newly_served_population : null;
+    const reduction = hasBaseline ? access.mean_walk_reduction_minutes : null;
+    const benefit = !Number.isFinite(gain) ? 'Access change is unknown'
+      : gain > 0 ? 'More people within walking reach'
+      : reduction > 0 ? 'Shorter walks, same coverage' : reduction === 0 ? 'No walking-access improvement' : 'Coverage is unchanged';
     return <div className="result-panel scenario-result-layout">
       <header className="result-outcome">
-        <div className="result-top"><div><div className="eyebrow">{run.demo_mode ? 'MOCK' : 'RESULTS'}</div><h2>{agentic ? 'Design & compare' : 'Facility sites'}</h2></div><span className="status-pill">{run.demo_mode ? 'Mock · geometry checked' : 'Checked'}</span></div>
-        <div className="scenario-headline" id="summary"><strong>{agentic ? `${n(m.sites_evaluated)} checked designs` : `${n(m.eligible_sites)} of ${n(m.sites_evaluated)} plots fit`}</strong><span>{agentic ? `${m.sites_available == null ? '—' : n(m.sites_available)} source plots · building layout and open space fitted to each submitted plot.` : 'Footprint checked against plot, area, and obstruction layers.'}</span></div>
-        {best && <div className="scenario-best"><b>Site {selectedRank}</b><span>{bestHeadline}</span></div>}
+        <div className="result-top"><h2>{agentic ? 'Design results' : 'Facility sites'}</h2><span className="status-pill">{run.demo_mode ? 'Mock · checked' : 'Checked'}</span></div>
+        <p className="results-count">{agentic ? `${n(m.sites_evaluated)} checked ${m.sites_evaluated === 1 ? 'design' : 'designs'}` : `${n(m.eligible_sites)} of ${n(m.sites_evaluated)} plots fit`}{agentic && m.sites_available != null ? ` · ${n(m.sites_available)} source plots` : ''}</p>
       </header>
-      <div className="result-main">
-        <div className="result-summary">
-          <h3 className="scenario-subhead">{agentic ? 'Ranked designs' : 'Ranked sites'}</h3>
-          {m.candidates?.length ? <div className="scenario-rankings" role="list">{m.candidates.map((candidate, index) => <button type="button" role="listitem" className={`scenario-rank${best?.id === candidate.id ? ' selected' : ''}`} key={candidate.id} onClick={() => onSelectScenarioCandidate(candidate)} aria-pressed={best?.id === candidate.id}>
-            <span className="rank-number" aria-label={`Rank ${index + 1}`}>{index + 1}</span>
-            <span className="rank-main"><b>Site {index + 1}</b><small className="rank-meta">Plot {candidate.id} · {areaLabel(candidate.plot_area_m2)} · {agentic ? `${candidate.design?.floors ?? '—'} floors · ${areaLabel(candidate.design?.gross_floor_area_m2)} gross` : `${candidate.land_check?.setback_m ?? '—'} m setback`}</small></span>
-            <span className="rank-pop">{agentic ? agenticRankValue(candidate) : candidate.nearest_existing_service_m == null ? areaLabel(candidate.plot_area_m2) : d(candidate.nearest_existing_service_m)}<small>{agentic ? agenticRankLabel : candidate.nearest_existing_service_m == null ? 'plot area' : `to nearest ${facilityName}`}</small></span>
-          </button>)}</div> : <p className="panel-state empty">{agentic ? 'No submitted plot produced a design that meets these goals.' : 'No eligible plot passed the footprint checks.'}</p>}
-          {best && agentic && <section className="design-comparison" aria-label="Walking access comparison">
-            <div className="comparison-switch" role="group" aria-label="Show proposed design"><button type="button" aria-pressed={scenarioView === 'before'} onClick={() => onScenarioViewChange('before')}>Before</button><button type="button" aria-pressed={scenarioView === 'after'} onClick={() => onScenarioViewChange('after')}>After</button></div>
-            <h3>{scenarioView === 'before' ? 'Current walking access' : 'Walking access with this facility'}</h3>
-            <p className="existing-facility-count"><b>Already nearby:</b> {n(existingCount)} mapped {existingCount === 1 ? facilityName : pluralFacility}</p>
-            {best.access?.status === 'unavailable' && <p className="scenario-caveat">Walking access could not be estimated{best.access.reason ? `: ${best.access.reason}` : '.'}</p>}
-            <div className="access-metrics">
-              <MetricCard value={n(best.access?.before_served_population)} label="estimated people served before" />
-              <MetricCard value={n(best.access?.after_served_population)} label="estimated people served after" />
-              <MetricCard value={n(best.access?.baseline_known === true ? best.access.newly_served_population : null)} label="estimated newly served" />
-              <MetricCard value={minutesLabel(best.access?.before_mean_minutes)} label="mean walk before" />
-              <MetricCard value={minutesLabel(best.access?.after_mean_minutes)} label="mean walk after" />
-              <MetricCard value={minutesLabel(best.access?.baseline_known === true ? best.access.mean_walk_reduction_minutes : null)} label="mean walk reduction" />
-            </div>
-            <p className="scenario-caveat">Compared population: {n(best.access?.compared_population)} · unmatched population: {n(best.access?.unmatched_population)}. {best.access?.baseline_known === false ? 'Before access and change are unknown because no connected facility inventory was supplied.' : best.access?.baseline_known == null ? 'Before-baseline availability was not reported.' : best.access?.newly_served_population > 0 ? `${n(best.access.newly_served_population)} people move inside the walking limit (${Number(best.access.newly_served_pct ?? 0).toFixed(1)}% of compared population).` : 'This design does not add people inside the walking limit at the selected threshold; the reduction card shows any shorter walks within the already-served population.'} {best.access?.baseline_known === true ? `Walking reach uses a ${best.access.minutes ?? '—'} minute limit at ${best.access.speed_mps ?? '—'} m/s.` : ''} Population points are coarse census weights; connectors are inferred and entrances are not verified.</p>
-            <details className="design-rationale"><summary>Why this design</summary><p>{best.design?.floors ?? 'Unknown'} floors provide {areaLabel(best.design?.gross_floor_area_m2)} gross floor area. The design reserves {best.design?.usable_open_space_pct == null ? 'an unknown share' : `${Number(best.design.usable_open_space_pct).toFixed(1)}% usable open space`} against a {m.design?.min_open_space_pct ?? 'unknown'}% minimum goal. {best.design?.strategy ? `Design approach: ${best.design.strategy}. ` : ''}Ranked among submitted designs by {m.ranking_basis || 'verified land and walking outcomes'}.</p></details>
-            <p className="scenario-caveat">{scenarioView === 'before' ? 'The proposed building and reserved open space are hidden in this view.' : 'Green shows reserved open space; it is not a mapped park or an environmental certification.'}</p>
-          </section>}{best && !agentic && selectedReasons.length > 0 && <section className="scenario-reasoning" aria-labelledby="scenario-reasoning-title"><h3 id="scenario-reasoning-title">Why Site {selectedRank} is ranked here</h3><ul>{selectedReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul><p>Order: farthest from mapped {facilityName}, then largest plot, then plot ID.</p></section>}
-          <details className="result-context">
-            <summary>{agentic ? 'Sources & assumptions' : 'Area context & limits'}</summary>
-            {!agentic && <div className="scenario-existing-service"><b>Already nearby</b><strong>{n(existingCount)} mapped {existingCount === 1 ? facilityName : pluralFacility}</strong><span>Mapped inventory may be incomplete.</span>{(inventory.source || inventory.as_of) && <small>Source: {inventoryLabel}{inventory.as_of ? ` · ${inventory.as_of}` : ''}</small>}{m.existing_service_counts && <details><summary>Counts by type</summary><p>{Object.entries(m.existing_service_counts).map(([type, count]) => `${facilityLabel(type)}: ${n(count)}`).join(' · ')}</p></details>}</div>}
-            {!agentic && <p className="scenario-caveat">Facility services and land evidence are {landIsSimulated ? 'simulated plots checked against mapped buildings and road corridors, alongside mapped facility records' : 'limited to supplied records'}. Distances are straight-line, not walking routes. This does not establish real land availability, ownership, zoning approval, or permits.</p>}
-            {agentic && <><p className="scenario-caveat">Walking access is an estimate from the supplied street network. Connectors are inferred and entrances are not verified. Population weights are coarse census estimates. Green reserved space is not a mapped park or an environmental certification. Plot status does not establish ownership, zoning approval, or permits.</p><p className="scenario-caveat">Walking network: {best.access?.network_source || 'source not recorded'} · {best.access?.network_as_of || 'date unknown'}.</p></>}
-            {(m.site_checks?.length > 0 || m.land_inventory) && <div className="scenario-sources-inline">{m.land_inventory && <div><b>Land evidence · {m.land_inventory.as_of || 'date unknown'}</b><p>{m.land_inventory.source || 'Source not recorded'}</p></div>}{m.site_checks?.length > 0 && <ul className="site-checks">{m.site_checks.map((site) => <li key={site.id}><b>{site.id}: {site.status}</b> · {site.reason} <span>Evidence: {site.source || 'not supplied'}</span></li>)}</ul>}</div>}
-          </details>
+      {best ? <>
+        <div className="site-choices" role="group" aria-label="Choose a site">{m.candidates.map((candidate, index) => <button type="button" className="site-choice" key={candidate.id} onClick={() => onSelectScenarioCandidate(candidate)} aria-pressed={best.id === candidate.id} aria-label={`Site ${index + 1}${index === 0 ? ', top ranked' : ''}`}>
+          <span className="site-choice-name">Site {index + 1}{index === 0 && <small>Top</small>}</span>
+          <b>{agentic ? agenticRankValue(candidate) : candidate.nearest_existing_service_m == null ? areaLabel(candidate.plot_area_m2) : d(candidate.nearest_existing_service_m)}</b>
+          <span className="site-choice-caption">{agentic ? agenticRankLabel(candidate) : candidate.nearest_existing_service_m == null ? 'plot area' : 'service gap'}</span>
+        </button>)}</div>
+        <div className="selected-design">
+          <div className="selected-design-heading"><h3>Site {selectedRank} <span>· {facilityName}</span></h3><span className="selected-design-label">{selectedRank === 1 ? 'Top ranked' : 'Alternative'}</span></div>
+          <dl className="design-facts">
+            <div><dt>{agentic ? 'Floor area' : 'Plot area'}</dt><dd>{areaLabel(agentic ? best.design?.gross_floor_area_m2 : best.plot_area_m2)}</dd></div>
+            <div><dt>{agentic ? 'Floors' : 'Setback'}</dt><dd>{agentic ? best.design?.floors ?? 'N/A' : d(best.land_check?.setback_m)}</dd></div>
+            <div><dt>{agentic ? 'Open space' : 'Service gap'}</dt><dd>{agentic ? best.design?.usable_open_space_pct == null ? 'N/A' : `${Number(best.design.usable_open_space_pct).toFixed(0)}%` : d(best.nearest_existing_service_m)}</dd></div>
+          </dl>
+          <p className="result-note">{landIsSimulated ? 'Simulated land · geometric fit checked' : 'Supplied land records · geometric fit checked'}</p>
         </div>
-        {best && <div className="result-scene"><h3 className="scenario-subhead">3D view</h3><Suspense fallback={<div className="panel-state" role="status">Preparing 3D footprint view…</div>}><ScenarioViewer area={m.study_area} candidate={best} building={best.building ?? m.building} serviceType={m.service_type} dataset={dataset} scenarioView={scenarioView} agentic={agentic} /></Suspense></div>}
-      </div>
+        <div className="results-content">
+          <section className="result-scene" aria-label="Selected site preview">
+            {agentic && <div className="preview-toolbar"><span>Map &amp; 3D view</span><div className="comparison-switch" role="group" aria-label="Show proposed design"><button type="button" aria-pressed={scenarioView === 'before'} onClick={() => onScenarioViewChange('before')}>Before</button><button type="button" aria-pressed={scenarioView === 'after'} onClick={() => onScenarioViewChange('after')}>After</button></div></div>}
+            <Suspense fallback={<div className="panel-state" role="status">Preparing 3D preview...</div>}><ScenarioViewer area={m.study_area} candidate={best} building={best.building ?? m.building} serviceType={m.service_type} dataset={dataset} scenarioView={scenarioView} agentic={agentic} /></Suspense>
+            {agentic && <p className="result-note">{scenarioView === 'before' ? 'Current site: the proposed building and reserved open space are hidden.' : 'Orange: proposed building. Green: reserved open space.'}</p>}
+          </section>
+          {agentic && <section className="design-comparison" aria-label="Walking access comparison">
+            <h3>What changes</h3>
+            {access.status === 'available' ? <>
+              <p className="impact-headline">{benefit}</p>
+              {hasBaseline && Number.isFinite(gain) && <div className="impact-deltas">
+                <MetricCard value={n(gain)} label="estimated newly served" />
+                <MetricCard value={reduction > 0 && reduction < 0.1 ? '<0.1 min' : minutesLabel(reduction)} label="shorter average walk" />
+              </div>}
+              <table className="impact-table" aria-label="Walking access before and after"><thead><tr><th scope="col">Estimate</th><th scope="col">Before</th><th scope="col">After</th></tr></thead><tbody>
+                <tr><th scope="row">People within {access.minutes ?? m.walk?.minutes ?? '—'} min</th><td>{n(hasBaseline ? access.before_served_population : null)}</td><td>{n(access.after_served_population)}</td></tr>
+                <tr><th scope="row">Average walk</th><td>{minutesLabel(hasBaseline ? access.before_mean_minutes : null)}</td><td>{minutesLabel(access.after_mean_minutes)}</td></tr>
+              </tbody></table>
+              {!hasBaseline && <p className="result-note">Before access and change are unknown because no connected facility inventory was supplied.</p>}
+              <p className="result-note">Estimates use coarse Census population points and assumed street connections.</p>
+            </> : <p className="result-note" role="status">Walking comparison unavailable. {access.reason || 'The supplied data does not support this comparison.'}</p>}
+            <p className="existing-facility-count"><b>Already nearby:</b> {n(existingCount)} mapped {existingCount === 1 ? facilityName : pluralFacility}</p>
+          </section>}
+        </div>
+        <details className="design-rationale"><summary>{agentic ? 'Why this design' : `Why Site ${selectedRank} is ranked here`}</summary>
+          <p>Plot {best.id} · {areaLabel(best.plot_area_m2)}</p>
+          {agentic ? <p>{best.design?.floors ?? 'Unknown'} floors provide {areaLabel(best.design?.gross_floor_area_m2)} gross floor area. The design reserves {best.design?.usable_open_space_pct == null ? 'an unknown share' : `${Number(best.design.usable_open_space_pct).toFixed(1)}% usable open space`} against a {m.design?.min_open_space_pct ?? 'unknown'}% minimum goal. {best.design?.strategy ? `Design approach: ${best.design.strategy}. ` : ''}Ranked among submitted designs by {m.ranking_basis || 'verified land and walking outcomes'}.</p> : <ul>{selectedReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
+        </details>
+      </> : <div className="no-design-result" role="status"><h3>No matching design found</h3><p>{agentic ? 'None of the submitted layouts met these goals. Try a different area or adjust the design goals.' : 'No supplied plot passed the footprint checks. Try a different area or building size.'}</p></div>}
+      <details className="result-context">
+        <summary>{agentic ? 'Sources & assumptions' : 'Area context & limits'}</summary>
+        <p>Land is {landIsSimulated ? 'simulated' : 'limited to supplied records'}. Geometric checks do not establish ownership, current availability, zoning approval or permits.</p>
+        {!agentic && <p>{n(existingCount)} mapped {existingCount === 1 ? facilityName : pluralFacility} already in the area. Service distances are straight-line, not walking routes.</p>}
+        <p>Facility inventory: {inventoryLabel}{inventory.as_of ? ` · ${inventory.as_of}` : ''}. Coverage may be incomplete.</p>
+        {m.existing_service_counts && <p>{Object.entries(m.existing_service_counts).map(([type, count]) => `${facilityLabel(type)}: ${n(count)}`).join(' · ')}</p>}
+        {agentic && best && <><p>Compared population: {n(access.compared_population)} · unmatched population: {n(access.unmatched_population)}. Walking speed: {access.speed_mps ?? '—'} m/s. Population weights are coarse estimates, and entrances are not verified. Missing data is not evidence of no service.</p><p>Walking network: {access.network_source || 'source not recorded'} · {access.network_as_of || 'date unknown'}.</p><p>Reserved open space is a geometric allocation, not a mapped park or environmental certification.</p></>}
+        {m.land_inventory && <p>Land evidence: {m.land_inventory.source || 'Source not recorded'} · {m.land_inventory.as_of || 'date unknown'}.</p>}
+        {m.site_checks?.length > 0 && <ul className="site-checks">{m.site_checks.map((site) => <li key={site.id}><b>{site.id}: {site.status}</b> · {site.reason}<span>Evidence: {site.source || 'not supplied'}</span></li>)}</ul>}
+      </details>
       <div className="result-footer"><RunTechnicalDetails run={run} files={files} onDownload={onDownload} downloadError={downloadError} failed={failed} verified={verified} /></div>
     </div>;
   }
