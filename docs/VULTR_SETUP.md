@@ -1,8 +1,8 @@
 # Geoscope: simple Vultr setup
 
-**Two servers, six steps.** One server runs the website; the other runs the sandbox jobs. NetBird connects them privately. The preparation script handles package installation.
+**Two servers, six steps.** One server runs the website; the other runs the sandbox jobs. A Vultr VPC connects them privately. The preparation script handles package installation.
 
-Use **fresh Ubuntu 24.04 x86_64 VMs**. Commands below run in each server's SSH terminal, not local PowerShell. Already have a deployment, or need troubleshooting? Use the [advanced guide](VULTR_NETBIRD_ADVANCED.md).
+Use **fresh Ubuntu 24.04 x86_64 VMs**. Commands below run in each server's SSH terminal, not local PowerShell. Already started the previous setup? Use the [migration steps](VULTR_ADVANCED.md#migrate-an-existing-worker) and keep your existing tokens. Need troubleshooting? Use the [advanced guide](VULTR_ADVANCED.md).
 
 ## 1. Create two Vultr servers
 
@@ -11,11 +11,10 @@ Use **fresh Ubuntu 24.04 x86_64 VMs**. Commands below run in each server's SSH t
 | `geoscope-controller` — website | 2 vCPU, 4 GB RAM | TCP 22 from your IP; TCP 80/443 from everyone. |
 | `geoscope-worker` — sandboxes | 2 vCPU, 4 GB RAM | TCP 22 from your IP only. |
 
-Use the same region and attach your SSH key. Keep normal outbound access enabled. **Do not expose ports 8000, 8100, or 5173.** Apply equivalent firewall restrictions to IPv6 if enabled.
+Use the same region, attach your SSH key, and connect both VMs to the same dedicated **Vultr VPC**. In Vultr, open **Network → VPC Networks → Add VPC Network**, choose the region, then attach the network to both instances. See [Vultr VPC setup](https://docs.vultr.com/products/network/vpc-networks/provisioning). Keep normal outbound access enabled. **Do not expose ports 8000, 8100, or 5173.** Apply equivalent firewall restrictions to IPv6 if enabled.
 
 Have these ready:
 
-- A NetBird account and two one-use setup keys, one per server.
 - A **Vultr Serverless Inference** key and an available chat/code model ID.
 - A domain such as `geoscope.example.com`, with its DNS A record pointing to the **controller's public IP**. Remove any incorrect AAAA record.
 
@@ -41,29 +40,23 @@ cd "$HOME/Geoscope"
 sudo bash scripts/prepare-vultr.sh worker
 ```
 
-This installs Docker and NetBird on both servers, Caddy on the controller, and gVisor on the worker. Stop if a command fails. The helper refuses hosts with existing Docker containers; use the advanced guide for updates.
+This installs Docker on both servers, Caddy on the controller, and gVisor on the worker. Stop if a command fails. The helper refuses hosts with existing Docker containers; use the advanced guide for updates.
 
-## 3. Connect both servers with NetBird
+## 3. Allow the private connection
 
-Run this on **each server**, pasting that server's setup key when asked:
+Record the **controller VPC IP** and **worker VPC IP** from Vultr. On the worker, run `ip -br -4 addr` to find the interface with its VPC IP. If you attached the VPC after creating the VM, follow [Vultr's adapter configuration](https://docs.vultr.com/how-to-configure-networking-on-vultr-cloud-servers) until the address appears.
+
+On the **worker**, replace the uppercase placeholders below. Allow your SSH address before enabling the host firewall; keep the Vultr console available:
 
 ```bash
-read -rsp 'NetBird setup key: ' NB_SETUP_KEY
-printf '\n'
-export NB_SETUP_KEY
-sudo --preserve-env=NB_SETUP_KEY netbird up
-unset NB_SETUP_KEY
-sudo netbird status
+sudo ufw allow from YOUR_ADMIN_PUBLIC_IP to any port 22 proto tcp
+sudo ufw insert 1 allow in on VPC_INTERFACE from CONTROLLER_VPC_IP to WORKER_VPC_IP port 8100 proto tcp
+sudo ufw insert 2 deny in to any port 8100 proto tcp
+sudo ufw enable
+sudo ufw status numbered
 ```
 
-In the NetBird dashboard:
-
-1. Put only the controller in a group named `geoscope-controller`.
-2. Put only the worker in a group named `geoscope-worker`.
-3. Add an enabled policy: **controller group → worker group, TCP 8100, unidirectional**.
-4. Record the worker's **NetBird IP**. Use it wherever `WORKER_NETBIRD_IP` appears below.
-
-Leave the initial Default policy until the connection check in step 6, then disable broad access. No NetBird API token or policy script is needed for this path.
+This allows TCP 8100 only from the controller over the VPC interface. The worker also requires a shared token. Use the host firewall for this private traffic, alongside the Vultr firewall for public access. This setup uses HTTP inside the dedicated VPC; it does not add transport encryption between the VMs.
 
 ## 4. Configure the worker
 
@@ -76,18 +69,20 @@ openssl rand -hex 32
 sudo nano /etc/parkscope/worker.env
 ```
 
+If the image build reports `Temporary failure in name resolution`, use the [build DNS recovery commands](VULTR_ADVANCED.md#docker-build-cannot-resolve-pypi).
+
 The first installer run creates the configuration file. Save the generated random string privately as your **shared worker token**. Change only these two lines; keep the other defaults:
 
 ```dotenv
 WORKER_TOKEN=PASTE_THE_GENERATED_WORKER_TOKEN
-NETBIRD_WORKER_IP=WORKER_NETBIRD_IP
+WORKER_BIND_IP=WORKER_VPC_IP
 ```
 
 Start the configured worker and check it:
 
 ```bash
 sudo bash scripts/install-worker.sh
-sudo -u parkscope bash -c 'set -a; source /etc/parkscope/worker.env; set +a; bash /opt/parkscope/scripts/NetBird/preflight.sh'
+sudo -u parkscope bash -c 'set -a; source /etc/parkscope/worker.env; set +a; /opt/parkscope/venv/bin/python /opt/parkscope/scripts/worker-preflight.py'
 ```
 
 Expect `PASS`. The existing `parkscope` paths/service names are intentional.
@@ -109,7 +104,7 @@ Use this new random string for `APP_ACCESS_TOKEN`. Fill the file as follows, rep
 ```dotenv
 VULTR_SERVERLESS_INFERENCE_API_KEY=YOUR_INFERENCE_KEY
 VULTR_MODEL_ID=YOUR_AVAILABLE_MODEL_ID
-WORKER_URL=http://WORKER_NETBIRD_IP:8100
+WORKER_URL=http://WORKER_VPC_IP:8100
 WORKER_TOKEN=PASTE_THE_SAME_WORKER_TOKEN
 APP_ACCESS_TOKEN=PASTE_THE_NEW_RANDOM_STRING
 PUBLIC_ANALYSIS_ENABLED=true
@@ -117,7 +112,7 @@ PUBLIC_ORIGIN=https://geoscope.example.com
 APP_DATA_DIR=/data
 ```
 
-All secrets stay on the servers. Public mode allows visitors to start paid analysis jobs. For finding the exact model ID, use the [model lookup command](VULTR_NETBIRD_ADVANCED.md#6-configure-inference-and-the-app--controller-vm).
+All secrets stay on the servers. Public mode allows visitors to start paid analysis jobs. For finding the exact model ID, use the [model lookup command](VULTR_ADVANCED.md#model-id-lookup).
 
 Set up HTTPS:
 
@@ -157,7 +152,7 @@ curl -fsS https://geoscope.example.com/api/worker-status
 
 Expect `demo_mode: false`, `analysis_enabled: true`, and worker `ok: true`. The worker-status request checks the connection from inside the app container.
 
-Now disable NetBird's **Default / All-to-All** policy and any other broad policy affecting these two groups. Keep your narrow TCP 8100 rule. Repeat the worker-status check; it must still say `ok: true`. Use dedicated groups/account and preserve any policies needed by unrelated services.
+From a machine outside the VPC, TCP 8100 on the worker's public IP must not connect. The controller must still reach the worker over its private address.
 
 On the **worker**, with no analyses running, check sandbox containment:
 
@@ -167,7 +162,7 @@ sudo -u parkscope bash -c 'set -a; source /etc/parkscope/worker.env; set +a; /op
 
 Require all `PASS` messages. Open your website and run the SF clinic scenario; require a completed run and downloadable results. This uses real cloud execution with **simulated land data**. Health checks alone do not prove an agent run succeeded.
 
-For the hackathon submission, follow the [network denial checks](VULTR_NETBIRD_ADVANCED.md#8-enforce-the-narrow-netbird-policy) and [save live execution evidence](VULTR_NETBIRD_ADVANCED.md#9-verify-real-execution-and-save-evidence). If a check fails, use [troubleshooting](VULTR_NETBIRD_ADVANCED.md#12-troubleshooting); keep the worker private.
+For the hackathon submission, follow the [network denial checks](VULTR_ADVANCED.md#network-checks) and [save live execution evidence](VULTR_ADVANCED.md#live-execution-evidence). If a check fails, use [troubleshooting](VULTR_ADVANCED.md#troubleshooting); keep the worker private.
 
 ## Useful commands
 
@@ -183,4 +178,4 @@ sudo systemctl stop parkscope-worker
 sudo systemctl start parkscope-worker
 ```
 
-If an existing host firewall blocks traffic, see the advanced guide's [worker rule](VULTR_NETBIRD_ADVANCED.md#5-install-gvisor-and-the-worker--worker-vm) and [HTTPS setup](VULTR_NETBIRD_ADVANCED.md#7-put-https-in-front--controller-vm). The [full configuration reference](VULTR_NETBIRD_ADVANCED.md#10-configuration-reference) includes updates and optional settings. Cloud deployment is verified only after its live checks pass.
+If an existing controller host firewall blocks HTTPS, allow `80/tcp` and `443/tcp` there. The [advanced reference](VULTR_ADVANCED.md) includes configuration, updates, troubleshooting, and migration from the previous setup. Cloud deployment is verified only after its live checks pass.

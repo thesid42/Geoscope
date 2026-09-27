@@ -20,7 +20,7 @@ umask 022
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y ca-certificates curl gnupg git python3 python3-venv openssl nano apt-transport-https
+apt-get install -y ca-certificates curl gnupg git python3 python3-venv openssl nano iproute2 ufw apt-transport-https
 
 # Docker: official Ubuntu repository.
 install -m 0755 -d /etc/apt/keyrings
@@ -37,15 +37,6 @@ EOF
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 systemctl enable --now docker
-
-# NetBird: host CLI only; enrollment happens in the next guide step.
-curl -fsSL https://pkgs.netbird.io/debian/public.key \
-  | gpg --batch --yes --dearmor -o /usr/share/keyrings/netbird-archive-keyring.gpg
-printf '%s\n' 'deb [signed-by=/usr/share/keyrings/netbird-archive-keyring.gpg] https://pkgs.netbird.io/debian stable main' \
-  > /etc/apt/sources.list.d/netbird.list
-apt-get update
-apt-get install -y netbird
-systemctl enable --now netbird
 
 if [[ $role == worker ]]; then
   # gVisor includes the supporting runtime binaries through its apt package.
@@ -71,4 +62,4 @@ else
   apt-get update
   apt-get install -y caddy
 fi
-printf '\n%s host packages are ready. Continue with NetBird enrollment in docs/VULTR_NETBIRD_SETUP.md.\n' "$role"
+printf '\n%s host packages are ready. Continue with configuration in docs/VULTR_SETUP.md.\n' "$role"

@@ -4,4 +4,4 @@ Run `scripts/deployment-demo.py` on the dedicated Linux worker after the worker 
 
 The output is evidence only for the host and source version on which it ran. Capture the unedited stdout and stderr, UTC timestamp, VM identifier, `docker info --format '{{json .Runtimes}}'`, sandbox image ID, and repository commit. The script intentionally exits nonzero when any assertion fails. Do not replace, synthesize, or relabel output from Windows/runc or mocked APIs as gVisor containment evidence.
 
-The current development environment has no `runsc` runtime, cloud worker, Vultr credentials, or NetBird account, so no live evidence is checked in. Run the harness as part of the final deployment and attach its actual output to the hackathon demo/submission.
+Local development checks do not establish live Vultr, VPC, or gVisor containment; no live evidence is checked in. Run the harness as part of the final deployment and attach its actual output to the hackathon demo/submission.

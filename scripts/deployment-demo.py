@@ -10,7 +10,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-default_url = f"http://{os.getenv('NETBIRD_WORKER_IP', '127.0.0.1')}:8100"
+default_url = f"http://{os.getenv('WORKER_BIND_IP', '127.0.0.1')}:8100"
 url = os.getenv("WORKER_URL", default_url).rstrip("/")
 token = os.getenv("WORKER_TOKEN", "")
 if not token:

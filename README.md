@@ -2,7 +2,7 @@
 
 Geoscope is a geospatial analysis app built with **React, FastAPI, Leaflet, and Three.js**. Select a local area, propose a clinic or library, compare candidate plots, and inspect the proposed building in 3D. Land checks cover the whole building footprint, setbacks, plot boundaries, and supplied obstacles before a site is ranked.
 
-The repository includes a working **San Francisco mock simulation** and a separate production agent workflow designed for **Vultr Serverless Inference, gVisor sandboxes, and NetBird**. Cloud deployment and live containment verification are still pending.
+The repository includes a working **San Francisco mock simulation** and a separate production agent workflow designed for **Vultr Serverless Inference, gVisor sandboxes, and Vultr VPC**. Cloud deployment and live containment verification are still pending.
 
 ## What you can do
 
@@ -59,9 +59,9 @@ docker compose --file deploy/controller.compose.yaml down
 
 ## Production architecture
 
-The live workflow is: **React → FastAPI controller on Vultr → Vultr Serverless Inference → private worker over NetBird → disposable gVisor container → verified results**.
+The live workflow is: **React → FastAPI controller on Vultr → Vultr Serverless Inference → private worker over Vultr VPC → disposable gVisor container → verified results**.
 
-The controller plans, generates analysis code, and makes bounded repair attempts. The separate worker executes generated code and a fixed GIS reference in isolated containers, compares their metrics and geometry, and returns checked artifacts. Sandboxes have no outbound network, read-only input, resource limits, bounded output, and verified cleanup. The worker refuses execution without the required `runsc` runtime; NetBird connects the trusted hosts and does not replace sandbox isolation. Provider keys, access tokens, and NetBird credentials never enter analysis containers.
+The controller plans, generates analysis code, and makes bounded repair attempts. The separate worker executes generated code and a fixed GIS reference in isolated containers, compares their metrics and geometry, and returns checked artifacts. Sandboxes have no outbound network, read-only input, resource limits, bounded output, and verified cleanup. The worker refuses execution without the required `runsc` runtime; the private VPC connects the trusted hosts and does not replace sandbox isolation. Provider keys and access tokens never enter analysis containers.
 
 The Dockerfile builds React in a Node stage and copies only compiled assets into the FastAPI runtime. The mock server is a separate development entry point, not a fallback when production infrastructure is unavailable.
 
@@ -73,7 +73,7 @@ There is **no API-token field in the UI**. Provider and worker credentials stay 
 | --- | --- |
 | `VULTR_SERVERLESS_INFERENCE_API_KEY` | Backend inference credential. |
 | `VULTR_MODEL_ID` | Exact model ID available in the account's Vultr catalog. |
-| `WORKER_URL` | Worker URL on its private NetBird address. |
+| `WORKER_URL` | Worker URL on its private VPC address. |
 | `WORKER_TOKEN` | Shared controller-to-worker secret. |
 | `APP_ACCESS_TOKEN` | Random server secret of at least 32 bytes for public guest sessions and private API access. |
 | `PUBLIC_ANALYSIS_ENABLED` | Set to `true` to allow browser guests to start jobs; defaults to disabled. |
@@ -121,13 +121,13 @@ The UI starts at a 400 m access threshold; the API default is 800 m. General upl
 
 ## Deployment
 
-Follow the **[six-step Vultr + NetBird setup](docs/VULTR_NETBIRD_SETUP.md)**. One preparation command per VM installs the required packages; the guide covers NetBird, configuration, HTTPS, and live checks. Detailed installation steps and troubleshooting are in the [advanced reference](docs/VULTR_NETBIRD_ADVANCED.md).
+Follow the **[six-step Vultr setup](docs/VULTR_SETUP.md)**. One preparation command per VM installs the required packages; the guide covers Vultr VPC, configuration, HTTPS, and live checks. Detailed installation steps and troubleshooting are in the [advanced reference](docs/VULTR_ADVANCED.md).
 
-The controller serves the built React frontend and FastAPI API behind Caddy. The separate worker listens only on its NetBird address; generated code runs in disposable gVisor containers. Keep the worker dedicated because its Docker access grants control of that host. The guide includes both containment probes and a real agent run over HTTPS; deployment remains unverified until those checks pass on Vultr.
+The controller serves the built React frontend and FastAPI API behind Caddy. The separate worker listens only on its VPC address; generated code runs in disposable gVisor containers. Keep the worker dedicated because its Docker access grants control of that host. The guide includes both containment probes and a real agent run over HTTPS; deployment remains unverified until those checks pass on Vultr.
 
 ## Verification and project status
 
-Latest recorded checks: **99 backend tests**, **15 frontend tests**, the production build, Docker packaging, and HTTP-only mock/asset checks passed. Frontend tests use a simulated DOM; geometry tests construct Three.js geometry without a browser. GPU appearance and browser interaction have not been checked for this version. See [VERIFICATION.md](VERIFICATION.md) for evidence and limits.
+Latest recorded checks: **107 backend tests (Linux)**, **15 frontend tests**, the production build, Docker packaging, and HTTP-only mock/asset checks passed. Frontend tests use a simulated DOM; geometry tests construct Three.js geometry without a browser. GPU appearance and browser interaction have not been checked for this version. See [VERIFICATION.md](VERIFICATION.md) for evidence and limits.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
@@ -139,4 +139,4 @@ $env:APP_DATA_DIR = ".\local-data"
 
 With the mock server already running on port 8765, `python verification/scenario_http_smoke.py` checks clinic/library runs, rejected oversized footprints, downloads, and guest isolation without opening a browser.
 
-The SF mock is implemented. **Live Vultr, gVisor, and NetBird setup and acceptance checks remain pending.** Local tests do not establish cloud deployment or containment. The implementation plan is in [PLAN.md](PLAN.md); deployment files are in [deploy/](deploy/).
+The SF mock is implemented. **Live Vultr, gVisor, and Vultr VPC setup and acceptance checks remain pending.** Local tests do not establish cloud deployment or containment. The implementation plan is in [PLAN.md](PLAN.md); deployment files are in [deploy/](deploy/).

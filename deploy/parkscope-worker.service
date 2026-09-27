@@ -1,6 +1,6 @@
 [Unit]
 Description=GeoScope isolated GIS execution worker
-After=network-online.target docker.service netbird.service
+After=network-online.target docker.service
 Wants=network-online.target
 Requires=docker.service
 
@@ -11,7 +11,8 @@ Group=parkscope
 SupplementaryGroups=docker
 WorkingDirectory=/opt/parkscope
 EnvironmentFile=/etc/parkscope/worker.env
-ExecStart=/opt/parkscope/venv/bin/uvicorn app.worker:app --host ${NETBIRD_WORKER_IP} --port 8100 --workers 1
+ExecStartPre=/opt/parkscope/venv/bin/python /opt/parkscope/scripts/worker-preflight.py
+ExecStart=/opt/parkscope/venv/bin/uvicorn app.worker:app --host ${WORKER_BIND_IP} --port 8100 --workers 1
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=20
