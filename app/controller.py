@@ -524,6 +524,8 @@ async def _run_agent_inner(run: dict[str, Any], dataset: dict[str, Any], a: list
                 timeout=settings.worker_timeout_seconds + 70)
             if inspected_response.status_code >= 400:
                 detail = _worker_detail(inspected_response)
+                if message := _inspection_failure_message(detail):
+                    raise RuntimeError(message)
                 raise RuntimeError(f"Dataset inspection failed before model execution: {json.dumps(detail)[:2000]}")
             inspection = inspected_response.json()["inspection"]
             run["inspection"] = inspection
@@ -569,6 +571,8 @@ async def _run_agent_inner(run: dict[str, Any], dataset: dict[str, Any], a: list
                 if response.status_code != 422:
                     raise RuntimeError(f"Isolated worker is unavailable: {detail}")
                 if isinstance(detail, dict) and str(detail.get("message", "")).startswith("Trusted dataset inspection failed"):
+                    if message := _inspection_failure_message(detail):
+                        raise RuntimeError(message)
                     raise RuntimeError(f"Dataset geometry inspection failed: {json.dumps(detail)[:2000]}")
                 detail_text = json.dumps(detail)[:20000]
                 _log(run, f"Sandbox attempt {attempt + 1}/3 failed; sending bounded diagnostics for repair.", "error")
@@ -610,6 +614,20 @@ def _worker_detail(response: httpx.Response) -> Any:
     except (ValueError, TypeError):
         pass
     return f"Worker returned HTTP {response.status_code} without JSON diagnostics. Check the worker service logs."
+
+
+def _inspection_failure_message(detail: Any) -> str | None:
+    """Translate known trusted-input rejections without leaking sandbox tracebacks."""
+    text = json.dumps(detail, ensure_ascii=False) if isinstance(detail, (dict, list)) else str(detail)
+    if "no population representative points" in text:
+        return (
+            "No population sample points fall inside the selected area. This dataset represents each "
+            "population area with one point, so draw a larger area or upload finer local population data, "
+            "then run again. No model request was made."
+        )
+    if "no positive population weight" in text:
+        return "The selected area has no positive population weight to rank sites. Choose another area or supply population data with positive weights. No model request was made."
+    return None
 
 
 def _summary_payload(run: dict[str, Any]) -> str:

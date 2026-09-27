@@ -276,7 +276,7 @@ describe('GeoScope React workflows', () => {
 
   it('shows failed attempt diagnostics and only offers artifacts the server marked available', async () => {
     const user = userEvent.setup();
-    const failedRun = { id: 'run-1', status: 'failed', analysis_mode: 'access', error: 'analysis failed', plan: 'plan exists', logs: [], artifacts: { 'trace.json': true, 'result.json': false, 'analysis.py': false }, attempts: [{ attempt: 1, status: 'failed', script_file: 'analysis-attempt-1.py', diagnostics: { message: 'Execution failed during the generated analysis.', stderr: 'NameError: missing value', stdout: '' } }] };
+    const failedRun = { id: 'run-1', status: 'failed', analysis_mode: 'scenario', error: 'No population sample points fall inside the selected area. This dataset represents each population area with one point, so draw a larger area or upload finer local population data, then run again. No model request was made.', plan: 'plan exists', logs: [], artifacts: { 'trace.json': true, 'result.json': false, 'analysis.py': false }, attempts: [{ attempt: 1, status: 'failed', script_file: 'analysis-attempt-1.py', diagnostics: { message: 'Execution failed during the generated analysis.', stderr: 'NameError: missing value', stdout: '' } }] };
     const fetchMock = baseFetch({});
     fetchMock.mockImplementation(async (url, init = {}) => {
       if (url === '/api/config') return geojsonResponse(config);
@@ -289,7 +289,9 @@ describe('GeoScope React workflows', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<App />); await ready();
     await user.click(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ }));
-    await screen.findByText('analysis failed');
+    await screen.findByText(/No population sample points fall inside the selected area/);
+    expect(screen.getByRole('heading', { name: 'Choose a larger study area' })).toBeInTheDocument();
+    expect(screen.getByText(/The land check did not run and no model request was made/)).toBeInTheDocument();
     expect(screen.getByText('NameError: missing value')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'trace.json ↓' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'result.json ↓' })).not.toBeInTheDocument();

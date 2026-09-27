@@ -88,6 +88,46 @@ class FakeResponse:
             raise RuntimeError(f"HTTP {self.status_code}")
 
 
+def test_empty_population_inspection_is_actionable_and_skips_model_requests(tmp_path, monkeypatch):
+    settings = replace(controller.settings, data_dir=tmp_path, vultr_api_key="test-vultr-secret", vultr_model_id="catalog-id", worker_url="http://private-worker", worker_token="private-token", worker_timeout_seconds=3)
+    monkeypatch.setattr(controller, "settings", settings)
+
+    class FakeClient:
+        calls = []
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def post(self, url, **kwargs):
+            self.calls.append(("POST", url))
+            assert url.endswith("/inspect")
+            return FakeResponse(422, {"detail": {"message": "Trusted dataset inspection failed before any model request.", "stderr": "ValueError: The selected area contains no population representative points. Expand the area or supply finer local data."}})
+
+        async def get(self, url, **kwargs):
+            self.calls.append(("GET", url))
+            raise AssertionError("The model catalog must not be requested after failed trusted inspection")
+
+    monkeypatch.setattr(controller.httpx, "AsyncClient", FakeClient)
+    run = {
+        "id": "b" * 32, "status": "queued", "question": "Find a clinic site in this small area.", "dataset_name": "Unit fixture", "synthetic": True,
+        "threshold_m": 400, "analysis_mode": "scenario", "projected_crs": "EPSG:32610", "candidate_a": None, "candidate_b": None,
+        "logs": [], "created_at": "2026-09-26T00:00:00Z", "updated_at": None, "result": None, "artifacts": {}, "error": None, "attempts": [],
+        "study_area": [-122.43, 37.76, -122.42, 37.77], "service_type": "clinic", "building": {"width_m": 24, "depth_m": 18, "height_m": 12, "setback_m": 3},
+    }
+    assert controller.ACTIVE_RUNS.acquire(blocking=False)
+    asyncio.run(controller._run_agent(run, DEMO, None, None, 400, "EPSG:32610"))
+    assert run["status"] == "failed"
+    assert run["error"].startswith("No population sample points fall inside the selected area.")
+    assert "Traceback" not in run["error"]
+    assert FakeClient.calls == [("POST", "http://private-worker/inspect")]
+
+
 @pytest.mark.parametrize("mode", ["access", "scenario", "exposure"])
 @pytest.mark.parametrize("summary_failure", [False, True])
 def test_multistep_agent_uses_vultr_and_repairs_bounded_failure(tmp_path, monkeypatch, mode, summary_failure):

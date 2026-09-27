@@ -166,9 +166,11 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
     ];
   }
   const headline = failed ? (run.error || run.summary || 'The analysis could not be completed.') : run.status === 'completed' && run.analysis_mode === 'exposure' ? `${n(m.inside_population)} estimated people inside the selected area` : run.status === 'completed' && run.analysis_mode === 'compare' ? `Site ${run.result?.comparison?.preferred_candidate ?? 'tie'} is preferred` : run.status === 'completed' ? `${n(m.baseline?.served_population)} estimated people within ${n(m.threshold_m ?? run.threshold_m)} m` : 'Your analysis is running.';
+  const missingPopulationCoverage = failed && String(run.error ?? '').startsWith('No population sample points fall inside the selected area.');
   return <div className="result-panel">
     <div className="result-top"><div><div className="eyebrow">{verified ? 'CHECKED FINDINGS' : 'ANALYSIS STATUS'}</div><h2>{title}</h2></div><span className={`status-pill${failed ? ' failed' : ''}`}>{run.status}</span></div>
     <p id="summary" className="result-headline">{headline}</p>
+    {missingPopulationCoverage && <section className="run-recovery" aria-labelledby="population-recovery-title"><h3 id="population-recovery-title">Choose a larger study area</h3><p>The population layer uses one representative point for each supplied area. Draw a rectangle that contains at least one of those points, or upload finer local population data. The land check did not run and no model request was made.</p></section>}
     {run.status === 'completed' && <p className="result-caveat">Population estimates use census-area representative points; this is not an exact address-level count. Service distances are straight-line, not routes.</p>}
     {cards.length > 0 && <div className="metrics">{cards}</div>}
     <RunTechnicalDetails run={run} files={files} onDownload={onDownload} downloadError={downloadError} failed={failed} verified={verified} />
