@@ -1,0 +1,62 @@
+/* Sidebar controls: one visual hierarchy, independent of result-panel styles. */
+.controls { min-width: 0; padding: 0; }
+.controls-scroll { padding: 16px; scrollbar-gutter: stable; }
+.controls .sidebar-section { margin: 0 0 18px; padding: 0 0 18px; border-bottom: 1px solid var(--line); min-width: 0; }
+.controls .sidebar-section:last-child { margin-bottom: 0; padding-bottom: 2px; border: 0; }
+.controls .sidebar-section h2 { display: flex; align-items: center; gap: 9px; margin: 0 0 12px; font: 650 14px Manrope, sans-serif; }
+.controls .sidebar-section h2 > span { display: grid; place-items: center; width: 21px; height: 21px; border-radius: 50%; background: #eaf1ec; color: var(--green); font: 600 11px 'DM Sans', sans-serif; }
+.controls .sidebar-field { min-width: 0; margin-top: 12px; }
+.controls label { margin: 0 0 6px; font-size: 12px; line-height: 1.4; color: #45594d; }
+.controls .sidebar-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.controls select, .controls textarea { display: block; width: 100%; min-width: 0; max-width: 100%; padding: 10px; border: 1px solid #ccd8ce; border-radius: 7px; background: #fff; font: 13px/1.45 'DM Sans', sans-serif; }
+.controls select { min-height: 40px; text-overflow: ellipsis; }
+.controls textarea { min-height: 76px; resize: vertical; }
+.controls .sidebar-caption { margin: 7px 0; font-size: 11px; line-height: 1.5; color: #64756a; overflow-wrap: anywhere; }
+.controls .sidebar-area { margin-top: 12px; }
+.controls .area-status { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; margin: 0 0 8px; font-size: 11px; color: #64756a; }
+.controls .area-status b { font-weight: 550; color: #344b3d; }
+.controls .select-area-button { width: 100%; min-height: 39px; padding: 9px 12px; margin: 0; border: 1px solid #b7cbbb; border-radius: 7px; background: #f4f8f4; color: var(--green); font: 600 12px 'DM Sans', sans-serif; cursor: pointer; }
+.controls .select-area-button[aria-pressed='true'] { background: #e7f0e8; border-color: var(--green); }
+.controls .select-area-button:disabled { opacity: .55; cursor: not-allowed; }
+.controls .sidebar-disclosure { border: 0; border-radius: 0; padding: 0; margin: 8px 0 0; background: transparent; }
+.controls .sidebar-disclosure > summary { padding: 7px 0; font-size: 12px; line-height: 1.4; font-weight: 600; color: var(--green); cursor: pointer; overflow-wrap: anywhere; }
+.controls .source-note { margin: 4px 0 12px; padding: 0; min-height: 0; max-height: none; overflow: visible; background: none; font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
+.controls .source-note a { color: var(--green); }
+.controls .sidebar-upload { margin-top: 10px; }
+.controls input[type='file'] { min-width: 0; max-width: 100%; font-size: 11px; }
+.controls .design-brief { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; margin: 10px 0 3px; padding: 12px; border: 1px solid #e0e8e1; border-radius: 8px; background: #f6f9f6; }
+.controls .design-brief div { min-width: 0; }
+.controls .design-brief dt { color: #637469; font-size: 10px; line-height: 1.4; }
+.controls .design-brief dd { margin: 3px 0 0; color: #244b37; font-size: 13px; line-height: 1.35; font-weight: 650; overflow-wrap: anywhere; }
+.controls .sidebar-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; margin: 10px 0; }
+.controls .sidebar-grid .sidebar-field { margin: 0; }
+.controls .sidebar-number { display: flex; align-items: center; gap: 4px; min-width: 0; height: 39px; border: 1px solid #ccd8ce; border-radius: 6px; padding: 0 8px; background: #fff; }
+.controls .sidebar-number input { width: 100%; min-width: 0; height: 100%; padding: 0; margin: 0; border: 0; border-radius: 6px; background: transparent; color: var(--ink); box-shadow: none; outline: 0; font: 12px 'DM Sans', sans-serif; }
+.controls .sidebar-number > span { flex: 0 0 auto; font-size: 10px; color: #687b6c; }
+.controls .sidebar-number:focus-within { border-color: #71907b; box-shadow: 0 0 0 2px #dceadd; }
+.controls .sidebar-toggle { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0 14px; font-size: 12px; }
+.controls .sidebar-toggle input { width: 16px; height: 16px; flex: 0 0 16px; margin: 1px 0 0; accent-color: var(--green); }
+.controls .sidebar-group-label { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; font-weight: 600; }
+.controls .candidate-row { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; margin: 12px 0; }
+.controls .candidate-row label { font-size: 12px !important; }
+.controls .candidate-row .coordinate { grid-column: 1 / -1; gap: 8px; }
+.controls .coordinate input { min-width: 0; padding: 9px 7px; font-size: 11px; border-radius: 6px; }
+.controls .run-step { flex: 0 0 auto; padding: 12px 16px; margin: 0; background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -4px 12px #20372a05; }
+.controls .run-button { height: 44px; margin: 0; border-radius: 7px; padding: 0 14px; font-size: 13px; }
+.controls .run-disabled-hint { padding: 0; margin: 0 0 10px; background: none; line-height: 1.45; }
+.controls summary:focus-visible, .controls button:focus-visible { outline: 2px solid #427554; outline-offset: 3px; }
+@media (min-width: 1001px) { .workspace { grid-template-columns: minmax(290px, 320px) minmax(0, 1fr); } }
+@media (max-width: 1000px) {
+  .controls { border-right: 0; }
+  .controls-scroll { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 22px; padding: 18px; }
+  .controls .sidebar-section { margin: 0; }
+  .controls .sidebar-section:last-child { grid-column: 1 / -1; }
+  .controls .worker-readiness { grid-column: 1 / -1; }
+  .controls .run-step { padding: 12px 18px; }
+}
+@media (max-width: 540px) {
+  .controls-scroll { display: block; padding: 16px; }
+  .controls .sidebar-section { margin-bottom: 18px; }
+  .controls .run-step { padding: 12px 16px; }
+  .controls select, .controls textarea, .controls .sidebar-number input, .controls .coordinate input { font-size: 16px; }
+}

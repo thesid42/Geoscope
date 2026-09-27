@@ -129,6 +129,12 @@ async function readJson(response) {
   return payload;
 }
 function MetricCard({ value, label }) { return <div className="metric"><div className="value">{value}</div><div className="label">{label}</div></div>; }
+function SidebarNumber({ id, label, unit, value, onChange, disabled, min, max, step = 1 }) {
+  return <div className="sidebar-field">
+    <label htmlFor={id}>{label}</label>
+    <div className="sidebar-number"><input id={id} type="number" value={Number.isFinite(value) ? value : ''} min={min} max={max} step={step} disabled={disabled} onChange={(event) => onChange(event.target.value === '' ? NaN : Number(event.target.value))} /><span aria-hidden="true">{unit}</span></div>
+  </div>;
+}
 function CandidateInput({ letter, candidate, onChange, disabled = false }) {
   const kind = letter.toLowerCase();
   return <div className="candidate-row"><span className={`candidate-tag ${kind}`}>{letter}</span><label htmlFor={`candidate-${kind}-lon`}>Candidate {letter}</label><div className="coordinate">
@@ -517,115 +523,91 @@ export default function App() {
   const onCandidateChange = useCallback((which, position) => { (which === 'A' ? setCandidateA : setCandidateB)(position); setRun(null); setResultMap(null); setResultMapError(''); }, []);
   const mapTitle = datasetId === 'localdemo' || datasetId === 'sf2020' ? 'San Francisco' : datasetId === 'nycland' ? 'East Harlem' : datasetId === 'nyc2020' ? 'New York' : datasetId === 'demo' ? 'Harborview' : uploadedNames[datasetId] ?? 'Uploaded GeoJSON';
   const blockedReason = runBlockedReason({ config, worker, dataset, datasetLoading, datasetError, runStarting, activeRunId, uploading, areaSelectionActive, mode, allowed: modeAllowed(mode), studyArea, building, designMode, design, walk });
-  const modeHint = COPY[mode];
+  const inputsLocked = runStarting || Boolean(activeRunId);
+  const designError = designMode ? validateDesign(design) || validateWalk(walk) : validateBuilding(building);
+  const displayNumber = (value) => Number.isFinite(value) ? value.toLocaleString() : '—';
+  const dataLabel = datasetId === 'localdemo' ? 'Demo parcels · mapped surroundings' : datasetId === 'nycland' ? 'Official lot records · availability unverified' : datasetId === 'demo' ? 'Synthetic demo data' : uploadedMeta[datasetId] ? 'Uploaded data' : 'Public city data';
 
   return <div className="app-frame">
     {config?.demo_mode && <div className="scenario-demo-banner global">LOCAL MOCK MODE — no LLM, no generated-code execution, no cloud inference.</div>}
     <header className="topbar"><a className="brand" href="/"><span className="brand-icon">⌖</span> GEOSCOPE</a><div className="topmeta"><span className={`live-dot${worker.ok ? '' : ' offline'}`}></span><span title={worker.message}>{config?.demo_mode ? 'LOCAL MOCK' : worker.status === 'checking' ? 'CHECKING SERVICE' : worker.ok ? 'ANALYSIS READY' : 'SERVICE UNAVAILABLE'}</span></div></header>
     <main className="shell">
-      <section className="intro"><div><h1>Design a facility and compare the places it could serve.</h1><p className="lede">Facility → dataset → area → Run. Design goals stay under Advanced; map and top results stay in view.</p></div></section>
+      <section className="intro"><div><h1>Design a facility and compare the places it could serve.</h1><p className="lede">Choose a place and a facility. Compare designs, open space, and walking access.</p></div></section>
       <div className="workspace"><aside className="controls" aria-label="Analysis controls">
         <div className="controls-scroll">
-        {worker.status !== 'ready' && <div className="worker-readiness" role="status"><span>{worker.status === 'checking' ? 'Checking analysis service…' : worker.message}</span><button type="button" onClick={() => { setWorker({ ok: false, status: 'checking', message: 'Checking worker readiness…' }); setWorkerRefresh((value) => value + 1); }} disabled={worker.status === 'checking'}>{worker.status === 'checking' ? 'Checking…' : 'Retry check'}</button></div>}
+          {worker.status !== 'ready' && <div className="worker-readiness" role="status"><span>{worker.status === 'checking' ? 'Checking analysis service...' : worker.message}</span><button type="button" onClick={() => { setWorker({ ok: false, status: 'checking', message: 'Checking worker readiness...' }); setWorkerRefresh((value) => value + 1); }} disabled={worker.status === 'checking'}>{worker.status === 'checking' ? 'Checking...' : 'Retry check'}</button></div>}
 
-        <div className="workflow-step primary-step" data-step="1">
-          <div className="section-heading"><span className="step-badge" aria-hidden="true">1</span><div><h2>{mode === 'scenario' ? 'Facility' : 'Task'}</h2></div></div>
-          <label htmlFor="analysis-mode">Task</label>
-          <select id="analysis-mode" value={mode} onChange={(e) => onModeChange(e.target.value)} disabled={!dataset || datasetLoading || runStarting || Boolean(activeRunId)}>
-            {FEATURED_MODES.map(([value, label]) => {
-              const allowed = modeAllowed(value);
-              const hint = !allowed && schema ? ` (needs ${MODE_NEED[value]})` : '';
-              return <option key={value} value={value} disabled={!allowed}>{`${label}${hint}`}</option>;
-            })}
-            {!isFeaturedMode(mode) && LEGACY_MODES.filter(([value]) => value === mode).map(([value, label]) => (
-              <option key={value} value={value}>{`${label} (basic)`}</option>
-            ))}
-          </select>
-          <p className="task-hint">{modeHint}</p>
-          {mode === 'scenario' && <>
-            <label htmlFor="service-type">Facility</label>
-            <select id="service-type" value={serviceType} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setServiceType(e.target.value); clearScenarioResult(); }}>{SERVICE_TYPES.map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select>
-            <label className="design-mode-toggle"><input type="checkbox" checked={designMode} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setDesignMode(e.target.checked); clearScenarioResult(); }} /> <span>{designMode ? 'Agent chooses the layout' : 'Fixed footprint mode'}</span></label>
-            <p className="scenario-input-note">{designMode ? 'Defaults: 900 m² · 3 floors · 40% open space · 10 min walk. Adjust under Advanced.' : 'Use a fixed footprint and setback for a compatibility check (Advanced).'}</p>
-            {(designMode ? (validateDesign(design) || validateWalk(walk)) : validateBuilding(building)) && <small role="alert">{designMode ? (validateDesign(design) || validateWalk(walk)) : validateBuilding(building)}</small>}
-          </>}
-          {mode === 'compare' && <p className="park-note" role="note">Compare two proposed locations against mapped services. Parks count here when present — Design & compare uses clinic, library, school, or community centre only.</p>}
-          <details className="more-modes legacy-modes">
-            <summary>More tools (basic proximity / population)</summary>
-            <p className="legacy-modes-note">These answer common GIS questions available elsewhere. Geoscope focuses on facility siting and candidate comparison.</p>
-            <label htmlFor="legacy-mode">Basic analysis</label>
-            <select id="legacy-mode" value={isFeaturedMode(mode) ? '' : mode} onChange={(e) => { if (e.target.value) onModeChange(e.target.value); }} disabled={!dataset || datasetLoading || runStarting || Boolean(activeRunId)}>
-              <option value="" disabled={isFeaturedMode(mode)}>{isFeaturedMode(mode) ? 'Choose a basic tool…' : 'Using a basic tool'}</option>
-              {LEGACY_MODES.map(([value, label]) => {
-                const allowed = modeAllowed(value);
-                const hint = !allowed && schema ? ` (needs ${MODE_NEED[value]})` : '';
-                return <option key={value} value={value} disabled={!allowed}>{`${label}${hint}`}</option>;
-              })}
+          <section className="sidebar-section" aria-labelledby="task-heading">
+            <h2 id="task-heading"><span aria-hidden="true">1</span>Task</h2>
+            <label className="sidebar-sr-only" htmlFor="analysis-mode">Task</label>
+            <select id="analysis-mode" value={mode} onChange={(e) => onModeChange(e.target.value)} disabled={!dataset || datasetLoading || inputsLocked}>
+              {MODES.map(([value, label]) => <option key={value} value={value} disabled={!modeAllowed(value)}>{label}{!modeAllowed(value) && schema ? ` (needs ${MODE_NEED[value]})` : ''}</option>)}
             </select>
-          </details>
-        </div>
+            {mode === 'scenario' && <div className="sidebar-field">
+              <label htmlFor="service-type">Facility</label>
+              <select id="service-type" value={serviceType} disabled={inputsLocked} onChange={(e) => { setServiceType(e.target.value); clearScenarioResult(); }}>{SERVICE_TYPES.map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select>
+            </div>}
+          </section>
 
-        <div className="workflow-step" data-step="2">
-          <div className="section-heading"><span className="step-badge" aria-hidden="true">2</span><div><h2>Dataset</h2></div></div>
-          <label htmlFor="dataset">Dataset</label>
-          <select id="dataset" value={datasetId} onChange={(e) => { setDatasetLoading(true); setDatasetId(e.target.value); }} disabled={!config || uploading || runStarting || Boolean(activeRunId)}>
-            {visibleDatasets.map((row) => <option value={row.id} key={row.id}>{row.label}</option>)}
-          </select>
-          {mode === 'scenario' && <p className="dataset-filter-note">Facility sites need parcel + land-check data (East Harlem lots or SF mock). Other city snapshots stay available under Compare.</p>}
-          <div className="source-note">{datasetLoading ? <span role="status">Loading dataset…</span> : sourceNote}{datasetError && <span role="alert"> {datasetError}</span>}</div>
-          <details className="upload-settings"><summary>Upload GeoJSON</summary><label className="upload-label" htmlFor="upload">Choose a GeoJSON file <span>↗</span></label><input id="upload" type="file" accept=".json,.geojson,application/geo+json,application/json" onChange={onUpload} disabled={uploading || runStarting || Boolean(activeRunId)} />{uploading && <small role="status">Uploading and validating dataset…</small>}{uploadError && <small role="alert">{uploadError}</small>}</details>
-        </div>
+          <section className="sidebar-section" aria-labelledby="location-heading">
+            <h2 id="location-heading"><span aria-hidden="true">2</span>Location</h2>
+            <label className="sidebar-sr-only" htmlFor="dataset">Dataset</label>
+            <select id="dataset" value={datasetId} onChange={(e) => { setDatasetLoading(true); setDatasetId(e.target.value); }} disabled={!config || uploading || inputsLocked}>
+              {visibleDatasets.map((row) => <option value={row.id} key={row.id}>{row.label}</option>)}
+            </select>
+            <p className="sidebar-caption">{dataLabel}</p>
+            {datasetLoading && <p className="sidebar-caption" role="status">Loading dataset...</p>}
+            {datasetError && <p role="alert">{datasetError}</p>}
+            {(mode === 'scenario' || mode === 'exposure') && <div className="sidebar-area" aria-label="Study area">
+              <div className="area-status"><span>Selected area</span><b>{studyArea?.every(Number.isFinite) ? areaDimensions(studyArea) : 'Draw an area to begin'}</b></div>
+              <button type="button" className="select-area-button" aria-pressed={areaSelectionActive} disabled={inputsLocked || datasetLoading || !dataset} onClick={() => { setAreaSelectionActive((active) => !active); clearScenarioResult(); setResultMap(null); }}>{areaSelectionActive ? 'Cancel drawing' : 'Draw area on map'}</button>
+              {areaSelectionActive && <p className="sidebar-caption" role="status">Click two opposite corners on the map.</p>}
+              {studyArea && validateStudyArea(studyArea) && <small role="alert">{validateStudyArea(studyArea)}</small>}
+              <details className="sidebar-disclosure"><summary>Edit coordinates</summary><div className="sidebar-grid">{[['West', 0], ['South', 1], ['East', 2], ['North', 3]].map(([label, i]) => <SidebarNumber key={label} id={`area-${label.toLowerCase()}`} label={label} value={studyArea?.[i]} step={0.000001} disabled={inputsLocked} onChange={(value) => { const next = studyArea ? [...studyArea] : [NaN, NaN, NaN, NaN]; next[i] = value; setStudyArea(next); clearScenarioResult(); setResultMap(null); }} />)}</div></details>
+            </div>}
+            <details className="sidebar-disclosure source-settings"><summary>Data sources &amp; upload</summary>
+              <div className="source-note">{sourceNote}</div>
+              <label className="sidebar-upload" htmlFor="upload">Upload GeoJSON</label><input id="upload" type="file" accept=".json,.geojson,application/geo+json,application/json" onChange={onUpload} disabled={uploading || inputsLocked} />
+            </details>
+            {uploading && <small role="status">Uploading and validating dataset...</small>}{uploadError && <small role="alert">{uploadError}</small>}
+          </section>
 
-        <div className="workflow-step" data-step="3">
-          <div className="section-heading"><span className="step-badge" aria-hidden="true">3</span><div><h2>{mode === 'compare' ? 'Sites' : mode === 'scenario' || mode === 'exposure' ? 'Area' : 'Options'}</h2></div></div>
-          {(mode === 'scenario' || mode === 'exposure') && <section className="study-area-controls" aria-label="Study area">
-            <button type="button" className="select-area-button primary-secondary" disabled={runStarting || Boolean(activeRunId)} onClick={() => { setAreaSelectionActive((active) => !active); clearScenarioResult(); setResultMap(null); }}>{areaSelectionActive ? 'Click two opposite map corners…' : 'Draw area on map'}</button>
-            {studyArea?.every(Number.isFinite) && <small className="area-readout">About {areaDimensions(studyArea)}</small>}
-            {areaSelectionActive && <small role="status">Click two opposite corners on the map.</small>}
-            {mode === 'exposure' && <p className="population-caveat">Uses census-area weights by representative point, not exact addresses.</p>}
-            <details className="area-coordinate-details"><summary>Edit coordinates</summary><div className="bbox-fields">{[['west', 0], ['south', 1], ['east', 2], ['north', 3]].map(([label, i]) => <label key={label} htmlFor={`area-${label}`}>{label}<input id={`area-${label}`} type="number" step="0.000001" value={Number.isFinite(studyArea?.[i]) ? studyArea[i] : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { const next = studyArea ? [...studyArea] : [NaN, NaN, NaN, NaN]; next[i] = e.target.value === '' ? NaN : Number(e.target.value); setStudyArea(next); clearScenarioResult(); setResultMap(null); }} /></label>)}</div></details>
-            {studyArea && validateStudyArea(studyArea) && <small role="alert">{validateStudyArea(studyArea)}</small>}
-          </section>}
-          <div id="candidate-controls" hidden={mode !== 'compare'}>
-            <p className="step-help">Drag map pins or edit coordinates.</p>
-            <CandidateInput letter="A" candidate={candidateA} disabled={runStarting || Boolean(activeRunId)} onChange={(position) => onCandidateChange('A', position)} /><CandidateInput letter="B" candidate={candidateB} disabled={runStarting || Boolean(activeRunId)} onChange={(position) => onCandidateChange('B', position)} />
-          </div>
-          <details className="advanced-settings advanced-bundle">
-            <summary>Advanced</summary>
-            {mode === 'scenario' && <div className="advanced-block" id="scenario-controls" aria-label="Facility scenario settings">
-              {designMode ? <>
-                <details className="design-inputs" open={false}><summary>Design goals · {Number.isFinite(design.target_floor_area_m2) ? design.target_floor_area_m2 : '—'} m² · ≤{Number.isFinite(design.max_floors) ? design.max_floors : '—'} floors · ≥{Number.isFinite(design.min_open_space_pct) ? design.min_open_space_pct : '—'}% open · {Number.isFinite(walk.minutes) ? walk.minutes : '—'} min walk</summary>
-                  <p className="scenario-input-note">The agent fits a building to each plot, keeps open space, and compares walking access.</p>
-                  <div className="building-grid" aria-label="Design goals">
-                    {[['target_floor_area_m2', 'Target floor area', 'm²', 100, 5000, 50], ['max_floors', 'Maximum floors', 'floors', 1, 6, 1], ['min_open_space_pct', 'Minimum open space', '%', 10, 85, 5]].map(([key, label, unit, min, max, step]) => <label key={key} htmlFor={`design-${key}`}>{label}<div className="unit-input"><input id={`design-${key}`} type="number" min={min} max={max} step={step} value={Number.isFinite(design[key]) ? design[key] : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setDesign((current) => ({ ...current, [key]: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /><span>{unit}</span></div></label>)}
-                    <label htmlFor="design-setback">Setback<div className="unit-input"><input id="design-setback" type="number" min="0" max="20" step="0.5" value={Number.isFinite(design.setback_m) ? design.setback_m : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setDesign((current) => ({ ...current, setback_m: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /><span>m</span></div></label>
+          <section className="sidebar-section" aria-labelledby="settings-heading">
+            <h2 id="settings-heading"><span aria-hidden="true">3</span>{mode === 'scenario' ? 'Design' : mode === 'compare' ? 'Compare sites' : 'Analysis'}</h2>
+            {mode === 'scenario' && <>
+              <p className="sidebar-caption">{designMode ? 'The agent chooses the layout within these goals.' : 'Check a building with fixed dimensions.'}</p>
+              <dl className="design-brief" aria-label="Current design goals">
+                {designMode ? <><div><dt>Floor area</dt><dd>{displayNumber(design.target_floor_area_m2)} m&sup2;</dd></div><div><dt>Maximum floors</dt><dd>{displayNumber(design.max_floors)}</dd></div><div><dt>Open space</dt><dd>{displayNumber(design.min_open_space_pct)}% minimum</dd></div><div><dt>Walking limit</dt><dd>{displayNumber(walk.minutes)} min</dd></div></> : <><div><dt>Footprint</dt><dd>{displayNumber(building.width_m)} &times; {displayNumber(building.depth_m)} m</dd></div><div><dt>Height</dt><dd>{displayNumber(building.height_m)} m</dd></div><div><dt>Setback</dt><dd>{displayNumber(building.setback_m)} m</dd></div></>}
+              </dl>
+              <details className="sidebar-disclosure design-settings"><summary>Adjust design settings</summary>
+                <label className="sidebar-toggle"><input type="checkbox" checked={designMode} disabled={inputsLocked} onChange={(e) => { setDesignMode(e.target.checked); clearScenarioResult(); }} /><span>Let the agent design the building</span></label>
+                {designMode ? <>
+                  <div className="sidebar-grid">
+                    {[['target_floor_area_m2', 'Target floor area', 'm²', 100, 5000, 50], ['max_floors', 'Maximum floors', 'floors', 1, 6, 1], ['min_open_space_pct', 'Minimum open space', '%', 10, 85, 5], ['setback_m', 'Setback', 'm', 0, 20, 0.5]].map(([key, label, unit, min, max, step]) => <SidebarNumber key={key} id={`design-${key}`} label={label} unit={unit} min={min} max={max} step={step} value={design[key]} disabled={inputsLocked} onChange={(value) => { setDesign((current) => ({ ...current, [key]: value })); clearScenarioResult(); }} />)}
+                    <SidebarNumber id="walk-minutes" label="Walking time" unit="min" min={3} max={20} value={walk.minutes} disabled={inputsLocked} onChange={(value) => { setWalk((current) => ({ ...current, minutes: value })); clearScenarioResult(); }} />
                   </div>
-                  <label htmlFor="walk-minutes">Walking time</label><div className="unit-input"><input id="walk-minutes" type="number" min="3" max="20" step="1" value={Number.isFinite(walk.minutes) ? walk.minutes : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setWalk((current) => ({ ...current, minutes: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /><span>minutes</span></div>
-                  {(validateDesign(design) || validateWalk(walk)) && <small role="alert">{validateDesign(design) || validateWalk(walk)}</small>}
-                </details>
-                <details className="walking-assumptions"><summary>Walking assumptions · {Number.isFinite(walk.speed_mps) ? walk.speed_mps : '—'} m/s · snap {Number.isFinite(walk.max_snap_m) ? walk.max_snap_m : '—'} m</summary><div className="building-grid"><label htmlFor="walk-speed">Walking speed (m/s)<input id="walk-speed" type="number" min="0.5" max="2" step="0.1" value={Number.isFinite(walk.speed_mps) ? walk.speed_mps : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setWalk((current) => ({ ...current, speed_mps: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /></label><label htmlFor="walk-snap">Maximum snap distance (m)<input id="walk-snap" type="number" min="10" max="200" step="10" value={Number.isFinite(walk.max_snap_m) ? walk.max_snap_m : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setWalk((current) => ({ ...current, max_snap_m: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /></label></div><p className="scenario-input-note">Estimated paths use inferred street connectors; entrances are not verified.</p>{validateWalk(walk) && <small role="alert">{validateWalk(walk)}</small>}</details>
-              </> : <>
-                <details className="building-settings" open={false}><summary>Building · {Number.isFinite(building.width_m) ? building.width_m : '—'}×{Number.isFinite(building.depth_m) ? building.depth_m : '—'}×{Number.isFinite(building.height_m) ? building.height_m : '—'} m · setback {Number.isFinite(building.setback_m) ? building.setback_m : '—'} m</summary><div className="building-grid">{[['width_m', 'Width'], ['depth_m', 'Depth'], ['height_m', 'Height'], ['setback_m', 'Setback']].map(([key, label]) => <label key={key} htmlFor={`building-${key}`}>{label} (m)<input id={`building-${key}`} type="number" min={key === 'height_m' ? 3 : key === 'setback_m' ? 0 : 5} max={key === 'height_m' ? 80 : key === 'setback_m' ? 20 : 100} value={Number.isFinite(building[key]) ? building[key] : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setBuilding((current) => ({ ...current, [key]: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /></label>)}</div></details>
-                {validateBuilding(building) && <small role="alert">{validateBuilding(building)}</small>}
-                <p className="scenario-input-note">Fixed footprint mode uses supplied parcels, buildings, and road corridors.</p>
-              </>}
-            </div>}
-            {mode !== 'exposure' && mode !== 'scenario' && <div className="advanced-block" id="threshold-group">
-              <label htmlFor="threshold">Service radius (m)</label>
-              <div className="unit-input"><input id="threshold" type="number" min="100" max="5000" step="100" value={threshold} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setThreshold(e.target.value); clearScenarioResult(); }} /><span>m</span></div>
-              {mode !== 'scenario' && <div id="distance-type" className="static-input distance-type">Straight-line distance</div>}
-            </div>}
-            <div className="advanced-block">
-              <label htmlFor="question" className="question-label">{mode === 'scenario' && designMode ? 'Design preference' : 'Analyst question'}</label>
-              <textarea id="question" rows="2" value={question} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setQuestion(e.target.value); setQuestionEdited(true); if (mode === 'scenario') clearScenarioResult(); }} />
+                  <p className="sidebar-group-label">Walking assumptions</p>
+                  <div className="sidebar-grid">
+                    <SidebarNumber id="walk-speed" label="Walking speed" unit="m/s" min={0.5} max={2} step={0.1} value={walk.speed_mps} disabled={inputsLocked} onChange={(value) => { setWalk((current) => ({ ...current, speed_mps: value })); clearScenarioResult(); }} />
+                    <SidebarNumber id="walk-snap" label="Street connection" unit="m" min={10} max={200} step={10} value={walk.max_snap_m} disabled={inputsLocked} onChange={(value) => { setWalk((current) => ({ ...current, max_snap_m: value })); clearScenarioResult(); }} />
+                  </div>
+                  <p className="sidebar-caption">Maximum distance to connect a site to the walking network. Entrances are estimated.</p>
+                </> : <div className="sidebar-grid">{[['width_m', 'Width'], ['depth_m', 'Depth'], ['height_m', 'Height'], ['setback_m', 'Setback']].map(([key, label]) => <SidebarNumber key={key} id={`building-${key}`} label={`${label} (m)`} min={key === 'height_m' ? 3 : key === 'setback_m' ? 0 : 5} max={key === 'height_m' ? 80 : key === 'setback_m' ? 20 : 100} value={building[key]} disabled={inputsLocked} onChange={(value) => { setBuilding((current) => ({ ...current, [key]: value })); clearScenarioResult(); }} />)}</div>}
+              </details>
+              {designError && <small role="alert">{designError}</small>}
+            </>}
+            {mode === 'compare' && <div id="candidate-controls"><p className="sidebar-caption">Drag pins A and B on the map, or edit their coordinates.</p><CandidateInput letter="A" candidate={candidateA} disabled={inputsLocked} onChange={(position) => onCandidateChange('A', position)} /><CandidateInput letter="B" candidate={candidateB} disabled={inputsLocked} onChange={(position) => onCandidateChange('B', position)} /></div>}
+            {(mode === 'access' || mode === 'compare') && <><SidebarNumber id="threshold" label="Service radius (m)" unit="m" min={100} max={5000} step={100} value={Number(threshold)} disabled={inputsLocked} onChange={(value) => { setThreshold(value); clearScenarioResult(); }} /><p className="sidebar-caption">Straight-line distance to mapped services, including parks.</p></>}
+            {mode === 'exposure' && <p className="sidebar-caption">Estimates population within the selected area using Census-area weights, not exact addresses.</p>}
+            <div className="sidebar-field preference-field">
+              <label htmlFor="question">{mode === 'scenario' && designMode ? 'Design preference' : 'Analyst question'}</label>
+              <textarea id="question" rows="2" value={question} disabled={inputsLocked} onChange={(e) => { setQuestion(e.target.value); setQuestionEdited(true); if (mode === 'scenario') clearScenarioResult(); }} />
             </div>
-          </details>
+          </section>
         </div>
-        </div>
-        <div className="workflow-step run-step" data-step="4">
-          <div className="section-heading"><span className="step-badge" aria-hidden="true">4</span><div><h2>Run</h2></div></div>
+        <div className="run-step">
           {!canRun && blockedReason && <p className="run-disabled-hint" role="status">{blockedReason}</p>}
-          <button id="run-button" className="run-button" type="button" disabled={!canRun} onClick={startRun}><span className="button-icon">↗</span><span>{runStarting ? 'Starting…' : activeRunId ? 'Working…' : mode === 'exposure' ? 'Estimate population' : mode === 'scenario' ? 'Design & compare' : mode === 'compare' ? 'Compare locations' : 'Find nearby services'}</span><span className="button-arrow">→</span></button>
+          <button id="run-button" className="run-button" type="button" disabled={!canRun} onClick={startRun}><span>{runStarting ? 'Starting...' : activeRunId ? 'Working...' : mode === 'exposure' ? 'Estimate population' : mode === 'scenario' ? designMode ? 'Design & compare' : 'Check facility sites' : mode === 'compare' ? 'Compare locations' : 'Find nearby services'}</span><span aria-hidden="true">&rarr;</span></button>
         </div>
       </aside><section className="map-panel" aria-label="Map and analysis results">
         <div className="map-head"><div><p className="eyebrow">MAP · RESULTS</p><h2>{mapTitle}</h2></div>{datasetLoading && <span className="status-pill" role="status">Loading</span>}{!datasetLoading && datasetError && <span className="status-pill failed" role="alert">Unavailable</span>}</div>
