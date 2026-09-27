@@ -2,7 +2,7 @@
   "scenario_id": "sf-land-fit-mock",
   "scenario_status": "MOCK_SIMULATION",
   "generated_by": "scripts/generate_sf_mock_scenario.py",
-  "generated_on": "2026-09-26",
+  "generated_on": "2026-09-27",
   "bounds_wsen": [
     -122.4387811,
     37.7530189,
@@ -76,7 +76,7 @@
       "blocked_by_mapped_road": 1,
       "too_small": 1
     },
-    "candidate_geometry_method": "Axis-aligned simulated rectangles created from nominal meter dimensions at the specified San Francisco lon/lat centers. Eligible rectangles were selected to avoid the bundled mapped building and buffered-road context.",
+    "candidate_geometry_method": "Axis-aligned simulated rectangles created from nominal meter dimensions at the specified San Francisco lon/lat centers. Eligible rectangles were selected to avoid the bundled mapped building and buffered-road context, stay off Dolores Park open space, and remain within 45 m of mapped buildings so demos read as lots rather than streets or park lawn.",
     "buildings": "690 mapped OSM building footprints near the candidate sites.",
     "restrictions": "463 mapped OSM highway centerlines buffered into conservative transport-corridor exclusions.",
     "synthetic_service_points": 0,
@@ -106,5 +106,5 @@
     "license": "Open Database License (ODbL) 1.0"
   },
   "output_file": "sf-mock.geojson",
-  "output_sha256": "2e631f88a7518da6d9127abff1b3fad47557c79643b27fe949c1d56f48b9b59c"
+  "output_sha256": "8188192879c91395a94fd99ff88796b06fa0bd2c9528dca3578fcf0488141566"
 }

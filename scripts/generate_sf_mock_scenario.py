@@ -9,6 +9,10 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from pyproj import Transformer
+from shapely.geometry import Point, box, shape
+from shapely.ops import transform, unary_union
+
 try:
     from .sf_scenario_sites import SITES, STUDY_BOUNDS_WEST_SOUTH_EAST_NORTH
 except ImportError:  # Direct script execution.
@@ -62,6 +66,59 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+
+# Approximate Dolores Park footprint used only to keep mock "fit" lots off park lawn /
+# Church & 20th intersection empty space (not a claim about park boundaries).
+_DOLORES_PARK = {
+    "type": "Polygon",
+    "coordinates": [[
+        [-122.4286, 37.7580], [-122.4259, 37.7582],
+        [-122.4265, 37.7615], [-122.4292, 37.7613],
+        [-122.4286, 37.7580],
+    ]],
+}
+_PROJECT = Transformer.from_crs("EPSG:4326", "EPSG:32610", always_xy=True).transform
+
+
+def _validate_fit_sites_against_context(sites: list[dict[str, Any]], context_features: list[dict[str, Any]]) -> None:
+    """Keep eligible demo plots on lot-like pockets: off roads, off Dolores Park, near buildings."""
+    roads, buildings = [], []
+    for feature in context_features:
+        props = feature.get("properties") or {}
+        geom = transform(_PROJECT, shape(feature["geometry"]))
+        layer = props.get("layer")
+        if layer == "building":
+            buildings.append(geom)
+        elif layer == "restricted" and props.get("restriction_type") == "mapped_road_corridor":
+            roads.append(geom)
+    if not roads or not buildings:
+        raise SystemExit("Land context must include building and mapped_road_corridor features for fit-site validation")
+    roads_u, buildings_u = unary_union(roads), unary_union(buildings)
+    park = transform(_PROJECT, shape(_DOLORES_PARK))
+    for site in sites:
+        if site.get("expected_fit") != "fit":
+            continue
+        lon, lat = site["center"]
+        width_m, depth_m = site["size_m"]
+        center = transform(_PROJECT, Point(lon, lat))
+        parcel = box(center.x - width_m / 2, center.y - depth_m / 2, center.x + width_m / 2, center.y + depth_m / 2)
+        if parcel.intersects(roads_u):
+            raise SystemExit(f"{site['id']} intersects a mapped road corridor; move the simulated lot off the street")
+        if parcel.intersects(park) or park.distance(center) < 40:
+            raise SystemExit(f"{site['id']} sits in/near Dolores Park open space; choose a street-block lot instead")
+        if parcel.intersection(buildings_u).area > 1.0:
+            raise SystemExit(f"{site['id']} overlaps a mapped building footprint")
+        building_gap = parcel.distance(buildings_u)
+        road_gap = parcel.distance(roads_u)
+        if building_gap > 45:
+            raise SystemExit(
+                f"{site['id']} is {building_gap:.1f} m from the nearest mapped building "
+                "(looks like open space / park, not a lot). Keep fit demos within 45 m of buildings."
+            )
+        if road_gap < 3:
+            raise SystemExit(f"{site['id']} is only {road_gap:.1f} m from a road corridor; leave a visible curb gap")
+
+
 def build() -> tuple[dict[str, Any], dict[str, Any]]:
     source = json.loads(SOURCE.read_text(encoding="utf-8"))
     source_manifest = json.loads(SOURCE_MANIFEST.read_text(encoding="utf-8"))
@@ -97,6 +154,7 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
     context_features = land_context.get("features", [])
     if not isinstance(context_features, list) or any(f.get("properties", {}).get("layer") not in {"building", "restricted"} for f in context_features):
         raise SystemExit("OSM land-context snapshot must contain only building/restricted features")
+    _validate_fit_sites_against_context(SITES, context_features)
     features.extend(json.loads(json.dumps(context_features)))
 
     # Observed source records are copied verbatim from a compact, attributed OSM extract.
@@ -179,7 +237,7 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         "simulated_features": {
             "candidate_sites": len(SITES),
             "expected_fit_cases": {x["expected_fit"]: sum(y["expected_fit"] == x["expected_fit"] for y in SITES) for x in SITES},
-            "candidate_geometry_method": "Axis-aligned simulated rectangles created from nominal meter dimensions at the specified San Francisco lon/lat centers. Eligible rectangles were selected to avoid the bundled mapped building and buffered-road context.",
+            "candidate_geometry_method": "Axis-aligned simulated rectangles created from nominal meter dimensions at the specified San Francisco lon/lat centers. Eligible rectangles were selected to avoid the bundled mapped building and buffered-road context, stay off Dolores Park open space, and remain within 45 m of mapped buildings so demos read as lots rather than streets or park lawn.",
             "buildings": f"{land_context_manifest['normalized']['counts'].get('buildings', 0)} mapped OSM building footprints near the candidate sites.",
             "restrictions": f"{land_context_manifest['normalized']['counts'].get('road_corridors', 0)} mapped OSM highway centerlines buffered into conservative transport-corridor exclusions.",
             "synthetic_service_points": 0,

@@ -61,10 +61,10 @@ Keep dataset **San Francisco · simulated scenario parcels**, study area `[-122.
 
 | Facility type | Preferred site | Nearest mapped service | Notes |
 | --- | --- | --- | --- |
-| Clinic | `sfmock-fit-01` | ~613 m | Top three: fit-01, fit-02, fit-03 |
-| Library | `sfmock-fit-01` | ~731 m | Top three: fit-01, fit-04, fit-03 |
-| School | `sfmock-fit-01` | ~428 m | Top three: fit-01, fit-04, fit-02 |
-| Community center | `sfmock-fit-01` | ~594 m | Top three: fit-01, fit-02, fit-03 |
+| Clinic | `sfmock-fit-01` | ~415 m | Top three: fit-01, fit-02, fit-03 |
+| Library | `sfmock-fit-02` | ~778 m | Top three: fit-02, fit-04, fit-03 |
+| School | `sfmock-fit-01` | ~384 m | Top three: fit-01, fit-02, fit-04 |
+| Community center | `sfmock-fit-01` | ~520 m | Top three: fit-01, fit-03, fit-02 |
 
 For an official-land demo, switch to **East Harlem · official vacant lots** with study area `[-73.955, 40.790, -73.930, 40.812]`. Clinic and library show large service gaps; school and community-center inventories are denser, so nearest distances are shorter, but each type still returns ≥1 eligible ranked lot. **Park** is not a facility-site service type; use access/compare on the SF parks or NYC parks+facilities snapshots for park proximity workflows.
 
@@ -84,7 +84,7 @@ Distances are straight-line proxies to mapped records, not walking routes or pro
 
 The map uses a blue dashed study boundary, purple candidate plots, a teal selected plot, orange checked building footprints, gray supplied building records, and red restrictions. Map labels match the ranked site cards.
 
-The [downloaded SF facility GeoJSON](data/real-scenario/sf-osm-services.geojson) is **41,358 bytes (41.4 kB)**: 21 clinics, 4 libraries, 34 schools, and 16 community centres across the extract. The original response is **34,310 bytes**; one explicitly disused clinic was excluded. Counts within a selected rectangle will differ. The combined census + simulated land + mapped context demo is **1,054,641 bytes** and contains 1,247 features. Its land-context snapshot contributes 690 mapped building footprints and 463 buffered road/footpath corridors near the seven candidate plots. See the source manifests for query dates, hashes, methods, limitations, and ODbL attribution. Refresh deliberately with the two `fetch_sf_osm_*.py` scripts, then regenerate the scenario fixture.
+The [downloaded SF facility GeoJSON](data/real-scenario/sf-osm-services.geojson) is **41,358 bytes (41.4 kB)**: 21 clinics, 4 libraries, 34 schools, and 16 community centres across the extract. The original response is **34,310 bytes**; one explicitly disused clinic was excluded. Counts within a selected rectangle will differ. The combined census + simulated land + mapped context demo is **1,054,640 bytes** and contains 1,247 features. Its land-context snapshot contributes 690 mapped building footprints and 463 buffered road/footpath corridors near the seven candidate plots. See the source manifests for query dates, hashes, methods, limitations, and ODbL attribution. Refresh deliberately with the two `fetch_sf_osm_*.py` scripts, then regenerate the scenario fixture.
 
 The 3D scene uses the checked footprint on flat ground. It loads only nine public OpenStreetMap tiles for the current view, with attribution and normal browser caching. Those tile pixels remain display-only; collision checks use the bundled vector building/road snapshot, not imagery. Unknown building heights stay flat and street tile failure preserves the supplied geometry. Height affects its appearance; width, depth, and setback affect site eligibility and placement. See [SF mock provenance](data/real-scenario/README.md) and its [manifest](data/real-scenario/manifest.json).
 

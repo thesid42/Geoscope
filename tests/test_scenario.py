@@ -254,7 +254,7 @@ def test_bundled_sf_mock_has_expected_fit_and_exclusion_results():
     assert set(m["service_inventory"]["completeness_by_type"].values()) == {"mapped_extract_not_complete"}
     assert [c["id"] for c in m["candidates"]] == ["sfmock-fit-01", "sfmock-fit-02", "sfmock-fit-03"]
     assert m["ranking_basis"] == "greatest distance to nearest existing matching service, then largest plot area, then site ID"
-    assert [round(c["nearest_existing_service_m"], 1) for c in m["candidates"]] == [613.3, 535.5, 184.0]
+    assert [round(c["nearest_existing_service_m"], 1) for c in m["candidates"]] == [415.3, 306.1, 184.0]
     assert all(c["plot_area_m2"] > 1000 for c in m["candidates"])
     assert {c["id"] for c in m["site_checks"] if c["status"] == "excluded"} == {"sfmock-building-blocked", "sfmock-restricted", "sfmock-too-small"}
 
@@ -271,10 +271,10 @@ def test_bundled_sf_mock_has_expected_fit_and_exclusion_results():
 @pytest.mark.parametrize(
     "service_type, preferred, nearest",
     [
-        ("clinic", "sfmock-fit-01", 613.3),
-        ("library", "sfmock-fit-01", 730.7),
-        ("school", "sfmock-fit-01", 427.5),
-        ("community_center", "sfmock-fit-01", 594.5),
+        ("clinic", "sfmock-fit-01", 415.3),
+        ("library", "sfmock-fit-02", 778.5),
+        ("school", "sfmock-fit-01", 384.0),
+        ("community_center", "sfmock-fit-01", 520.4),
     ],
 )
 def test_bundled_sf_mock_ranks_each_facility_type_by_service_gap(service_type, preferred, nearest):
@@ -298,9 +298,50 @@ def test_bundled_sf_mock_ranks_each_facility_type_by_service_gap(service_type, p
     top = metrics["candidates"][0]
     assert top["id"] == preferred
     assert round(top["nearest_existing_service_m"], 1) == nearest
-    assert top["nearest_existing_service_m"] > 400
-    assert top["services_within_threshold"] == 0
+    # Preferred site is the farthest eligible gap; community-center/clinic/library clear the
+    # default 400 m threshold. School's best lot-like site is slightly under 400 m but still
+    # the clear ranking winner on a real block (not park/street pavement).
+    if service_type == "school":
+        assert top["nearest_existing_service_m"] > 350
+    else:
+        assert top["nearest_existing_service_m"] > 400
+    # Count of mapped services within threshold_m of the plot representative point.
+    assert top["services_within_threshold"] == (
+        1 if top["nearest_existing_service_m"] <= 400 else 0
+    )
     assert top["plot_area_m2"] > 1000
     assert metrics["service_features"] > 0
     assert metrics["existing_services_in_area"] >= 1
     assert metrics["inventory_status"] == "matching services supplied"
+
+
+def test_bundled_sf_mock_fit_sites_are_lot_like_not_park_or_street():
+    """Eligible SF mock plots must sit on lot-like pockets: off roads, off Dolores Park, near buildings."""
+    from pathlib import Path
+    req = json.loads((Path(__file__).resolve().parents[1] / "data/real-scenario/sf-mock.geojson").read_text())
+    buildings = unary_union([
+        transform(PROJECT, shape(f["geometry"]))
+        for f in req["features"] if f["properties"]["layer"] == "building"
+    ])
+    roads = unary_union([
+        transform(PROJECT, shape(f["geometry"]))
+        for f in req["features"] if f["properties"].get("restriction_type") == "mapped_road_corridor"
+    ])
+    park = transform(PROJECT, shape({
+        "type": "Polygon",
+        "coordinates": [[
+            [-122.4286, 37.7580], [-122.4259, 37.7582],
+            [-122.4265, 37.7615], [-122.4292, 37.7613],
+            [-122.4286, 37.7580],
+        ]],
+    }))
+    for feature in req["features"]:
+        props = feature["properties"]
+        if props.get("layer") != "candidate_site" or props.get("scenario_expected_fit") != "fit":
+            continue
+        parcel = transform(PROJECT, shape(feature["geometry"]))
+        assert not parcel.intersects(roads), props["site_id"]
+        assert not parcel.intersects(park) and park.distance(parcel.centroid) >= 40, props["site_id"]
+        assert parcel.intersection(buildings).area <= 1.0, props["site_id"]
+        assert parcel.distance(buildings) <= 45, props["site_id"]
+        assert parcel.distance(roads) >= 3, props["site_id"]

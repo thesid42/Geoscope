@@ -4,20 +4,21 @@ STUDY_BOUNDS_WEST_SOUTH_EAST_NORTH = [-122.433, 37.758, -122.417, 37.776]
 
 # Candidate parcels remain explicitly simulated. The four eligible rectangles were
 # selected only after checking the bundled OSM building and transport snapshot, so
-# their map/3D footprints do not visibly sit on mapped buildings or roads. This is
-# not evidence of ownership, vacancy, zoning approval, or construction suitability.
+# their map/3D footprints do not visibly sit on mapped buildings, roads, or Dolores
+# Park open space. This is not evidence of ownership, vacancy, zoning approval, or
+# construction suitability.
 #
-# fit-01 is placed where clinic, library, school, and community-center mapped-service
-# gaps are all above the default 400 m threshold, so each facility type has a clear
-# gap→area→id ranking demo without restoring population-coverage ranking.
+# fit-01 sits on a Sanchez Street block west of Church (not the Church & 20th
+# intersection / park corner). It is the gap→area→id winner for community center,
+# clinic, and school. Library's clearest gap winner is fit-02 on a Mission-side lot.
 SITES = [
     {
-        "id": "sfmock-fit-01", "name": "Mock candidate A · Dolores Southwest",
-        "center": [-122.428084, 37.758202], "size_m": [40, 34], "expected_fit": "fit",
+        "id": "sfmock-fit-01", "name": "Mock candidate A · Sanchez near 20th",
+        "center": [-122.43055, 37.75970], "size_m": [40, 34], "expected_fit": "fit",
     },
     {
-        "id": "sfmock-fit-02", "name": "Mock candidate B · Dolores South",
-        "center": [-122.426750, 37.760505], "size_m": [40, 34], "expected_fit": "fit",
+        "id": "sfmock-fit-02", "name": "Mock candidate B · Mission near Dolores",
+        "center": [-122.42440, 37.75960], "size_m": [40, 34], "expected_fit": "fit",
     },
     {
         "id": "sfmock-fit-03", "name": "Mock candidate C · Mission North",

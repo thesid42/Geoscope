@@ -15,7 +15,7 @@ Recorded September 26, 2026 (America/Los_Angeles), September 27 UTC. Last tested
 
 Facility sites are ranked by **greatest straight-line distance to the nearest existing matching mapped service**, then largest plot area, then site ID. Population coverage is not used for scenario ranking. Supported scenario service types are clinic, library, school, and community center (not park).
 
-The SF mock fixture currently has **1,247 features (1,054,641 bytes)** with 690 mapped building footprints and 463 buffered road corridors. With the default study rectangle and 400 m threshold, `sfmock-fit-01` is preferred for clinic (~613 m), library (~731 m), school (~428 m), and community center (~594 m). Four of seven plots remain eligible; three are excluded for building conflict, road conflict, or undersized lot.
+The SF mock fixture currently has **1,247 features (1,054,640 bytes)** with 690 mapped building footprints and 463 buffered road corridors. With the default study rectangle and 400 m threshold, `sfmock-fit-01` is preferred for clinic (~415 m), school (~384 m), and community center (~520 m); `sfmock-fit-02` is preferred for library (~778 m). Eligible fit plots sit on street-block lots (not Dolores Park / Church & 20th pavement). Four of seven plots remain eligible; three are excluded for building conflict, road conflict, or undersized lot.
 
 Commit `84ea118` adds a deterministic **Why Site N is ranked here** panel. It explains verified footprint/setback fit, building/road/restriction clearance, mapped-service gap, and the gap/area/plot-ID tie-break from reference-verified fields.
 
@@ -45,7 +45,7 @@ The default SF study rectangle is `[-122.433, 37.758, -122.417, 37.776]` in west
 | [SF population and parks](../data/real/sf-parks-census.geojson) | 1,837,936 bytes (~1.84 MB); 244 population tracts and 226 selected park features. See its [manifest](../data/real/manifest.json). |
 | [Raw facility download](../data/real-scenario/sf-osm-services-raw.json) | 34,310 bytes; 76 OSM elements in the query response. |
 | [Normalized facilities](../data/real-scenario/sf-osm-services.geojson) | 41,358 bytes (~41.4 kB); 75 records after excluding one explicitly disused clinic: 21 clinics, 4 libraries, 34 schools, 16 community centers. |
-| [Combined SF demo](../data/real-scenario/sf-mock.geojson) | 1,054,641 bytes; 1,247 features: 12 unchanged Census tracts, 75 mapped facilities, 7 simulated plots, 690 mapped building footprints, and 463 buffered road/footpath corridors. |
+| [Combined SF demo](../data/real-scenario/sf-mock.geojson) | 1,054,640 bytes; 1,247 features: 12 unchanged Census tracts, 75 mapped facilities, 7 simulated plots, 690 mapped building footprints, and 463 buffered road/footpath corridors. |
 
 The facility query covers a neighborhood extract, **not the whole city**. Its source timestamp is **2026-05-06T03:25:00Z**, even though it was downloaded in September. OSM coverage and operating status may be incomplete or stale. Counts are mapped feature records, not a certified directory or a count of distinct architectural structures. Ways and relations use the center returned by Overpass; separate OSM elements may describe the same real facility. Attribution and ODbL terms are recorded in the [facility manifest](../data/real-scenario/sf-osm-services-manifest.json).
 
@@ -57,7 +57,7 @@ Observed default facility-site results (gap → plot area → site ID):
 | Mapped facilities inside the rectangle | 12 clinics; 1 library; 13 schools; 7 community centers |
 | Plot fit | 4 eligible out of 7; top 3 displayed |
 | Ranking basis | Greatest distance to nearest matching mapped service, then plot area, then site ID |
-| Preferred clinic / library / school / community center | `sfmock-fit-01` (~613 / ~731 / ~428 / ~594 m) |
+| Preferred clinic / library / school / community center | `sfmock-fit-01` / `sfmock-fit-02` / `sfmock-fit-01` / `sfmock-fit-01` (~415 / ~778 / ~384 / ~520 m) |
 | Ranked clinic plot IDs | `sfmock-fit-01`, `sfmock-fit-02`, `sfmock-fit-03` |
 
 A plot fitting the supplied constraints does not by itself establish a need for another facility. Distances are straight-line proxies to mapped records.
