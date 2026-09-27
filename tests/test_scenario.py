@@ -34,8 +34,8 @@ def test_verified_footprint_setback_and_coverage_are_computed_in_metres():
     req = fixture()
     result, mapped = calculate(req)
     m = result["metrics"]
-    assert m["population_total"] == 125.5 and m["service_features"] == 0
-    assert m["baseline"]["weighted_mean_nearest_m"] is None
+    assert m["service_features"] == 0
+    assert "population_total" not in m and "baseline" not in m
     assert m["inventory_status"] == "no matching service inventory supplied"
     assert m["eligible_sites"] == 1
     candidate = m["candidates"][0]
@@ -43,10 +43,12 @@ def test_verified_footprint_setback_and_coverage_are_computed_in_metres():
     parcel = transform(PROJECT, shape(req["features"][1]["geometry"]))
     assert parcel.covers(footprint.buffer(2.99, join_style=2))
     assert footprint.area == pytest.approx(24*18, abs=1e-5)
-    assert candidate["newly_served_population"] == 125.5
+    assert candidate["plot_area_m2"] == pytest.approx(parcel.area, abs=1e-5)
+    assert candidate["nearest_existing_service_m"] is None
+    assert candidate["services_within_threshold"] == 0
     assert candidate["land_check"]["plot_fit"] is True
     assert candidate["land_check"]["no_road_overlap"] is True
-    assert mapped["features"][0]["properties"]["nearest_m"] is None
+    assert mapped["features"] == []
     _verify_map(json.dumps(mapped).encode(), json.dumps(mapped).encode(), req)
 
 
@@ -139,8 +141,8 @@ def test_parks_never_count_as_clinics_and_external_clinics_still_count():
     req["features"].append(feature("outside-clinic", "service", Point(X+600,Y), service_type="clinic"))
     m = calculate(req)[0]["metrics"]
     assert m["service_features"] == 1
-    assert m["baseline"]["served_population"] == 125.5
-    assert m["candidates"][0]["newly_served_population"] == 0
+    assert m["candidates"][0]["nearest_existing_service_m"] == pytest.approx(600, abs=20)
+    assert m["candidates"][0]["services_within_threshold"] == 1
 
 
 @pytest.mark.parametrize("change", [{"land_status": "unknown"}, {"allowed_services": ["library"]}, {"source": ""}])
@@ -159,13 +161,16 @@ def test_equal_sites_rank_deterministically_by_id():
     assert result == calculate(req)[0]
 
 
-def test_empty_area_and_zero_population_are_explicit_errors():
-    req = fixture(); req["features"][0]["properties"]["population"] = 0
-    with pytest.raises(ValueError, match="positive population"):
-        calculate(req)
-    req = fixture(); req["study_area"] = list(transform(INVERSE, box(X+200,Y+200,X+300,Y+300)).bounds)
-    with pytest.raises(ValueError, match="no population"):
-        calculate(req)
+def test_scenario_does_not_require_population():
+    req = fixture()
+    req["features"][0]["properties"]["population"] = 0
+    assert calculate(req)[0]["metrics"]["eligible_sites"] == 1
+    req = fixture()
+    req["features"] = [feature for feature in req["features"] if feature["properties"]["layer"] != "population"]
+    assert calculate(req)[0]["metrics"]["eligible_sites"] == 1
+    req = fixture()
+    req["study_area"] = list(transform(INVERSE, box(X+200,Y+200,X+300,Y+300)).bounds)
+    assert calculate(req)[0]["metrics"]["eligible_sites"] == 0
 
 
 def test_land_metadata_and_duplicate_ids_fail_validation():
@@ -186,7 +191,9 @@ def test_study_area_is_bounded_and_finite(bounds):
 
 
 def test_verified_output_rejects_moved_footprint_and_changed_evidence():
-    result, mapped = calculate(fixture())
+    req = fixture()
+    req["features"].append(feature("clinic", "service", Point(X + 80, Y), service_type="clinic"))
+    result, mapped = calculate(req)
     _verify_result(result, result)
     for mutation in ("footprint", "record", "rank"):
         changed = copy.deepcopy(result)
@@ -201,8 +208,8 @@ def test_verified_output_rejects_moved_footprint_and_changed_evidence():
             _verify_result(changed, result)
     changed_map = copy.deepcopy(mapped)
     changed_map["features"][0]["properties"]["nearest_m"] = 0
-    with pytest.raises(SandboxFailure, match="unknown baseline"):
-        _verify_map(json.dumps(changed_map).encode(), json.dumps(mapped).encode(), fixture())
+    with pytest.raises(SandboxFailure, match="distance"):
+        _verify_map(json.dumps(changed_map).encode(), json.dumps(mapped).encode(), req)
 
 
 def test_narrow_plot_uses_ninety_degree_rotation():
@@ -228,7 +235,9 @@ def test_bundled_sf_mock_has_expected_fit_and_exclusion_results():
     assert m["service_inventory"]["as_of"] == "2026-05-06"
     assert set(m["service_inventory"]["completeness_by_type"].values()) == {"mapped_extract_not_complete"}
     assert [c["id"] for c in m["candidates"]] == ["sfmock-fit-02", "sfmock-fit-01", "sfmock-fit-03"]
-    assert [c["newly_served_population"] for c in m["candidates"]] == [2906, 2906, 0]
+    assert m["ranking_basis"] == "greatest distance to nearest existing matching service, then largest plot area, then site ID"
+    assert [round(c["nearest_existing_service_m"], 1) for c in m["candidates"]] == [535.5, 316.7, 184.0]
+    assert all(c["plot_area_m2"] > 1000 for c in m["candidates"])
     assert {c["id"] for c in m["site_checks"] if c["status"] == "excluded"} == {"sfmock-building-blocked", "sfmock-restricted", "sfmock-too-small"}
 
     buildings = unary_union([shape(f["geometry"]) for f in req["features"] if f["properties"]["layer"] == "building"])

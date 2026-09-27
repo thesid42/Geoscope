@@ -43,7 +43,7 @@ def main(origin):
             assert metrics["eligible_sites"] == 4
             assert len(metrics["candidates"]) == 3
             assert sum(check["status"] == "excluded" for check in metrics["site_checks"]) == 3
-            report["checks"].append({"service_type":service, "plots_checked":metrics["sites_evaluated"], "eligible_plots":metrics["eligible_sites"], "preferred_site":metrics["candidates"][0]["id"], "additional_proxy_population":metrics["candidates"][0]["newly_served_population"]})
+            report["checks"].append({"service_type":service, "plots_checked":metrics["sites_evaluated"], "eligible_plots":metrics["eligible_sites"], "preferred_site":metrics["candidates"][0]["id"], "nearest_existing_service_m":metrics["candidates"][0]["nearest_existing_service_m"], "plot_area_m2":metrics["candidates"][0]["plot_area_m2"]})
         oversized = run({**request,"building":{**request["building"],"width_m":100,"depth_m":100}})
         assert oversized["eligible_sites"] == 0 and not oversized["candidates"]
         report["checks"].append({"large_footprint_rejected":True, "guest_isolation":True, "artifact_roundtrip":True, "origin_required":True})

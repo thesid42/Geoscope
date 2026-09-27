@@ -55,7 +55,11 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
     if (sourceLayerRef.current) map.removeLayer(sourceLayerRef.current);
     sourceLayerRef.current = null;
     if (!data?.features) return undefined;
-    const visible = { type: 'FeatureCollection', features: data.features.filter((f) => roleOf(f) !== 'population' || Number(f.properties?.population) > 0) };
+    const visible = { type: 'FeatureCollection', features: data.features.filter((f) => {
+      if (roleOf(f) !== 'population') return true;
+      if (mode === 'scenario') return false;
+      return Number(f.properties?.population) > 0;
+    }) };
     const layer = L.geoJSON(visible, { style: (feature) => roleOf(feature) === 'candidate_site' ? { ...styleFor(feature), opacity: 0, fillOpacity: 0 } : styleFor(feature), pointToLayer: (feature, latlng) => L.circleMarker(latlng, pointStyle(feature)), onEachFeature: (feature, child) => child.bindPopup(popupNode(feature)) }).addTo(map);
     sourceLayerRef.current = layer;
     if (datasetId === 'sf2020') map.fitBounds([[37.70, -122.53], [37.83, -122.35]]);
@@ -63,7 +67,7 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
     else if (datasetId === 'nycland') map.fitBounds([[40.790, -73.955], [40.812, -73.930]]);
     else { const bounds = layer.getBounds(); if (bounds.isValid()) map.fitBounds(bounds.pad(0.08)); }
     return undefined;
-  }, [data, datasetId]);
+  }, [data, datasetId, mode]);
 
   useEffect(() => {
     const map = mapRef.current; if (!map) return undefined;
@@ -174,7 +178,7 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
     }}>Zoom to selected site</button>}
     <div className="map-key" aria-label="Map legend">
       {['scenario', 'exposure'].includes(mode) && <span className="map-key-item"><i className="key-area" />{mode === 'exposure' ? 'Count boundary' : 'Study boundary'}</span>}
-      {mode === 'scenario' ? <><span className="map-key-item"><i className="key-plot" />Candidate plot</span><span className="map-key-item"><i className="key-selected" />Selected plot</span><span className="map-key-item"><i className="key-building" />Proposed building</span><span className="map-key-item"><i className="key-blocker" />Building record</span><span className="map-key-item"><i className="key-restricted" />Restricted area</span><span className="map-key-item"><i className="key-service" />Mapped service</span><span className="map-key-item"><i className="key-population" />Population areas</span></> : <><span className="map-key-item"><i className="key-population" />Population areas</span><span className="map-key-item"><i className="key-service" />Services</span></>}
+      {mode === 'scenario' ? <><span className="map-key-item"><i className="key-plot" />Candidate plot</span><span className="map-key-item"><i className="key-selected" />Selected plot</span><span className="map-key-item"><i className="key-building" />Proposed building</span><span className="map-key-item"><i className="key-blocker" />Building record</span><span className="map-key-item"><i className="key-restricted" />Restricted area</span><span className="map-key-item"><i className="key-service" />Mapped service</span></> : <><span className="map-key-item"><i className="key-population" />Population areas</span><span className="map-key-item"><i className="key-service" />Services</span></>}
       {resultData?.features?.length > 0 && <><span className="map-key-item"><i className="key-result-orange" />{mode === 'exposure' ? 'Inside count boundary' : 'Outside current service range'}</span><span className="map-key-item"><i className="key-result-green" />{mode === 'exposure' ? 'Outside count boundary' : 'Within current service range'}</span></>}
     </div>
     {areaSelectionActive && <div className="map-draw-hint" role="status">Click one corner, then the opposite corner to choose your area.</div>}

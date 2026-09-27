@@ -13,8 +13,8 @@ request.update(analysis_mode="scenario", study_area=[-122.433,37.758,-122.417,37
 result, mapped = calculate(request)
 m = result["metrics"]
 assert m["eligible_sites"] == 4 and len(m["candidates"]) == 3
-assert [c["id"] for c in m["candidates"]] == ["sfmock-fit-04", "sfmock-fit-01", "sfmock-fit-03"]
-assert [c["newly_served_population"] for c in m["candidates"]] == [6224, 4282, 3841]
+assert [c["id"] for c in m["candidates"]] == ["sfmock-fit-02", "sfmock-fit-01", "sfmock-fit-03"]
+assert [round(c["nearest_existing_service_m"], 1) for c in m["candidates"]] == [535.5, 316.7, 184.0]
 project = Transformer.from_crs("EPSG:4326","EPSG:32610",always_xy=True).transform
 sites = {f["id"]:f for f in request["features"] if f["properties"]["layer"]=="candidate_site"}
 for c in m["candidates"]:

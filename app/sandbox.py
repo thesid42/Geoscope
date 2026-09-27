@@ -341,7 +341,7 @@ def _verify_result(actual: Any, expected: Any) -> None:
 
 def _verify_map(actual_bytes: bytes | None, expected_bytes: bytes | None, request: dict[str, Any]) -> None:
     if not actual_bytes or not expected_bytes:
-        raise SandboxFailure("Generated population map was missing.")
+        raise SandboxFailure("Generated result map was missing.")
     try:
         actual = json.loads(actual_bytes, parse_constant=lambda x: (_ for _ in ()).throw(ValueError(f"non-finite {x}")))
         expected = json.loads(expected_bytes, parse_constant=lambda x: (_ for _ in ()).throw(ValueError(f"non-finite {x}")))

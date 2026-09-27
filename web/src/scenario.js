@@ -37,10 +37,10 @@ export function explainScenarioCandidate(candidate, candidates, metrics) {
   const rank = Math.max(0, ranked.findIndex((item) => item.id === candidate.id));
   const building = metrics?.building ?? {};
   const check = candidate.land_check ?? {};
-  const gross = metrics?.inventory_status === 'no matching service inventory supplied';
-  const coverageKey = gross ? 'served_population' : 'newly_served_population';
-  const coverage = Number(candidate[coverageKey]);
-  const threshold = readableNumber(metrics?.threshold_m);
+  const facility = ({ clinic: 'clinic', library: 'library', school: 'school', community_center: 'community center' })[metrics?.service_type] || 'facility';
+  const noInventory = metrics?.inventory_status === 'no matching service inventory supplied';
+  const area = Number(candidate.plot_area_m2);
+  const distance = Number(candidate.nearest_existing_service_m);
   const reasons = [];
 
   if ([building.width_m, building.depth_m, check.setback_m].every((value) => Number.isFinite(Number(value)))) {
@@ -51,27 +51,42 @@ export function explainScenarioCandidate(candidate, candidates, metrics) {
   if (check.no_building_overlap === true && check.no_road_overlap === true && check.no_restriction_overlap === true) {
     reasons.push('The checked placement does not overlap a supplied building, mapped road corridor, or other restriction.');
   }
-
-  if (Number.isFinite(coverage)) {
-    if (gross) reasons.push(`With no matching existing-service inventory supplied, the proposal covers an estimated ${readableNumber(coverage)} people within ${threshold} m.`);
-    else if (coverage > 0) reasons.push(`It adds estimated ${metrics?.service_type?.replaceAll('_', ' ') || 'service'} coverage for ${readableNumber(coverage)} people within ${threshold} m.`);
-    else reasons.push(`It remains eligible on land fit, but adds no estimated population coverage within ${threshold} m.`);
+  if (Number.isFinite(area)) {
+    reasons.push(`The supplied plot area is ${readableNumber(area)} m².`);
+  }
+  if (noInventory) {
+    reasons.push(`No mapped ${facility} records were supplied, so ranking uses plot area only.`);
+  } else if (Number.isFinite(distance)) {
+    reasons.push(`The checked placement is ${readableNumber(distance)} m from the nearest mapped ${facility}.`);
   }
 
   const previous = rank > 0 ? ranked[rank - 1] : null;
-  const tied = ranked.filter((item) => Number(item?.[coverageKey]) === coverage);
-  const distance = Number(candidate.weighted_mean_nearest_m);
+  const sameGap = (left, right) => {
+    const first = left?.nearest_existing_service_m;
+    const second = right?.nearest_existing_service_m;
+    if (first == null && second == null) return true;
+    return Number(first) === Number(second);
+  };
+  const tiedGap = ranked.filter((item) => sameGap(item, candidate));
+  const tiedArea = ranked.filter((item) => sameGap(item, candidate) && Number(item.plot_area_m2) === area);
   if (rank === 0) {
-    if (tied.length > 1 && Number.isFinite(distance)) reasons.push(`It ranks first among equal-coverage sites because its population-weighted nearest-service distance is lower (${readableNumber(distance)} m).`);
-    else reasons.push(`It ranks first because it has the highest ${gross ? 'estimated covered population' : 'estimated additional coverage'} among eligible sites.`);
-  } else if (previous && Number(previous[coverageKey]) > coverage) {
-    reasons.push(`It ranks below Site ${rank} because that site provides more ${gross ? 'estimated coverage' : 'estimated additional coverage'}.`);
-  } else if (previous && Number(previous[coverageKey]) === coverage) {
-    const previousDistance = Number(previous.weighted_mean_nearest_m);
-    if (Number.isFinite(distance) && Number.isFinite(previousDistance) && distance > previousDistance) {
-      reasons.push(`It ties Site ${rank} on coverage but ranks after it because its population-weighted nearest-service distance is higher (${readableNumber(distance)} m versus ${readableNumber(previousDistance)} m).`);
+    if (noInventory || candidate.nearest_existing_service_m == null) {
+      if (tiedArea.length > 1) reasons.push('It ranks first among equal-area sites because of the plot ID tie-break.');
+      else reasons.push('It ranks first because it has the largest plot area among eligible sites.');
+    } else if (tiedGap.length > 1 && Number.isFinite(area)) {
+      reasons.push(`It ranks first among sites with the same service gap because its plot area is larger (${readableNumber(area)} m²).`);
     } else {
-      reasons.push(`It ties Site ${rank} on coverage and distance, so the plot ID provides the deterministic tie-break.`);
+      reasons.push(`It ranks first because it is farthest from an existing mapped ${facility} among eligible sites.`);
+    }
+  } else if (previous) {
+    const previousDistance = Number(previous.nearest_existing_service_m);
+    const previousArea = Number(previous.plot_area_m2);
+    if (!noInventory && Number.isFinite(previousDistance) && Number.isFinite(distance) && previousDistance > distance) {
+      reasons.push(`It ranks below Site ${rank} because that site is farther from an existing mapped ${facility} (${readableNumber(previousDistance)} m versus ${readableNumber(distance)} m).`);
+    } else if (Number.isFinite(previousArea) && Number.isFinite(area) && previousArea > area) {
+      reasons.push(`It ties Site ${rank} on service gap but ranks after it because that plot is larger (${readableNumber(previousArea)} m² versus ${readableNumber(area)} m²).`);
+    } else {
+      reasons.push(`It ties Site ${rank} on service gap and plot area, so the plot ID provides the deterministic tie-break.`);
     }
   }
   return reasons;

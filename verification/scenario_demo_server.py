@@ -36,8 +36,8 @@ def build_demo_app(port=8765):
         result.update(reference_verified=False, geometry_verified=True)
         run["result"] = result
         count = result["metrics"]["eligible_sites"]
-        run["summary"] = f"Local mock simulation: {count} plots passed the supplied land-use, footprint, setback and obstruction checks. Coverage uses approximate population representatives. Availability and surrounding land features in this SF fixture are simulated."
-        run["plan"] = "Filter supplied land records; fit the footprint and setback inside each plot and study area; reject building/restriction collisions; rank independent proposals by added population proximity."
+        run["summary"] = f"Local mock simulation: {count} plots passed the supplied land-use, footprint, setback and obstruction checks. Eligible plots are ranked by distance to mapped facilities and plot area, not population. Availability and surrounding land features in this SF fixture are simulated."
+        run["plan"] = "Filter supplied land records; fit the footprint and setback inside each plot and study area; reject building/restriction collisions; rank independent proposals by distance to existing matching services, then plot area."
         script = Path(__file__).resolve().parents[1] / "app" / "scenario_program.py"
         controller._persist_artifacts(run, {"result.json": json.dumps(result, allow_nan=False).encode(), "result.geojson": json.dumps(mapped, allow_nan=False).encode()}, script.read_text(encoding="utf-8"))
         run["status"] = "completed"

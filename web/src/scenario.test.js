@@ -42,16 +42,16 @@ describe('scenario geometry and bounds', () => {
   });
 });
 
-it('explains land fit, added coverage, and deterministic ranking tie-breaks', () => {
+it('explains land fit, service gap, and deterministic ranking tie-breaks', () => {
   const candidates = [
-    {id:'plot-a',newly_served_population:2906,weighted_mean_nearest_m:217.5,land_check:{setback_m:3,plot_fit:true,area_fit:true,no_building_overlap:true,no_road_overlap:true,no_restriction_overlap:true}},
-    {id:'plot-b',newly_served_population:2906,weighted_mean_nearest_m:220.9,land_check:{setback_m:3,plot_fit:true,area_fit:true,no_building_overlap:true,no_road_overlap:true,no_restriction_overlap:true}},
-    {id:'plot-c',newly_served_population:0,weighted_mean_nearest_m:224.8,land_check:{setback_m:3,plot_fit:true,area_fit:true,no_building_overlap:true,no_road_overlap:true,no_restriction_overlap:true}},
+    {id:'plot-a',plot_area_m2:2100,nearest_existing_service_m:380.4,land_check:{setback_m:3,plot_fit:true,area_fit:true,no_building_overlap:true,no_road_overlap:true,no_restriction_overlap:true}},
+    {id:'plot-b',plot_area_m2:1800,nearest_existing_service_m:380.4,land_check:{setback_m:3,plot_fit:true,area_fit:true,no_building_overlap:true,no_road_overlap:true,no_restriction_overlap:true}},
+    {id:'plot-c',plot_area_m2:2500,nearest_existing_service_m:120.2,land_check:{setback_m:3,plot_fit:true,area_fit:true,no_building_overlap:true,no_road_overlap:true,no_restriction_overlap:true}},
   ];
   const metrics = {building:{width_m:24,depth_m:18},threshold_m:400,service_type:'clinic',inventory_status:'matching services supplied'};
-  expect(explainScenarioCandidate(candidates[0], candidates, metrics).join(' ')).toMatch(/2,906.*lower.*218 m/);
-  expect(explainScenarioCandidate(candidates[1], candidates, metrics).join(' ')).toMatch(/ties Site 1.*221 m versus 218 m/);
-  expect(explainScenarioCandidate(candidates[2], candidates, metrics).join(' ')).toMatch(/adds no estimated population coverage.*below Site 2/);
+  expect(explainScenarioCandidate(candidates[0], candidates, metrics).join(' ')).toMatch(/same service gap.*2,100/);
+  expect(explainScenarioCandidate(candidates[1], candidates, metrics).join(' ')).toMatch(/ties Site 1.*2,100 m² versus 1,800 m²/);
+  expect(explainScenarioCandidate(candidates[2], candidates, metrics).join(' ')).toMatch(/below Site 2.*farther.*380 m versus 120 m/);
   expect(explainScenarioCandidate(candidates[0], candidates, metrics).join(' ')).toMatch(/does not overlap a supplied building, mapped road corridor, or other restriction/);
 });
 
