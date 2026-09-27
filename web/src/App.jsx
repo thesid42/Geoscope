@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LeafletMap from './components/LeafletMap.jsx';
-import { validateBuilding, validateStudyArea } from './scenario.js';
+import { explainScenarioCandidate, validateBuilding, validateStudyArea } from './scenario.js';
 const ScenarioViewer = lazy(() => import('./components/ScenarioViewer.jsx'));
 
 const TERMINAL = new Set(['completed', 'failed', 'interrupted']);
@@ -126,11 +126,13 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
     const inventoryLabel = String(inventory.source ?? '').includes('OpenStreetMap') ? 'OpenStreetMap' : inventory.source || 'source not recorded';
     const scenarioStatus = String(dataset?.scenario_status ?? '').toLowerCase();
     const landIsSimulated = scenarioStatus.includes('simulat') || scenarioStatus.includes('mock') || String(m.land_inventory?.source ?? '').toLowerCase().includes('simulat');
+    const selectedRank = best ? (m.candidates ?? []).findIndex((candidate) => candidate.id === best.id) + 1 : 0;
+    const selectedReasons = best ? explainScenarioCandidate(best, m.candidates ?? [], m) : [];
     return <div className="result-panel">
       <div className="result-top"><div><div className="eyebrow">{run.demo_mode ? 'SF MOCK SIMULATION · LOCAL FIXED REFERENCE' : 'VERIFIED SCENARIO'}</div><h2>Facility site results</h2></div><span className="status-pill">{run.demo_mode ? 'mock · geometry checked' : 'checked'}</span></div>
       {run.demo_mode && <p className="scenario-demo-banner">SF MOCK SIMULATION — local fixed-reference calculation; no cloud agent run.</p>}
       <div className="scenario-headline"><strong>{n(m.eligible_sites)} of {n(m.sites_evaluated)} plots fit</strong><span>Building footprint checked against supplied plot, area, and obstruction layers.</span></div>
-      {best && <div className="scenario-best"><b>Site {(m.candidates ?? []).findIndex((candidate) => candidate.id === best.id) + 1}</b><span>{gross ? 'Covered by proposal' : `+${n(best.newly_served_population)} estimated people within ${n(m.threshold_m)} m`}</span></div>}
+      {best && <div className="scenario-best"><b>Site {selectedRank}</b><span>{gross ? 'Covered by proposal' : `+${n(best.newly_served_population)} estimated people within ${n(m.threshold_m)} m`}</span></div>}
       {!gross && m.candidates?.length > 0 && m.candidates.every((site) => site.newly_served_population === 0) && <p className="scenario-caveat">These plots fit, but none adds estimated population coverage at this distance. A building that fits is not automatically needed.</p>}
       <div className="scenario-existing-service"><b>Already in this area</b><strong>{n(existingCount)} mapped {existingCount === 1 ? facilityName : pluralFacility}</strong><span>Mapped records of this facility type. Coverage may be incomplete; missing records do not prove a service is absent.</span>{(inventory.source || inventory.as_of) && <small>Source: {inventoryLabel}{inventory.as_of ? ` · ${inventory.as_of}` : ''}</small>}{m.existing_service_counts && <details><summary>Counts by facility type</summary><p>{Object.entries(m.existing_service_counts).map(([type, count]) => `${type.replaceAll('_', ' ')}: ${n(count)}`).join(' · ')}</p></details>}</div>
       <p className="scenario-caveat">Population is an estimate from census-area representative points. Facility services and land evidence are {landIsSimulated ? 'simulated plots checked against mapped buildings and road corridors, alongside mapped facility records' : 'limited to supplied records'}; this does not establish real land availability, ownership, zoning approval, or permits.</p>
@@ -138,6 +140,7 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
       {m.candidates?.length ? <div className="scenario-rankings">{m.candidates.map((candidate, index) => <button type="button" className={`scenario-rank${best?.id === candidate.id ? ' selected' : ''}`} key={candidate.id} onClick={() => onSelectScenarioCandidate(candidate)}>
         <span className="rank-number">{index + 1}</span><span className="rank-main"><b>Site {index + 1}</b><small>Plot {candidate.id} · fit verified · {candidate.land_check?.setback_m ?? '—'} m clearance</small></span><span className="rank-pop">{n(gross ? candidate.served_population : candidate.newly_served_population)}<small>{gross ? 'estimated covered' : 'estimated additional'}</small></span>
       </button>)}</div> : <p>No eligible supplied plot passed the requested footprint checks. No building placement is shown.</p>}
+      {best && selectedReasons.length > 0 && <section className="scenario-reasoning" aria-labelledby="scenario-reasoning-title"><h3 id="scenario-reasoning-title">Why Site {selectedRank} is ranked here</h3><ul>{selectedReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul><p>Ranking order: {gross ? 'estimated covered population' : 'estimated additional coverage'}, then the lowest population-weighted nearest-service distance, then plot ID.</p></section>}
       {(m.site_checks?.length > 0 || m.land_inventory) && <details className="scenario-sources"><summary>Land checks and sources</summary>{m.land_inventory && <div><b>Supplied land evidence · {m.land_inventory.as_of || 'date not recorded'}</b><p>{m.land_inventory.source || 'Source not recorded'}</p></div>}{m.site_checks?.length > 0 && <ul className="site-checks">{m.site_checks.map((site) => <li key={site.id}><b>{site.id}: {site.status}</b> · {site.reason} <span>Evidence: {site.source || 'not supplied'}</span></li>)}</ul>}</details>}
       {best && <Suspense fallback={<div role="status">Preparing 3D footprint view…</div>}><ScenarioViewer area={m.study_area} candidate={best} building={m.building} serviceType={m.service_type} dataset={dataset} /></Suspense>}
       <RunTechnicalDetails run={run} files={files} onDownload={onDownload} downloadError={downloadError} failed={failed} verified={verified} />

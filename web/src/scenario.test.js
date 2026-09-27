@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { makeScenarioSceneData, validateStudyArea, validateBuilding } from './scenario.js';
+import { explainScenarioCandidate, makeScenarioSceneData, validateStudyArea, validateBuilding } from './scenario.js';
 
 const area = [-122.433, 37.758, -122.417, 37.776];
 const ring = [[-122.4252,37.7669],[-122.4248,37.7669],[-122.4248,37.7671],[-122.4252,37.7671],[-122.4252,37.7669]];
@@ -40,6 +40,19 @@ describe('scenario geometry and bounds', () => {
     expect(validateBuilding({...building,width_m:101})).toBeTruthy();
     expect(validateBuilding({...building,setback_m:-1})).toBeTruthy();
   });
+});
+
+it('explains land fit, added coverage, and deterministic ranking tie-breaks', () => {
+  const candidates = [
+    {id:'plot-a',newly_served_population:2906,weighted_mean_nearest_m:217.5,land_check:{setback_m:3,plot_fit:true,area_fit:true,no_building_overlap:true,no_road_overlap:true,no_restriction_overlap:true}},
+    {id:'plot-b',newly_served_population:2906,weighted_mean_nearest_m:220.9,land_check:{setback_m:3,plot_fit:true,area_fit:true,no_building_overlap:true,no_road_overlap:true,no_restriction_overlap:true}},
+    {id:'plot-c',newly_served_population:0,weighted_mean_nearest_m:224.8,land_check:{setback_m:3,plot_fit:true,area_fit:true,no_building_overlap:true,no_road_overlap:true,no_restriction_overlap:true}},
+  ];
+  const metrics = {building:{width_m:24,depth_m:18},threshold_m:400,service_type:'clinic',inventory_status:'matching services supplied'};
+  expect(explainScenarioCandidate(candidates[0], candidates, metrics).join(' ')).toMatch(/2,906.*lower.*218 m/);
+  expect(explainScenarioCandidate(candidates[1], candidates, metrics).join(' ')).toMatch(/ties Site 1.*221 m versus 218 m/);
+  expect(explainScenarioCandidate(candidates[2], candidates, metrics).join(' ')).toMatch(/adds no estimated population coverage.*below Site 2/);
+  expect(explainScenarioCandidate(candidates[0], candidates, metrics).join(' ')).toMatch(/does not overlap a supplied building, mapped road corridor, or other restriction/);
 });
 
 it('aligns adjoining street tiles and checked coordinates in one north-up metre frame', async () => {

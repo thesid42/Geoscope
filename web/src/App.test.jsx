@@ -337,7 +337,7 @@ it('submits the SF mock scenario without a token, shows checked proposals, and i
   const area = [-122.433,37.758,-122.417,37.776];
   const ring = [[-122.426,37.766],[-122.424,37.766],[-122.424,37.768],[-122.426,37.768],[-122.426,37.766]];
   const data = {type:'FeatureCollection',scenario_status:'simulated land inventory',features:[population(),{type:'Feature',id:'plot-a',properties:{layer:'candidate_site'},geometry:{type:'Polygon',coordinates:[ring]}}]};
-  const candidate = {id:'plot-a',longitude:-122.425,latitude:37.767,newly_served_population:50,served_population:50,footprint:{type:'Polygon',coordinates:[ring]},land_check:{source:'Mock plot',setback_m:3}};
+  const candidate = {id:'plot-a',longitude:-122.425,latitude:37.767,newly_served_population:50,served_population:50,weighted_mean_nearest_m:120,footprint:{type:'Polygon',coordinates:[ring]},land_check:{source:'Mock plot',setback_m:3,plot_fit:true,area_fit:true,no_building_overlap:true,no_road_overlap:true,no_restriction_overlap:true}};
   const completed = {id:'scenario-1',status:'completed',analysis_mode:'scenario',demo_mode:true,summary:'Mock checks completed.',logs:[],result:{reference_verified:false,geometry_verified:true,metrics:{service_type:'clinic',study_area:area,building:{width_m:24,depth_m:18,height_m:12,setback_m:3},eligible_sites:1,sites_evaluated:1,population_total:50,baseline:{weighted_mean_nearest_m:null},candidates:[candidate],site_checks:[],land_inventory:{source:'SF mock',as_of:'2026-09-26'},inventory_status:'no matching service inventory supplied',existing_services_in_area:1,existing_service_counts:{clinic:1,library:0,school:0,community_center:0},service_inventory:{source:'OpenStreetMap mapped facilities',as_of:'2026-05-06',completeness_by_type:{clinic:'unknown'}}}}};
   const mock = vi.fn(async (url,init={})=>{
     if(url==='/api/config') return response(200,{...config,scenario_demo:{id:'localdemo'},supported_modes:['scenario'],demo_mode:true});
@@ -359,6 +359,9 @@ it('submits the SF mock scenario without a token, shows checked proposals, and i
   expect(screen.getByText('1 mapped clinic')).toBeInTheDocument();
   expect(screen.getByText(/Source: OpenStreetMap/)).toBeInTheDocument();
   expect(screen.getByText(/simulated plots checked against mapped buildings and road corridors, alongside mapped facility records/)).toBeInTheDocument();
+  expect(screen.getByRole('heading',{name:'Why Site 1 is ranked here'})).toBeInTheDocument();
+  expect(screen.getByText(/verified 24 × 18 m footprint and 3 m setback fit/)).toBeInTheDocument();
+  expect(screen.getByText(/does not overlap a supplied building, mapped road corridor, or other restriction/)).toBeInTheDocument();
   const post=mock.mock.calls.find(([url,init])=>url==='/api/runs' && init.method==='POST');
   expect(JSON.parse(post[1].body)).toMatchObject({analysis_mode:'scenario',study_area:area,service_type:'clinic',building:{width_m:24,depth_m:18,height_m:12,setback_m:3}});
   expect(post[1].headers.Authorization).toBeUndefined();

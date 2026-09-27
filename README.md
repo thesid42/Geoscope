@@ -21,7 +21,7 @@ Start with the **[application handoff](docs/HANDOFF.md)** for deployment paths, 
 
 | Workflow | Result |
 | --- | --- |
-| Facility scenario | Select an area, choose a clinic, library, school, or community centre, and rank up to three eligible plots with a 3D building preview. |
+| Facility scenario | Select an area, choose a clinic, library, school, or community centre, and rank up to three eligible plots with a 3D building preview and a verified explanation of each site's land fit, coverage, and ranking. |
 | Service access | Estimate population proximity to supplied facilities. |
 | Candidate comparison | Compare two proposed locations against an existing service network. |
 | Population in an area | Draw a rectangle and estimate population inside it; programmatic requests can also use supplied zone polygons. |

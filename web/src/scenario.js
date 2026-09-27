@@ -27,6 +27,56 @@ export function validateBuilding(building) {
   return null;
 }
 
+const readableNumber = (value, digits = 0) => Number.isFinite(Number(value))
+  ? Number(value).toLocaleString(undefined, { maximumFractionDigits: digits })
+  : 'N/A';
+
+export function explainScenarioCandidate(candidate, candidates, metrics) {
+  if (!candidate) return [];
+  const ranked = Array.isArray(candidates) ? candidates : [];
+  const rank = Math.max(0, ranked.findIndex((item) => item.id === candidate.id));
+  const building = metrics?.building ?? {};
+  const check = candidate.land_check ?? {};
+  const gross = metrics?.inventory_status === 'no matching service inventory supplied';
+  const coverageKey = gross ? 'served_population' : 'newly_served_population';
+  const coverage = Number(candidate[coverageKey]);
+  const threshold = readableNumber(metrics?.threshold_m);
+  const reasons = [];
+
+  if ([building.width_m, building.depth_m, check.setback_m].every((value) => Number.isFinite(Number(value)))) {
+    reasons.push(`The verified ${readableNumber(building.width_m)} × ${readableNumber(building.depth_m)} m footprint and ${readableNumber(check.setback_m, 1)} m setback fit inside the supplied plot and study area.`);
+  } else {
+    reasons.push('The requested footprint and setback passed the supplied plot and study-area fit checks.');
+  }
+  if (check.no_building_overlap === true && check.no_road_overlap === true && check.no_restriction_overlap === true) {
+    reasons.push('The checked placement does not overlap a supplied building, mapped road corridor, or other restriction.');
+  }
+
+  if (Number.isFinite(coverage)) {
+    if (gross) reasons.push(`With no matching existing-service inventory supplied, the proposal covers an estimated ${readableNumber(coverage)} people within ${threshold} m.`);
+    else if (coverage > 0) reasons.push(`It adds estimated ${metrics?.service_type?.replaceAll('_', ' ') || 'service'} coverage for ${readableNumber(coverage)} people within ${threshold} m.`);
+    else reasons.push(`It remains eligible on land fit, but adds no estimated population coverage within ${threshold} m.`);
+  }
+
+  const previous = rank > 0 ? ranked[rank - 1] : null;
+  const tied = ranked.filter((item) => Number(item?.[coverageKey]) === coverage);
+  const distance = Number(candidate.weighted_mean_nearest_m);
+  if (rank === 0) {
+    if (tied.length > 1 && Number.isFinite(distance)) reasons.push(`It ranks first among equal-coverage sites because its population-weighted nearest-service distance is lower (${readableNumber(distance)} m).`);
+    else reasons.push(`It ranks first because it has the highest ${gross ? 'estimated covered population' : 'estimated additional coverage'} among eligible sites.`);
+  } else if (previous && Number(previous[coverageKey]) > coverage) {
+    reasons.push(`It ranks below Site ${rank} because that site provides more ${gross ? 'estimated coverage' : 'estimated additional coverage'}.`);
+  } else if (previous && Number(previous[coverageKey]) === coverage) {
+    const previousDistance = Number(previous.weighted_mean_nearest_m);
+    if (Number.isFinite(distance) && Number.isFinite(previousDistance) && distance > previousDistance) {
+      reasons.push(`It ties Site ${rank} on coverage but ranks after it because its population-weighted nearest-service distance is higher (${readableNumber(distance)} m versus ${readableNumber(previousDistance)} m).`);
+    } else {
+      reasons.push(`It ties Site ${rank} on coverage and distance, so the plot ID provides the deterministic tie-break.`);
+    }
+  }
+  return reasons;
+}
+
 const MERCATOR_RADIUS = 6_378_137;
 const MERCATOR_LIMIT = 85.05112878;
 const MAX_CONTEXT_FEATURES = 160;
