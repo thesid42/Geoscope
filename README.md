@@ -2,7 +2,7 @@
 
 Geoscope is a geospatial analysis app built with **React, FastAPI, Leaflet, and Three.js**. Select a local area, propose a clinic or library, compare candidate plots, and inspect the proposed building in 3D. Land checks cover the whole building footprint, setbacks, plot boundaries, and supplied obstacles before a site is ranked.
 
-The San Francisco demo combines **real Census population and mapped OpenStreetMap facilities with simulated land plots and obstructions**. The live application uses **Vultr Serverless Inference, gVisor sandboxes, and a Vultr VPC**. A separate local demo runs fixed-reference calculations without an LLM or cloud worker.
+The San Francisco demo combines **real Census population and mapped OpenStreetMap facilities, building footprints, and road corridors with simulated candidate plots**. The live application uses **Vultr Serverless Inference, gVisor sandboxes, and a Vultr VPC**. A separate local demo runs fixed-reference calculations without an LLM or cloud worker.
 
 ## Current status
 
@@ -49,16 +49,17 @@ On macOS/Linux, use `.venv/bin/python` instead of `.\.venv\Scripts\python.exe`. 
 5. Switch the 3D view between **Building close-up** and **Neighborhood context** to see the proposal against street imagery, a north arrow, approximate metric scale, and supplied nearby services.
 6. Inspect rejected plots and download the calculation artifacts. Changing scenario inputs clears the old result and requires another run.
 
-With the default 24 × 18 m footprint and 3 m setback, **four of seven modeled plots qualify**. The other plots are building-blocked, restricted, or too small. A 100 × 100 m footprint fits none of them.
+With the default 24 × 18 m footprint and 3 m setback, **four of seven modeled plots qualify**. The other plots conflict with a mapped building, conflict with a buffered mapped road corridor, or are too small. A 100 × 100 m footprint fits none of them.
 
-The default selected area contains **12 mapped clinics, 1 library, 13 schools, and 7 community centers** in the downloaded inventory. At a 400 m threshold, the ranked clinic proposals add **zero estimated population coverage**. Geometric fit alone is not a reason to build; the interface reports that distinction.
+The default selected area contains **12 mapped clinics, 1 library, 13 schools, and 7 community centers** in the downloaded inventory. At a 400 m threshold, the first two ranked clinic alternatives each add an estimated population weight of **2,906**; the third adds **zero**. These are independent alternatives using representative-point and straight-line-distance proxies, not verified need or resident counts.
 
 ### Data provenance and local execution
 
 | Data or execution | Local SF demo |
 | --- | --- |
 | Population | 12 unchanged observed 2020 Census tracts from the bundled SF snapshot. |
-| Plots, buildings, restrictions | Explicitly simulated land features placed at SF coordinates. |
+| Candidate plots | Explicitly simulated rectangles placed at SF coordinates; no ownership or availability claim. |
+| Buildings and roads | Bounded OSM way snapshot around the seven plots; road centerlines use tagged widths or documented class defaults to form exclusion corridors. |
 | Existing facilities | 75 mapped OpenStreetMap records in a local SF extract; source snapshot dated 2026-05-06. Coverage and operating status are not certified. |
 | Land checks | Computed containment, setbacks, declared permitted uses, and collisions against the modeled land inventory. |
 | Analysis execution | Fixed trusted local calculations; no LLM, generated-code execution, cloud worker, or gVisor. |
@@ -66,9 +67,9 @@ The default selected area contains **12 mapped clinics, 1 library, 13 schools, a
 
 The map uses a blue dashed study boundary, purple candidate plots, a teal selected plot, orange checked building footprints, gray supplied building records, and red restrictions. Map labels match the ranked site cards.
 
-The [downloaded SF facility GeoJSON](data/real-scenario/sf-osm-services.geojson) is **41,358 bytes (41.4 kB)**: 21 clinics, 4 libraries, 34 schools, and 16 community centres across the extract. The original response is **34,310 bytes**; one explicitly disused clinic was excluded. Counts within a selected rectangle will differ. The combined census + simulated land + mapped-service demo is **62,228 bytes**. See the [query, date, hashes, and ODbL attribution](data/real-scenario/sf-osm-services-manifest.json); this is a neighborhood extract, not all of San Francisco. Refresh deliberately with `python scripts/fetch_sf_osm_services.py`, then regenerate the scenario fixture.
+The [downloaded SF facility GeoJSON](data/real-scenario/sf-osm-services.geojson) is **41,358 bytes (41.4 kB)**: 21 clinics, 4 libraries, 34 schools, and 16 community centres across the extract. The original response is **34,310 bytes**; one explicitly disused clinic was excluded. Counts within a selected rectangle will differ. The combined census + simulated land + mapped context demo is **915,961 bytes** and contains 1,085 features. Its compact land-context snapshot contributes 556 mapped building footprints and 435 buffered road/footpath corridors near the seven candidate plots. See the source manifests for query dates, hashes, methods, limitations, and ODbL attribution. Refresh deliberately with the two `fetch_sf_osm_*.py` scripts, then regenerate the scenario fixture.
 
-The 3D scene uses the checked footprint on flat ground. It loads only nine public OpenStreetMap tiles for the current view, with attribution and normal browser caching. Street imagery is visual context independent of the supplied land evidence; it does not verify availability. Unknown building heights stay flat and street tile failure preserves the supplied geometry. Height affects its appearance; width, depth, and setback affect site eligibility and placement. See [SF mock provenance](data/real-scenario/README.md) and its [manifest](data/real-scenario/manifest.json).
+The 3D scene uses the checked footprint on flat ground. It loads only nine public OpenStreetMap tiles for the current view, with attribution and normal browser caching. Those tile pixels remain display-only; collision checks use the bundled vector building/road snapshot, not imagery. Unknown building heights stay flat and street tile failure preserves the supplied geometry. Height affects its appearance; width, depth, and setback affect site eligibility and placement. See [SF mock provenance](data/real-scenario/README.md) and its [manifest](data/real-scenario/manifest.json).
 
 ### Stop the app
 
@@ -132,9 +133,9 @@ Uploads are GeoJSON FeatureCollections in EPSG:4326 longitude/latitude. If prese
 | `candidate_site` | Polygon, MultiPolygon | Unique string feature ID; `land_status: "available"`, nonempty `source`, and `allowed_services` containing the chosen service. |
 | `building`, `restricted` | Polygon, MultiPolygon | Obstructions excluded from proposed footprints and setbacks. |
 
-Scenario datasets also require top-level `land_inventory` with a `source`, ISO `as_of` date, and both `building_coverage` and `restriction_coverage` set to `complete_for_candidate_sites`. These are supplied declarations, not independent certification of ownership or permission. Missing obstruction coverage is not assumed clear. The [SF fixture](data/real-scenario/sf-mock.geojson) provides a complete worked input; regenerate it with `python scripts/generate_sf_mock_scenario.py`.
+Scenario datasets also require top-level `land_inventory` with a `source`, ISO `as_of` date, and `building_coverage`, `road_coverage`, and `restriction_coverage` set to `complete_for_candidate_sites`. These are supplied declarations, not independent certification of ownership or permission. Missing obstruction coverage is not assumed clear. The [SF fixture](data/real-scenario/sf-mock.geojson) provides a complete worked input; regenerate it with `python scripts/generate_sf_mock_scenario.py`.
 
-Scenarios accept at most 5,000 features and 100 candidate plots. Each selected-area side must be 20 m–10 km. The search tries up to 81 deterministic anchors per plot at 0°/90°, checking the entire footprint plus setback against the plot, selected area, buildings, and restrictions. It ranks one placement per eligible plot by added population proximity, then weighted mean distance, then site ID. Alternatives are independent proposals. No fit found by this bounded search does not mean that every possible placement is impossible.
+Scenarios accept at most 5,000 features and 100 candidate plots. Each selected-area side must be 20 m–10 km. The search tries up to 81 deterministic anchors per plot at 0°/90°, checking the entire footprint plus setback against the plot, selected area, buildings, mapped road corridors, and other restrictions. It ranks one placement per eligible plot by added population proximity, then weighted mean distance, then site ID. Alternatives are independent proposals. No fit found by this bounded search does not mean that every possible placement is impossible.
 
 The result also reports **Already in this area**: counts of supplied clinic, library, school, and community-center records whose projected geometry representative point falls inside the selected boundary (boundary points count). `existing_services_in_area` is the selected type's count; `existing_service_counts` provides the breakdown. `service_inventory` records source, date, and completeness. Missing metadata is unknown coverage, and zero mapped records never proves that no real facility exists. These are facility records, not a count of distinct architectural structures.
 

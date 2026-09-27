@@ -9,15 +9,22 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+try:
+    from .sf_scenario_sites import SITES, STUDY_BOUNDS_WEST_SOUTH_EAST_NORTH
+except ImportError:  # Direct script execution.
+    from sf_scenario_sites import SITES, STUDY_BOUNDS_WEST_SOUTH_EAST_NORTH
+
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "data" / "real" / "sf-parks-census.geojson"
 SOURCE_MANIFEST = ROOT / "data" / "real" / "manifest.json"
 SERVICE_SNAPSHOT = ROOT / "data" / "real-scenario" / "sf-osm-services.geojson"
 SERVICE_MANIFEST = ROOT / "data" / "real-scenario" / "sf-osm-services-manifest.json"
+LAND_CONTEXT_SNAPSHOT = ROOT / "data" / "real-scenario" / "sf-osm-land-context.geojson"
+LAND_CONTEXT_MANIFEST = ROOT / "data" / "real-scenario" / "sf-osm-land-context-manifest.json"
 OUT_DIR = ROOT / "data" / "real-scenario"
 OUT_FILE = OUT_DIR / "sf-mock.geojson"
 MANIFEST_FILE = OUT_DIR / "manifest.json"
-SIMULATED_BOUNDS = [-122.433, 37.758, -122.417, 37.776]  # synthetic fixture region, west/south/east/north
+SIMULATED_BOUNDS = STUDY_BOUNDS_WEST_SOUTH_EAST_NORTH
 # Full tract polygons are preserved, so the GeoJSON bbox must cover their full extent too.
 BOUNDS = [-122.435794, 37.755295, -122.416567, 37.775432]
 SCENARIO_AS_OF = "2026-09-26"
@@ -30,18 +37,6 @@ POPULATION_GEOIDS = {
 }
 ALLOWED = ["clinic", "library", "school", "community_center"]
 LAND_SOURCE = "Simulated parcel for SF mock demo; not an actual availability record"
-
-# Fixture parcels are modeled rectangles in meters at real SF coordinates, not recorded legal parcels.
-SITES = [
-    {"id": "sfmock-fit-01", "name": "Mock candidate A · Mission North", "center": [-122.4305, 37.7706], "size_m": [60, 50], "expected_fit": "fit"},
-    {"id": "sfmock-fit-02", "name": "Mock candidate B · Mission Central", "center": [-122.4252, 37.7687], "size_m": [60, 50], "expected_fit": "fit"},
-    {"id": "sfmock-fit-03", "name": "Mock candidate C · Mission East", "center": [-122.4200, 37.7727], "size_m": [60, 50], "expected_fit": "fit"},
-    {"id": "sfmock-fit-04", "name": "Mock candidate D · Mission South", "center": [-122.4192, 37.7650], "size_m": [60, 50], "expected_fit": "fit"},
-    {"id": "sfmock-building-blocked", "name": "Mock candidate E · building obstruction", "center": [-122.4308, 37.7628], "size_m": [60, 50], "expected_fit": "blocked_by_building"},
-    {"id": "sfmock-restricted", "name": "Mock candidate F · restricted area", "center": [-122.4260, 37.7603], "size_m": [60, 50], "expected_fit": "restricted"},
-    {"id": "sfmock-too-small", "name": "Mock candidate G · undersized lot", "center": [-122.4205, 37.7605], "size_m": [29, 23], "expected_fit": "too_small"},
-]
-
 
 def rectangle(center: list[float], width_m: float, height_m: float) -> dict[str, Any]:
     lon, lat = center
@@ -72,6 +67,8 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
     source_manifest = json.loads(SOURCE_MANIFEST.read_text(encoding="utf-8"))
     service_snapshot = json.loads(SERVICE_SNAPSHOT.read_text(encoding="utf-8"))
     service_manifest = json.loads(SERVICE_MANIFEST.read_text(encoding="utf-8"))
+    land_context = json.loads(LAND_CONTEXT_SNAPSHOT.read_text(encoding="utf-8"))
+    land_context_manifest = json.loads(LAND_CONTEXT_MANIFEST.read_text(encoding="utf-8"))
     service_features = service_snapshot.get("features", [])
     if not isinstance(service_features, list) or any(f.get("properties", {}).get("layer") != "service" for f in service_features):
         raise SystemExit("OSM service snapshot must contain only layer=service features")
@@ -96,19 +93,11 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
             "required_building_width_m": 24, "required_building_depth_m": 18,
             "setback_m": 3,
         }, site_geometry))
-        if site["expected_fit"] == "blocked_by_building":
-            features.append(feature("sfmock-building-obstruction-01", {
-                "layer": "building", "name": "Simulated existing building obstruction",
-                "height_m": 8.4, "source": "Simulated building footprint for SF mock demo; not an observed building record",
-                "scenario_only": True,
-            }, rectangle(site["center"], 56, 46)))
-        if site["expected_fit"] == "restricted":
-            features.append(feature("sfmock-restricted-area-01", {
-                "layer": "restricted", "name": "Simulated no-build area",
-                "restriction_type": "mock_site_constraint",
-                "source": "Simulated restriction for SF mock demo; not a legal or environmental restriction record",
-                "scenario_only": True,
-            }, rectangle(site["center"], 60, 50)))
+
+    context_features = land_context.get("features", [])
+    if not isinstance(context_features, list) or any(f.get("properties", {}).get("layer") not in {"building", "restricted"} for f in context_features):
+        raise SystemExit("OSM land-context snapshot must contain only building/restricted features")
+    features.extend(json.loads(json.dumps(context_features)))
 
     # Observed source records are copied verbatim from a compact, attributed OSM extract.
     features.extend(json.loads(json.dumps(service_features)))
@@ -138,10 +127,13 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         },
         "service_inventory": service_snapshot["service_inventory"],
         "land_inventory": {
-            "source": "SF mock-simulation rectangles, obstructions, and restrictions; no parcel/availability records used",
+            "source": "Simulated candidate rectangles checked against bundled OSM mapped building footprints and buffered transport corridors; no parcel/availability records used",
             "as_of": SCENARIO_AS_OF,
             "building_coverage": "complete_for_candidate_sites",
             "restriction_coverage": "complete_for_candidate_sites",
+            "road_coverage": "complete_for_candidate_sites",
+            "observed_context_completeness": "not_certified_complete",
+            "observed_context_as_of": land_context["land_context_inventory"]["as_of"],
             "land_status_semantics": "available means available only in this synthetic fixture; it is not evidence of real ownership, vacancy, legal availability, or buildability",
             "footprint_width_m": 24,
             "footprint_depth_m": 18,
@@ -187,12 +179,26 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         "simulated_features": {
             "candidate_sites": len(SITES),
             "expected_fit_cases": {x["expected_fit"]: sum(y["expected_fit"] == x["expected_fit"] for y in SITES) for x in SITES},
-            "candidate_geometry_method": "Axis-aligned rectangles created from nominal meter dimensions at the specified San Francisco lon/lat centers using local degree approximations.",
-            "buildings": "One simulated 56m x 46m footprint overlaps the building-blocked lot; no actual footprint source is represented.",
-            "restrictions": "One simulated restriction covers the restricted test lot; no legal/environmental restriction is represented.",
+            "candidate_geometry_method": "Axis-aligned simulated rectangles created from nominal meter dimensions at the specified San Francisco lon/lat centers. Eligible rectangles were selected to avoid the bundled mapped building and buffered-road context.",
+            "buildings": f"{land_context_manifest['normalized']['counts'].get('buildings', 0)} mapped OSM building footprints near the candidate sites.",
+            "restrictions": f"{land_context_manifest['normalized']['counts'].get('road_corridors', 0)} mapped OSM highway centerlines buffered into conservative transport-corridor exclusions.",
             "synthetic_service_points": 0,
-            "all_land_features_simulated": True,
+            "candidate_land_features_simulated": True,
+            "mapped_building_and_road_context_simulated": False,
             "availability_claim": "None. Candidate land_status is fixture logic only; city ownership and availability are unknown.",
+        },
+        "land_context_source": {
+            "dataset_id": "sf-osm-land-context",
+            "raw_file": land_context_manifest["raw"]["file"],
+            "raw_sha256": land_context_manifest["raw"]["sha256"],
+            "normalized_file": land_context_manifest["normalized"]["file"],
+            "normalized_sha256": land_context_manifest["normalized"]["sha256"],
+            "source_timestamp": land_context_manifest["osm_data_timestamp"],
+            "counts": land_context_manifest["normalized"]["counts"],
+            "method": land_context_manifest["method"],
+            "limitations": land_context_manifest["limitations"],
+            "attribution": land_context_manifest["attribution"],
+            "license": land_context_manifest["license"],
         },
         "output_file": OUT_FILE.name,
         "output_sha256": None,
@@ -207,7 +213,7 @@ def main() -> None:
     manifest["output_sha256"] = sha256(OUT_FILE)
     MANIFEST_FILE.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {OUT_FILE.relative_to(ROOT)} ({len(data['features'])} features; {manifest['population_source']['selected_population_sum_2020']:,} observed 2020 population).")
-    print("Candidate land, buildings, and restrictions are simulated; service features are mapped OSM records. No real land availability is claimed.")
+    print("Candidate land is simulated; service, building, and road context are mapped OSM records. No real land availability is claimed.")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,59 @@
+{
+  "dataset_id": "sf-osm-land-context",
+  "downloaded_at_utc": "2026-09-27T03:36:49+00:00",
+  "endpoint": "https://overpass.private.coffee/api/interpreter",
+  "query": "[out:json][timeout:60];(way[\"building\"](around:120,37.76358,-122.429477);way[\"highway\"](around:120,37.76358,-122.429477);way[\"building\"](around:120,37.760505,-122.42675);way[\"highway\"](around:120,37.760505,-122.42675);way[\"building\"](around:120,37.768916,-122.421864);way[\"highway\"](around:120,37.768916,-122.421864);way[\"building\"](around:120,37.758968,-122.422432);way[\"highway\"](around:120,37.758968,-122.422432);way[\"building\"](around:120,37.7687,-122.4252);way[\"highway\"](around:120,37.7687,-122.4252);way[\"building\"](around:120,37.765,-122.4192);way[\"highway\"](around:120,37.765,-122.4192);way[\"building\"](around:120,37.769608,-122.432017);way[\"highway\"](around:120,37.769608,-122.432017););out geom tags;",
+  "candidate_site_ids": [
+    "sfmock-fit-01",
+    "sfmock-fit-02",
+    "sfmock-fit-03",
+    "sfmock-fit-04",
+    "sfmock-building-blocked",
+    "sfmock-restricted",
+    "sfmock-too-small"
+  ],
+  "query_radius_m": 120,
+  "osm_data_timestamp": "2026-07-15T15:22:01Z",
+  "attribution": "© OpenStreetMap contributors",
+  "attribution_url": "https://www.openstreetmap.org/copyright",
+  "license": "Open Database License (ODbL) 1.0",
+  "license_url": "https://opendatacommons.org/licenses/odbl/1-0/",
+  "raw": {
+    "file": "sf-osm-land-context-raw.json",
+    "bytes": 742422,
+    "sha256": "65e43b9f730b7f6c997cd6688cf488fd0d288b3bbebdc66feeb005fa9448920a"
+  },
+  "normalized": {
+    "file": "sf-osm-land-context.geojson",
+    "feature_count": 991,
+    "counts": {
+      "buildings": 556,
+      "road_corridors": 435
+    },
+    "bytes": 855259,
+    "sha256": "6c81277837827c76e51e3c61e88b7d7aaa89d39cecf9b2d6a3b55daecad2e2a9"
+  },
+  "road_width_defaults_m": {
+    "motorway": 24,
+    "trunk": 20,
+    "primary": 18,
+    "secondary": 16,
+    "tertiary": 14,
+    "residential": 10,
+    "unclassified": 10,
+    "living_street": 8,
+    "pedestrian": 8,
+    "service": 7,
+    "cycleway": 4,
+    "footway": 3,
+    "path": 2,
+    "steps": 3,
+    "track": 4
+  },
+  "method": "Deduplicate OSM ways returned within 120 m of each simulated site. Preserve mapped building polygons. Convert mapped highway centerlines to polygonal restricted corridors using tagged width when usable, otherwise the documented class default.",
+  "limitations": [
+    "OpenStreetMap is community-mapped and may omit, simplify, or contain stale buildings and transport features.",
+    "Buffered road corridors are planning-screen proxies, not surveyed curb or right-of-way boundaries.",
+    "Candidate plots remain simulated and this context does not establish vacancy, ownership, permission, or constructibility."
+  ]
+}

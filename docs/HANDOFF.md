@@ -11,6 +11,10 @@ Recorded September 26, 2026 (America/Los_Angeles), September 27 UTC. Last tested
 - The dataset mixes observed population/facility records with simulated land. Geometric fit is checked; actual land availability is not established.
 - Credentials belong in the existing server environment files or the operator's private credential store. No passwords, API keys, worker tokens, or app secrets belong in this document or Git.
 
+### Local working-tree update after this deployment snapshot
+
+The current workspace includes an **undeployed** land-context improvement: the four eligible simulated plots were moved off mapped OSM buildings and transport corridors; 556 mapped building footprints and 435 buffered road/footpath corridors around all seven plots are now enforced as sandbox obstructions. The combined fixture has 1,085 features (915,961 bytes). Local reference results still have four eligible plots; ranked clinic IDs are `sfmock-fit-02`, `sfmock-fit-01`, `sfmock-fit-03`, with additional population weights `2,906`, `2,906`, and `0`. The public server and the deployment evidence below still describe commit `8f8143c` until this change is reviewed, committed, deployed to both controller and worker where applicable, and accepted in the browser.
+
 ## Implemented behavior
 
 | Workflow | Inputs and outcome |

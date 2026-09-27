@@ -72,17 +72,38 @@
     "candidate_sites": 7,
     "expected_fit_cases": {
       "fit": 4,
-      "blocked_by_building": 1,
-      "restricted": 1,
+      "blocked_by_mapped_building": 1,
+      "blocked_by_mapped_road": 1,
       "too_small": 1
     },
-    "candidate_geometry_method": "Axis-aligned rectangles created from nominal meter dimensions at the specified San Francisco lon/lat centers using local degree approximations.",
-    "buildings": "One simulated 56m x 46m footprint overlaps the building-blocked lot; no actual footprint source is represented.",
-    "restrictions": "One simulated restriction covers the restricted test lot; no legal/environmental restriction is represented.",
+    "candidate_geometry_method": "Axis-aligned simulated rectangles created from nominal meter dimensions at the specified San Francisco lon/lat centers. Eligible rectangles were selected to avoid the bundled mapped building and buffered-road context.",
+    "buildings": "556 mapped OSM building footprints near the candidate sites.",
+    "restrictions": "435 mapped OSM highway centerlines buffered into conservative transport-corridor exclusions.",
     "synthetic_service_points": 0,
-    "all_land_features_simulated": true,
+    "candidate_land_features_simulated": true,
+    "mapped_building_and_road_context_simulated": false,
     "availability_claim": "None. Candidate land_status is fixture logic only; city ownership and availability are unknown."
   },
+  "land_context_source": {
+    "dataset_id": "sf-osm-land-context",
+    "raw_file": "sf-osm-land-context-raw.json",
+    "raw_sha256": "65e43b9f730b7f6c997cd6688cf488fd0d288b3bbebdc66feeb005fa9448920a",
+    "normalized_file": "sf-osm-land-context.geojson",
+    "normalized_sha256": "6c81277837827c76e51e3c61e88b7d7aaa89d39cecf9b2d6a3b55daecad2e2a9",
+    "source_timestamp": "2026-07-15T15:22:01Z",
+    "counts": {
+      "buildings": 556,
+      "road_corridors": 435
+    },
+    "method": "Deduplicate OSM ways returned within 120 m of each simulated site. Preserve mapped building polygons. Convert mapped highway centerlines to polygonal restricted corridors using tagged width when usable, otherwise the documented class default.",
+    "limitations": [
+      "OpenStreetMap is community-mapped and may omit, simplify, or contain stale buildings and transport features.",
+      "Buffered road corridors are planning-screen proxies, not surveyed curb or right-of-way boundaries.",
+      "Candidate plots remain simulated and this context does not establish vacancy, ownership, permission, or constructibility."
+    ],
+    "attribution": "© OpenStreetMap contributors",
+    "license": "Open Database License (ODbL) 1.0"
+  },
   "output_file": "sf-mock.geojson",
-  "output_sha256": "311040aa8baef1b39a7c91597ef41abc2067459779e15ef44993164aa0227ca8"
+  "output_sha256": "ae3504d040e317e4ecbabda0832cef79fb0de94ea7491803f6408741f1d6d825"
 }

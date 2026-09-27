@@ -40,8 +40,9 @@ def validate_land_dataset(dataset):
     if any(not isinstance(value, str) or not value.strip() or len(value) > 80 for value in ids) or len(set(ids)) != len(ids):
         raise ValueError("Candidate plots need unique nonempty string feature IDs (up to 80 characters).")
     inventory = dataset.get("land_inventory")
-    if not isinstance(inventory, dict) or any(inventory.get(key) != "complete_for_candidate_sites" for key in ("building_coverage", "restriction_coverage")):
-        raise ValueError("Land data must declare building and restriction coverage complete_for_candidate_sites in land_inventory; missing obstructions cannot be assumed absent.")
+    coverage_keys = ("building_coverage", "road_coverage", "restriction_coverage")
+    if not isinstance(inventory, dict) or any(inventory.get(key) != "complete_for_candidate_sites" for key in coverage_keys):
+        raise ValueError("Land data must declare building, road, and restriction coverage complete_for_candidate_sites in land_inventory; missing obstructions cannot be assumed absent.")
     for key in ("source", "as_of"):
         if not isinstance(inventory.get(key), str) or not inventory[key].strip() or len(inventory[key]) > 1000:
             raise ValueError("Land inventory needs a source and as_of date.")

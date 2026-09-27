@@ -358,7 +358,7 @@ it('submits the SF mock scenario without a token, shows checked proposals, and i
   expect(await screen.findByTestId('scenario-3d')).toHaveTextContent('plot-a');
   expect(screen.getByText('1 mapped clinic')).toBeInTheDocument();
   expect(screen.getByText(/Source: OpenStreetMap/)).toBeInTheDocument();
-  expect(screen.getByText(/simulated plots and obstructions, alongside mapped facility records/)).toBeInTheDocument();
+  expect(screen.getByText(/simulated plots checked against mapped buildings and road corridors, alongside mapped facility records/)).toBeInTheDocument();
   const post=mock.mock.calls.find(([url,init])=>url==='/api/runs' && init.method==='POST');
   expect(JSON.parse(post[1].body)).toMatchObject({analysis_mode:'scenario',study_area:area,service_type:'clinic',building:{width_m:24,depth_m:18,height_m:12,setback_m:3}});
   expect(post[1].headers.Authorization).toBeUndefined();

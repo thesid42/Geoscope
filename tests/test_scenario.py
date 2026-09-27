@@ -4,7 +4,7 @@ import json
 import pytest
 from pyproj import Transformer
 from shapely.geometry import Point, Polygon, MultiPolygon, box, shape, mapping
-from shapely.ops import transform
+from shapely.ops import transform, unary_union
 
 from app.scenario import BuildingSpec, validate_land_dataset, validate_study_area
 from app.scenario_program import calculate
@@ -25,7 +25,7 @@ def fixture():
     return {"type": "FeatureCollection", "analysis_mode": "scenario", "study_area": bounds,
             "service_type": "clinic", "threshold_m": 100, "projected_crs": "EPSG:32610",
             "building": BuildingSpec().model_dump(),
-            "land_inventory": {"building_coverage": "complete_for_candidate_sites", "restriction_coverage": "complete_for_candidate_sites", "source": "Test survey", "as_of": "2026-09-26"},
+            "land_inventory": {"building_coverage": "complete_for_candidate_sites", "road_coverage": "complete_for_candidate_sites", "restriction_coverage": "complete_for_candidate_sites", "source": "Test survey", "as_of": "2026-09-26"},
             "features": [feature("population", "population", Point(X, Y), population=125.5),
                          feature("plot-a", "candidate_site", box(X-45, Y-45, X+45, Y+45), land_status="available", allowed_services=["clinic", "library"], source="Test plot record")]}
 
@@ -45,6 +45,7 @@ def test_verified_footprint_setback_and_coverage_are_computed_in_metres():
     assert footprint.area == pytest.approx(24*18, abs=1e-5)
     assert candidate["newly_served_population"] == 125.5
     assert candidate["land_check"]["plot_fit"] is True
+    assert candidate["land_check"]["no_road_overlap"] is True
     assert mapped["features"][0]["properties"]["nearest_m"] is None
     _verify_map(json.dumps(mapped).encode(), json.dumps(mapped).encode(), req)
 
@@ -57,6 +58,17 @@ def test_obstruction_overlapping_whole_plot_excludes_placement(layer):
     assert result["metrics"]["candidates"] == []
     assert result["comparison"]["preferred_candidate"] is None
     assert "bounded search" in result["metrics"]["site_checks"][0]["reason"]
+
+
+def test_mapped_road_corridor_is_enforced_separately():
+    req = fixture()
+    req["features"].append(feature(
+        "mapped-road", "restricted", box(X-50, Y-50, X+50, Y+50),
+        restriction_type="mapped_road_corridor",
+    ))
+    result, _ = calculate(req)
+    assert result["metrics"]["candidates"] == []
+    assert result["metrics"]["land_inventory"]["road_coverage"] == "complete_for_candidate_sites"
 
 
 def test_fit_rejects_holes_and_multipolygon_gaps():
@@ -162,7 +174,7 @@ def test_land_metadata_and_duplicate_ids_fail_validation():
     req["features"].append(copy.deepcopy(req["features"][1]))
     with pytest.raises(ValueError, match="unique"):
         validate_land_dataset(req)
-    req = fixture(); req["land_inventory"]["building_coverage"] = "unknown"
+    req = fixture(); req["land_inventory"]["road_coverage"] = "unknown"
     with pytest.raises(ValueError, match="coverage"):
         validate_land_dataset(req)
 
@@ -210,10 +222,20 @@ def test_bundled_sf_mock_has_expected_fit_and_exclusion_results():
     m = calculate(req)[0]["metrics"]
     assert req["scenario_status"] == "MOCK_SIMULATION"
     assert m["sites_evaluated"] == 7 and m["eligible_sites"] == 4
+    assert m["land_inventory"]["road_coverage"] == "complete_for_candidate_sites"
     assert m["existing_services_in_area"] == 12
     assert m["existing_service_counts"] == {"clinic": 12, "library": 1, "school": 13, "community_center": 7}
     assert m["service_inventory"]["as_of"] == "2026-05-06"
     assert set(m["service_inventory"]["completeness_by_type"].values()) == {"mapped_extract_not_complete"}
-    assert [c["id"] for c in m["candidates"]] == ["sfmock-fit-04", "sfmock-fit-01", "sfmock-fit-02"]
-    assert [c["newly_served_population"] for c in m["candidates"]] == [0, 0, 0]
+    assert [c["id"] for c in m["candidates"]] == ["sfmock-fit-02", "sfmock-fit-01", "sfmock-fit-03"]
+    assert [c["newly_served_population"] for c in m["candidates"]] == [2906, 2906, 0]
     assert {c["id"] for c in m["site_checks"] if c["status"] == "excluded"} == {"sfmock-building-blocked", "sfmock-restricted", "sfmock-too-small"}
+
+    buildings = unary_union([shape(f["geometry"]) for f in req["features"] if f["properties"]["layer"] == "building"])
+    roads = unary_union([shape(f["geometry"]) for f in req["features"] if f["properties"].get("restriction_type") == "mapped_road_corridor"])
+    sites = {f["id"]: shape(f["geometry"]) for f in req["features"] if f["properties"]["layer"] == "candidate_site"}
+    for site_id in ("sfmock-fit-01", "sfmock-fit-02", "sfmock-fit-03", "sfmock-fit-04"):
+        assert not sites[site_id].intersects(buildings)
+        assert not sites[site_id].intersects(roads)
+    assert sites["sfmock-building-blocked"].intersects(buildings)
+    assert sites["sfmock-restricted"].intersects(roads)
