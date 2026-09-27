@@ -28,6 +28,12 @@ def test_secure_runtime_settings_are_verified():
         "NanoCpus": 1_000_000_000, "PidsLimit": 64, "SecurityOpt": ["no-new-privileges:true"],
     }
     assert _secure_config(safe)
+    config = dict(safe, Tmpfs={"/output": "rw,noexec,size=16m", "/tmp": "rw,noexec,size=32m"})
+    container = {"Config": {"User": "10001:10001", "Env": ["PATH=/usr/local/bin", "PYTHON_VERSION=3.12"]},
+                 "Mounts": [{"Destination": "/input", "Type": "bind", "RW": False}]}
+    assert _secure_config(config, container)
+    container["Config"]["Env"].append("WORKER_TOKEN=must-not-enter-sandbox")
+    assert not _secure_config(config, container)
     for key, value in (("Runtime", "runc"), ("NetworkMode", "bridge"), ("ReadonlyRootfs", False), ("PidsLimit", 256)):
         candidate = dict(safe, **{key: value})
         assert not _secure_config(candidate)

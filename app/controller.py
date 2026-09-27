@@ -497,7 +497,7 @@ async def _run_agent_inner(run: dict[str, Any], dataset: dict[str, Any], a: list
                 json={"data": analysis_input, "timeout_seconds": settings.worker_timeout_seconds},
                 timeout=settings.worker_timeout_seconds + 70)
             if inspected_response.status_code >= 400:
-                detail = inspected_response.json().get("detail", "inspection failed")
+                detail = _worker_detail(inspected_response)
                 raise RuntimeError(f"Dataset inspection failed before model execution: {json.dumps(detail)[:2000]}")
             inspection = inspected_response.json()["inspection"]
             run["inspection"] = inspection
@@ -537,7 +537,7 @@ async def _run_agent_inner(run: dict[str, Any], dataset: dict[str, Any], a: list
                     attempt_record.update({"status": "completed", "stdout": execution.get("stdout", "")[:64000], "stderr": execution.get("stderr", "")[:64000], "verified_against_reference": execution.get("verified_against_reference") is True})
                     _save_run(run)
                     break
-                detail = response.json().get("detail", "worker execution error")
+                detail = _worker_detail(response)
                 attempt_record.update({"status": "failed", "diagnostics": detail})
                 _save_run(run)
                 if response.status_code != 422:
@@ -574,6 +574,16 @@ async def _run_agent_inner(run: dict[str, Any], dataset: dict[str, Any], a: list
         run["status"] = "failed"
         run["error"] = str(exc)[:2000]
         _log(run, f"Run failed: {run['error']}", "error")
+
+
+def _worker_detail(response: httpx.Response) -> Any:
+    try:
+        payload = response.json()
+        if isinstance(payload, dict) and payload.get("detail"):
+            return payload["detail"]
+    except (ValueError, TypeError):
+        pass
+    return f"Worker returned HTTP {response.status_code} without JSON diagnostics. Check the worker service logs."
 
 
 def _summary_payload(run: dict[str, Any]) -> str:

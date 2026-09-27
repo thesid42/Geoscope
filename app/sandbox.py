@@ -5,6 +5,7 @@ import base64
 import math
 import os
 import platform
+import re
 import subprocess
 import tempfile
 import threading

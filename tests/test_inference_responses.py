@@ -94,3 +94,9 @@ def test_summary_retains_winners_after_large_check_inventory():
 def test_mode_error_supplies_required_envelope_without_accepting_bad_output():
     with pytest.raises(SandboxFailure, match="top-level mode='scenario'"):
         _verify_result({"analysis_mode":"scenario", "metrics":{}}, {"mode":"scenario", "metrics":{}})
+
+
+def test_non_json_worker_failure_has_actionable_status():
+    import httpx
+    error = controller._worker_detail(httpx.Response(500, text="Internal Server Error"))
+    assert "HTTP 500" in error and "worker service logs" in error
