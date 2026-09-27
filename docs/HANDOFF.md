@@ -1,6 +1,6 @@
 # Geoscope application handoff
 
-Recorded September 26, 2026 (America/Los_Angeles), September 27 UTC. Last tested and deployed **application** commit: `55e8a63` on `main`. Documentation commits may be newer. This is a status snapshot, not a claim that all future deployments have been tested.
+Recorded September 26, 2026 (America/Los_Angeles), September 27 UTC. Last tested and deployed **application** commit: `84ea118` on `main`. Documentation commits may be newer. This is a status snapshot, not a claim that all future deployments have been tested.
 
 ## Start here
 
@@ -14,6 +14,8 @@ Recorded September 26, 2026 (America/Los_Angeles), September 27 UTC. Last tested
 ### Deployed land-context update
 
 Commit `55e8a63` moved the four eligible simulated plots off mapped OSM buildings and transport corridors. The deployed fixture includes 556 mapped building footprints and 435 buffered road/footpath corridors around all seven plots, enforced as sandbox obstructions. It has 1,085 features (915,961 bytes). The verified clinic ranking is `sfmock-fit-02`, `sfmock-fit-01`, `sfmock-fit-03`, with additional population weights `2,906`, `2,906`, and `0`. This is deployed and API-tested on both the controller and worker; deployed visual browser acceptance remains outstanding.
+
+Commit `84ea118` adds a deterministic **Why Site N is ranked here** panel for the selected result. It explains verified footprint/setback fit, building/road/restriction clearance, estimated coverage contribution, and the exact coverage/distance/plot-ID tie-break. The explanation is derived from reference-verified result fields rather than unverified model prose.
 
 ## Implemented behavior
 
@@ -67,9 +69,9 @@ Last implementation checks, completed before this documentation update:
 | Check | Recorded outcome |
 | --- | --- |
 | Full backend suite | **138 passed** in Linux with GIS dependencies; Starlette/HTTPX deprecation warning only. |
-| Frontend suite | **30 passed** across App, map lifecycle, scene geometry, and viewer lifecycle/fallback tests. |
+| Frontend suite | **31 passed** across App, site-ranking explanations, map lifecycle, scene geometry, and viewer lifecycle/fallback tests. |
 | Production build | Passed. Lazy Three.js bundle is ~609 kB minified; Vite reports its >500 kB size advisory. |
-| Public deployment | Homepage and built JS/CSS returned 200; all four modes enabled; worker readiness returned `ok: true`; scenario dataset served 1,085 features. |
+| Public deployment | Homepage and built JS/CSS returned 200; all four modes enabled; worker readiness returned `ok: true`; scenario dataset served 1,085 features; the deployed bundle contains the deterministic site-reasoning panel. |
 | Street texture request | Returned 200 with `Access-Control-Allow-Origin: *`; this is connectivity evidence, not visual verification. |
 | Final live population job | `c956d92a615843b192f723ad47d10ae5`, completed, reference verified, one execution attempt. |
 | Final live scenario job | `813e604c322449d79f6e9b686f6c1840`, completed and reference verified on attempt 3 after two bounded repairs. It returned four eligible plots and preferred `sfmock-fit-02`; every ranked candidate reported no building, road, or other restriction overlap. |
