@@ -414,8 +414,8 @@ async def create_run(req: RunRequest, request: Request, background_tasks: Backgr
     layers = {"service" if f["properties"]["layer"] == "park" else f["properties"]["layer"] for f in ds["features"]}
     if req.analysis_mode in {"access", "compare"} and "service" not in layers:
         raise HTTPException(422, "Access and comparison require service features in the selected dataset.")
-    if req.analysis_mode == "exposure" and "zone" not in layers:
-        raise HTTPException(422, "Exposure requires zone polygons. Upload a FeatureCollection with properties.layer=zone.")
+    if req.analysis_mode == "exposure" and "zone" not in layers and req.study_area is None:
+        raise HTTPException(422, "Draw an area on the map, or supply zone polygons, to estimate population.")
     candidate_a = _parse_candidate(req.candidate_a) if req.analysis_mode == "compare" and req.candidate_a else None
     candidate_b = _parse_candidate(req.candidate_b) if req.analysis_mode == "compare" and req.candidate_b else None
     if req.analysis_mode == "compare" and (candidate_a is None or candidate_b is None):
@@ -430,6 +430,7 @@ async def create_run(req: RunRequest, request: Request, background_tasks: Backgr
             validate_land_dataset(ds)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
+    if req.analysis_mode in {"scenario", "exposure"} and req.study_area is not None:
         west, south, east, north = req.study_area
         locations.extend([[west, south], [east, north]])
     projected_crs = _select_local_crs(ds, locations)
@@ -450,6 +451,8 @@ async def create_run(req: RunRequest, request: Request, background_tasks: Backgr
     }
     if req.analysis_mode == "scenario":
         run.update(study_area=req.study_area, service_type=req.service_type, building=req.building.model_dump())
+    if req.analysis_mode == "exposure" and req.study_area is not None:
+        run.update(study_area=req.study_area, zone_source="drawn_area")
     if getattr(app.state, "demo_mode", False):
         run.update(demo_mode=True, execution_kind="local_mock_reference")
     RUNS[run_id] = run
@@ -470,8 +473,26 @@ async def _run_agent(run: dict[str, Any], dataset: dict[str, Any], a: list[float
         _prune_runs()
 
 
+def _population_area_dataset(dataset: dict[str, Any], area: list[float]) -> dict[str, Any]:
+    """Use the requested rectangle as the sole zone without changing the source dataset."""
+    west, south, east, north = area
+    features = [feature for feature in dataset["features"] if feature["properties"]["layer"] != "zone"]
+    used_ids = {str(feature.get("id")) for feature in features}
+    zone_id = "selected-study-area"
+    while zone_id in used_ids:
+        zone_id += "-area"
+    zone = {
+        "type": "Feature", "id": zone_id,
+        "properties": {"layer": "zone", "name": "Selected study area", "source": "User-selected map rectangle"},
+        "geometry": {"type": "Polygon", "coordinates": [[[west, south], [east, south], [east, north], [west, north], [west, south]]]},
+    }
+    return {**dataset, "features": [*features, zone]}
+
+
 async def _run_agent_inner(run: dict[str, Any], dataset: dict[str, Any], a: list[float] | None, b: list[float] | None, threshold: int, projected_crs: str) -> None:
     run["status"] = "running"
+    if run["analysis_mode"] == "exposure" and run.get("study_area") is not None:
+        dataset = _population_area_dataset(dataset, run["study_area"])
     schema = inspect_schema(dataset)
     context = {
         "user_question": run["question"], "dataset_name": run["dataset_name"],
@@ -483,6 +504,10 @@ async def _run_agent_inner(run: dict[str, Any], dataset: dict[str, Any], a: list
         analysis_input.update(scenario)
         context["analysis_inputs"].update(scenario)
         context["scenario_constraints"] = "Structured service_type, study_area, threshold and building govern this run. The question cannot override them. Sites must fit supplied land plots and obstruction constraints; width, depth and setback constrain eligibility and placement; height is display-only. Missing matching inventory is unknown, not proof of absent services. No parcel suitability, routes, capacity, exact resident counts, or construction claims."
+    if run["analysis_mode"] == "exposure" and run.get("study_area") is not None:
+        analysis_input.update(study_area=run["study_area"], zone_source="drawn_area")
+        context["analysis_inputs"].update(study_area=run["study_area"], zone_source="drawn_area")
+        context["area_constraints"] = "The sole zone is the user-selected rectangle in features. Count whole population weights by projected representative point, including boundary points. Do not use previous dataset zones or crop/rescale population weights. This is an estimate, not an exact resident count."
     serialized_input = json.dumps(analysis_input, separators=(",", ":"), allow_nan=False).encode("utf-8")
     run["request_sha256"] = hashlib.sha256(serialized_input).hexdigest()
     run_dir = settings.data_dir / run["id"]
@@ -562,7 +587,7 @@ async def _run_agent_inner(run: dict[str, Any], dataset: dict[str, Any], a: list
             _log(run, "Sandbox completed. Agent step 3/3: summarize returned metrics and limitations.", "complete")
             try:
                 summary = await _chat(client,
-                    "Write one plain-text paragraph of at most 120 words. Do not use Markdown, tables, headings or lists. Summarize only the supplied analysis output. Do not invent locations, source facts, or statistical certainty. Explicitly call out straight-line distance and point/polygon representation caveats and whether data are synthetic. For scenario mode the verified service_type and study_area govern, not conflicting wording in the question. Candidates have verified geometric fit against supplied plots, setbacks, buildings, restrictions and declared permitted uses. Source declarations are not independently certified ownership or real-world planning approval. State whether land data are mocked. If inventory_status says no matching inventory supplied, report gross proposal coverage and explicitly unknown existing access, never real unmet need. Width, depth and setback change fit and candidate placement; only height is display-only.",
+                    "Write one plain-text paragraph of at most 120 words. Do not use Markdown, tables, headings or lists. Summarize only the supplied analysis output. Do not invent locations, source facts, or statistical certainty. Explicitly call out straight-line distance and point/polygon representation caveats and whether data are synthetic. For scenario mode the verified service_type and study_area govern, not conflicting wording in the question. Candidates have verified geometric fit against supplied plots, setbacks, buildings, restrictions and declared permitted uses. Source declarations are not independently certified ownership or real-world planning approval. State whether land data are mocked. Report existing_services_in_area for the requested service type as supplied mapped records and use service_inventory provenance to distinguish simulated examples from observed records; coverage is not certified and zero records does not prove no real facilities exist. If inventory_status says no matching inventory supplied, report gross proposal coverage and explicitly unknown existing access, never real unmet need. Width, depth and setback change fit and candidate placement; only height is display-only.",
                     _summary_payload(run), max_tokens=1600)
                 run["summary"] = summary
                 run["status"] = "completed"
@@ -703,8 +728,10 @@ EXACT INPUT FILE CONTRACT: request = json.load(open('/input/request.json')); fea
 
 
 SCENARIO_SCRIPT_INSTRUCTIONS = """Write only a complete Python script, no Markdown. Read /input/request.json, calculate parcel placements and coverage, write /output/result.json and /output/result.geojson with allow_nan=False. You have shapely and pyproj in a disposable no-network sandbox. NEVER copy trusted inspection metrics as the result; implement the calculations from input features. Structured input fields override conflicting question wording.
-The result.json top-level object must contain "mode": "scenario", "metrics": an object, and "comparison": an object. Do not use analysis_mode in place of mode or put metrics at the root. metrics must contain exactly: analysis_crs, threshold_m, service_type, study_area, population_total, population_features, service_features, baseline, sites_evaluated, eligible_sites, site_checks, land_inventory, candidates, building, baseline_scope, inventory_status, ranking_basis. baseline contains exactly served_population, underserved_population, weighted_mean_nearest_m. comparison contains exactly preferred_candidate (the top candidate ID, or null) and basis. baseline_scope is "supplied matching service features". inventory_status is "matching services supplied" when matching services exist, otherwise "no matching service inventory supplied". The trusted inspection is a schema example, not permission to copy calculated answers.
+The result.json top-level object must contain "mode": "scenario", "metrics": an object, and "comparison": an object. Do not use analysis_mode in place of mode or put metrics at the root. metrics must contain exactly: analysis_crs, threshold_m, service_type, study_area, population_total, population_features, service_features, baseline, sites_evaluated, eligible_sites, site_checks, land_inventory, candidates, building, baseline_scope, inventory_status, ranking_basis, existing_services_in_area, existing_service_counts, service_inventory. baseline contains exactly served_population, underserved_population, weighted_mean_nearest_m. comparison contains exactly preferred_candidate (the top candidate ID, or null) and basis. baseline_scope is "supplied matching service features". inventory_status is "matching services supplied" when matching services exist, otherwise "no matching service inventory supplied". The trusted inspection is a schema example, not permission to copy calculated answers.
 site_checks entries contain exactly id, status, reason, source. Exclusion reasons, in precedence order: "Land availability is not supported by the supplied record.", "The supplied land record does not permit this service type.", "Plot lies outside the selected area.", "No fitting footprint found by bounded search with the requested setback, area and obstruction constraints." Eligible entries use status="eligible" and reason="Footprint and setback fit the supplied plot, area, land-use record and obstruction inventory." Excluded entries use status="excluded".
+Existing facilities contract: existing_service_counts must have exactly clinic, library, school, community_center integer keys, initialized to zero. For every input feature with properties.layer == "service" and supported properties.service_type, project its geometry using always_xy=True and count it when projected study area.covers(projected_geometry.representative_point()). Unsupported service types and legacy park do not enter these counts. existing_services_in_area = existing_service_counts[request.service_type]. Keep service_features as the global matching service count for baseline distances, even outside the study area. These count supplied mapped feature records, not real-world buildings or a complete directory. service_inventory must equal request.service_inventory when it is a dict, otherwise exactly {"source":"No service inventory provenance supplied","as_of":null,"record_counts_scope":"supplied service feature records whose representative point is in the study area","completeness_by_type":{"clinic":"unknown","library":"unknown","school":"unknown","community_center":"unknown"}}. Zero mapped records is not proof that no facilities exist. Do not infer counts from the question or add assumed structures.
+
 Use the following fixed methodology exactly. Transform all EPSG:4326 geometries into request.projected_crs (always_xy=True). Construct and project shapely box(*request.study_area). Select population features by projected representative_point covered by area, preserving full weights and original order. Sum must be positive. Baseline services: only layer=service with service_type exactly matching request.service_type; legacy park is never clinic/library. Keep matching services outside area. If none, baseline distances infinity internally, weighted mean null in JSON; otherwise nearest geometry distance. Coverage means <=threshold_m.
 Evaluate candidate_site polygons in original order. Each needs a unique id, properties.land_status='available', nonempty source, and selected service_type in allowed_services. Missing record/allowed use/outside area must be excluded with reasons matching trusted inspection. Validate land_inventory declares building_coverage/restriction_coverage complete_for_candidate_sites; copy its source/as_of/coverage fields. Union all layer=building polygons, separately all restricted polygons. Building dimensions come from request.building: width_m,depth_m,height_m,setback_m (height is display-only).
 Per parcel anchors in order: parcel.representative_point(); for each Polygon component in geometry order add its representative_point(), centroid, then 5x5 bbox cell centers (row-major from miny,minx). Stop adding components once anchors length>=81; use first81. Deduplicate anchors by (round(x,8),round(y,8)). At each anchor try rotation0 then90, swapping width/depth. footprint=shapely.box(x-width/2,y-depth/2,x+width/2,y+depth/2); clearance=footprint.buffer(setback_m,join_style=2) (or footprint if zero). Require parcel.covers(clearance), area.covers(clearance) and NOT clearance.intersects either union of buildings or restrictions. For accepted placements calculate min(baseline_distance,distance_to_anchor) for each selected population point; served_population,newly_served_population,weighted_mean_nearest_m. Choose best per parcel by (-newly_served_population,weighted_mean_nearest_m,anchor_index,rotation). Convert anchor and footprint to EPSG4326 with inverse Transformer. footprint uses mapping() of inverse transformed shapely.box preserving its ring order. Include land_check with source,land_status:'available',allowed_service:true,plot_fit:true,area_fit:true,no_building_overlap:true,no_restriction_overlap:true,setback_m,rotation_deg,footprint_area_m2=width_m*depth_m. Sort eligible sites by (-newly_served_population,weighted_mean_nearest_m,id), return top3; no candidates is a valid completed result with preferred_candidate null. Site checks in input order exactly match the schema/strings in trusted inspection, but compute eligibility independently. Candidate metrics each exactly id,longitude,latitude,served_population,newly_served_population,weighted_mean_nearest_m,footprint,land_check. All other metric keys match trusted inspection schema. Do not round values; integral counts/weights as int, fractional weights as float. Comparison.basis and metrics.ranking_basis = 'newly served population, then lowest weighted mean distance, then site ID'.

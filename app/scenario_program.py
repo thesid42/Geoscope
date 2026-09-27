@@ -6,6 +6,7 @@ from shapely.geometry import Point, box, mapping, shape
 from shapely.ops import transform, unary_union
 
 BASIS = "newly served population, then lowest weighted mean distance, then site ID"
+SUPPORTED_SERVICES = ("clinic", "library", "school", "community_center")
 
 
 def calculate(request):
@@ -16,6 +17,8 @@ def calculate(request):
     unproject = Transformer.from_crs(request["projected_crs"], "EPSG:4326", always_xy=True).transform
     area = transform(project, box(west, south, east, north))
     population, services, sites, buildings, restrictions = [], [], [], [], []
+    existing_services_in_area = 0
+    existing_service_counts = {kind: 0 for kind in SUPPORTED_SERVICES}
     inventory = request["land_inventory"]
     if any(inventory.get(key) != "complete_for_candidate_sites" for key in ("building_coverage", "restriction_coverage")):
         raise ValueError("Incomplete supplied land obstruction coverage")
@@ -35,6 +38,12 @@ def calculate(request):
                 population.append((feature, point, float(weight)))
         elif role in ("service", "park"):
             kind = "park" if role == "park" else props.get("service_type")
+            # These are counts of supplied mapped records, not a claim that the
+            # source inventory is complete. Use the same projected-area predicate
+            # for counts and always keep park aliases distinct from service types.
+            in_area = area.covers(projected.representative_point())
+            if role == "service" and in_area and isinstance(kind, str) and kind in existing_service_counts:
+                existing_service_counts[kind] += 1
             if kind == service_type:
                 services.append(projected)
         elif role == "candidate_site":
@@ -133,10 +142,21 @@ def calculate(request):
             check.update(status="eligible", reason="Footprint and setback fit the supplied plot, area, land-use record and obstruction inventory.")
             candidates.append(best[1])
     candidates.sort(key=lambda c: (-c["newly_served_population"], c["weighted_mean_nearest_m"], c["id"]))
+    existing_services_in_area = existing_service_counts[service_type]
+    service_inventory = request.get("service_inventory")
+    if not isinstance(service_inventory, dict):
+        service_inventory = {
+            "source": "No service inventory provenance supplied",
+            "as_of": None,
+            "record_counts_scope": "supplied service feature records whose representative point is in the study area",
+            "completeness_by_type": {kind: "unknown" for kind in SUPPORTED_SERVICES},
+        }
     result = {"mode": "scenario", "metrics": {
         "analysis_crs": request["projected_crs"], "threshold_m": int(threshold), "service_type": service_type,
         "study_area": request["study_area"], "population_total": count(total), "population_features": len(population),
-        "service_features": len(services), "baseline": {"served_population": count(served), "underserved_population": count(total-served), "weighted_mean_nearest_m": mean},
+        "service_features": len(services), "existing_services_in_area": existing_services_in_area,
+        "existing_service_counts": existing_service_counts, "service_inventory": service_inventory,
+        "baseline": {"served_population": count(served), "underserved_population": count(total-served), "weighted_mean_nearest_m": mean},
         "sites_evaluated": len(sites), "eligible_sites": len(candidates), "site_checks": checks,
         "land_inventory": {key: inventory[key] for key in ("building_coverage", "restriction_coverage", "source", "as_of")},
         "candidates": candidates[:3], "building": building, "baseline_scope": "supplied matching service features",

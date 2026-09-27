@@ -80,6 +80,45 @@ def test_footprint_must_fit_area_even_if_anchor_fits_plot():
     assert calculate(req)[0]["metrics"]["eligible_sites"] == 0
 
 
+def test_existing_service_counts_are_by_type_and_representative_point_inside_area():
+    req = fixture()
+    req["features"].extend([
+        feature("clinic-inside", "service", Point(X + 120, Y), service_type="clinic"),
+        feature("clinic-outside", "service", Point(X + 700, Y), service_type="clinic"),
+        feature("library-inside", "service", Point(X - 120, Y), service_type="library"),
+        feature("school-inside", "service", Point(X, Y + 180), service_type="school"),
+        feature("center-inside", "service", Point(X, Y - 180), service_type="community_center"),
+        # This polygon crosses the study-area edge but its representative point is inside.
+        feature("polygon-library", "service", box(X - 700, Y - 20, X + 200, Y + 20), service_type="library"),
+        feature("unknown-kind", "service", Point(X, Y), service_type="urgent_care"),
+        feature("untagged-service", "service", Point(X, Y)),
+        feature("park", "park", Point(X, Y)),
+    ])
+    m = calculate(req)[0]["metrics"]
+    assert m["existing_service_counts"] == {
+        "clinic": 1, "library": 2, "school": 1, "community_center": 1,
+    }
+    assert m["existing_services_in_area"] == 1
+    assert m["service_features"] == 2  # requested clinic records, including outside-area record
+    assert m["service_inventory"]["completeness_by_type"] == {
+        "clinic": "unknown", "library": "unknown", "school": "unknown", "community_center": "unknown",
+    }
+
+
+def test_service_inventory_provenance_is_reported_without_inventing_completeness():
+    req = fixture()
+    supplied = {
+        "source": "Mock feature inventory", "as_of": "2026-09-26",
+        "record_counts_scope": "synthetic examples only",
+        "completeness_by_type": {"clinic": "synthetic_example_only"},
+    }
+    req["service_inventory"] = supplied
+    metrics = calculate(req)[0]["metrics"]
+    assert metrics["service_inventory"] == supplied
+    assert metrics["existing_service_counts"] == {"clinic": 0, "library": 0, "school": 0, "community_center": 0}
+    assert metrics["existing_services_in_area"] == 0
+
+
 def test_parks_never_count_as_clinics_and_external_clinics_still_count():
     req = fixture()
     req["threshold_m"] = 800
@@ -171,6 +210,9 @@ def test_bundled_sf_mock_has_expected_fit_and_exclusion_results():
     m = calculate(req)[0]["metrics"]
     assert req["scenario_status"] == "MOCK_SIMULATION"
     assert m["sites_evaluated"] == 7 and m["eligible_sites"] == 4
+    assert m["existing_services_in_area"] == 1
+    assert m["existing_service_counts"] == {"clinic": 1, "library": 1, "school": 0, "community_center": 0}
+    assert m["service_inventory"]["completeness_by_type"]["school"] == "unknown"
     assert [c["id"] for c in m["candidates"]] == ["sfmock-fit-04", "sfmock-fit-01", "sfmock-fit-03"]
     assert [c["newly_served_population"] for c in m["candidates"]] == [6224,4282,3841]
     assert {c["id"] for c in m["site_checks"] if c["status"] == "excluded"} == {"sfmock-building-blocked", "sfmock-restricted", "sfmock-too-small"}

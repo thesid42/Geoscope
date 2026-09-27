@@ -88,7 +88,7 @@ class FakeResponse:
             raise RuntimeError(f"HTTP {self.status_code}")
 
 
-@pytest.mark.parametrize("mode", ["access", "scenario"])
+@pytest.mark.parametrize("mode", ["access", "scenario", "exposure"])
 @pytest.mark.parametrize("summary_failure", [False, True])
 def test_multistep_agent_uses_vultr_and_repairs_bounded_failure(tmp_path, monkeypatch, mode, summary_failure):
     settings = replace(controller.settings, data_dir=tmp_path, vultr_api_key="test-vultr-secret", vultr_model_id="catalog-id", worker_url="http://private-worker", worker_token="private-token", worker_timeout_seconds=3)
@@ -123,6 +123,13 @@ def test_multistep_agent_uses_vultr_and_repairs_bounded_failure(tmp_path, monkey
         async def post(self, url, **kwargs):
             self.calls.append(("POST", url))
             if url.endswith("/inspect"):
+                if mode == "exposure":
+                    data = kwargs["json"]["data"]
+                    assert data["study_area"] == run["study_area"]
+                    assert data["zone_source"] == "drawn_area"
+                    zones = [f for f in data["features"] if f["properties"]["layer"] == "zone"]
+                    assert len(zones) == 1 and zones[0]["properties"]["name"] == "Selected study area"
+                    assert DEMO["features"][-1]["properties"].get("name") != "Selected study area"
                 return FakeResponse(200, {"inspection": {"geometry_validation": "checked", "population_features": 6}, "reference_verified": True})
             if url.endswith("/execute"):
                 type(self).execute_count += 1
@@ -156,6 +163,8 @@ def test_multistep_agent_uses_vultr_and_repairs_bounded_failure(tmp_path, monkey
     }
     if mode == "scenario":
         run.update(study_area=[-122.34,47.60,-122.31,47.62],service_type="clinic",building={"width_m":24,"depth_m":18,"height_m":12,"setback_m":3})
+    if mode == "exposure":
+        run.update(study_area=[-122.34,47.60,-122.31,47.62])
     assert controller.ACTIVE_RUNS.acquire(blocking=False)
     asyncio.run(controller._run_agent(run, DEMO, None, None, 400, "EPSG:32610"))
     assert run["status"] == "completed", run.get("error")

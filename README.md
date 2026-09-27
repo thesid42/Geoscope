@@ -2,7 +2,7 @@
 
 Geoscope is a geospatial analysis app built with **React, FastAPI, Leaflet, and Three.js**. Select a local area, propose a clinic or library, compare candidate plots, and inspect the proposed building in 3D. Land checks cover the whole building footprint, setbacks, plot boundaries, and supplied obstacles before a site is ranked.
 
-The repository includes a working **San Francisco mock simulation** and a separate production agent workflow designed for **Vultr Serverless Inference, gVisor sandboxes, and Vultr VPC**. Cloud deployment and live containment verification are still pending.
+The repository includes a working **San Francisco mock simulation** and a separate production agent workflow designed for **Vultr Serverless Inference, gVisor sandboxes, and Vultr VPC**. The deployed controller and separate worker run on Vultr; generated results are checked against an isolated fixed GIS reference.
 
 ## What you can do
 
@@ -11,7 +11,7 @@ The repository includes a working **San Francisco mock simulation** and a separa
 | Facility scenario | Select an area, choose a clinic, library, school, or community centre, and rank up to three eligible plots with a 3D building preview. |
 | Service access | Estimate population proximity to supplied facilities. |
 | Candidate comparison | Compare two proposed locations against an existing service network. |
-| Population inside zones | Estimate population assigned to supplied boundaries, accounting for overlapping zones. |
+| Population in an area | Draw a rectangle and estimate population inside it; programmatic requests can also use supplied zone polygons. |
 
 Results include metrics, GeoJSON, the input request, analysis code, and a run trace. The local mock enables the facility scenario only; the configured production controller supports all four workflows.
 
@@ -30,10 +30,11 @@ npm --prefix web run build
 On macOS/Linux, use `.venv/bin/python` instead of `.\.venv\Scripts\python.exe`. Open **http://127.0.0.1:8765**; use that exact host because the mock checks the request origin. FastAPI serves both the API and the built React frontend, so this demo needs only one server process.
 
 1. Keep the SF mock dataset selected and choose a facility type.
-2. Use **Select area on map** to mark two opposite corners, or edit the coordinate bounds.
-3. Set the building width, depth, height, and setback, then run the analysis.
-4. Select a ranked plot to inspect its proposed footprint and building in the orbitable 3D view.
-5. Inspect rejected plots and download the calculation artifacts. Changing scenario inputs clears the old result and requires another run.
+2. Use **Draw area on map** to mark two opposite corners, or edit the coordinate bounds.
+3. Choose a facility type, optionally adjust building size and clearance, then run the analysis.
+4. Select **Site 1**, **Site 2**, or **Site 3** in the results or on the map. Use **Zoom to selected site** for its plot and checked footprint.
+5. Switch the 3D view between **Building close-up** and **Neighborhood context** to see the proposal against street imagery, a north arrow, approximate metric scale, and supplied nearby services.
+6. Inspect rejected plots and download the calculation artifacts. Changing scenario inputs clears the old result and requires another run.
 
 With the default 24 × 18 m footprint and 3 m setback, **four of seven modeled plots qualify**. The other plots are building-blocked, restricted, or too small. A 100 × 100 m footprint fits none of them.
 
@@ -47,7 +48,9 @@ With the default 24 × 18 m footprint and 3 m setback, **four of seven modeled p
 | Analysis execution | Fixed trusted local calculations; no LLM, generated-code execution, cloud worker, or gVisor. |
 | Real-world availability or permits | Not established by the mock. |
 
-The 3D scene uses the checked footprint on flat ground. Height affects its appearance; width, depth, and setback affect site eligibility and placement. See [SF mock provenance](data/real-scenario/README.md) and its [manifest](data/real-scenario/manifest.json).
+The map uses a blue dashed study boundary, purple candidate plots, a teal selected plot, orange checked building footprints, gray existing building records, and red restrictions. Map labels match the ranked site cards.
+
+The 3D scene uses the checked footprint on flat ground. It loads only nine public OpenStreetMap tiles for the current view, with attribution and normal browser caching. Street imagery is visual context independent of the supplied land evidence; it does not verify availability. Unknown building heights stay flat and street tile failure preserves the supplied geometry. Height affects its appearance; width, depth, and setback affect site eligibility and placement. See [SF mock provenance](data/real-scenario/README.md) and its [manifest](data/real-scenario/manifest.json).
 
 ### Stop the app
 
@@ -114,6 +117,10 @@ Uploads are GeoJSON FeatureCollections in EPSG:4326 longitude/latitude. If prese
 Scenario datasets also require top-level `land_inventory` with a `source`, ISO `as_of` date, and both `building_coverage` and `restriction_coverage` set to `complete_for_candidate_sites`. These are supplied declarations, not independent certification of ownership or permission. Missing obstruction coverage is not assumed clear. The [SF fixture](data/real-scenario/sf-mock.geojson) provides a complete worked input; regenerate it with `python scripts/generate_sf_mock_scenario.py`.
 
 Scenarios accept at most 5,000 features and 100 candidate plots. Each selected-area side must be 20 m–10 km. The search tries up to 81 deterministic anchors per plot at 0°/90°, checking the entire footprint plus setback against the plot, selected area, buildings, and restrictions. It ranks one placement per eligible plot by added population proximity, then weighted mean distance, then site ID. Alternatives are independent proposals. No fit found by this bounded search does not mean that every possible placement is impossible.
+
+The result also reports **Already in this area**: counts of supplied clinic, library, school, and community-center records whose projected geometry representative point falls inside the selected boundary (boundary points count). `existing_services_in_area` is the selected type's count; `existing_service_counts` provides the breakdown. `service_inventory` records source, date, and completeness. Missing metadata is unknown coverage, and zero mapped records never proves that no real facility exists. These are facility records, not a count of distinct architectural structures.
+
+Population analysis accepts `study_area` without pre-existing zones. That rectangle replaces any dataset zones for that run, is saved in the request artifact, and goes through the same isolated agent and fixed-reference verification. The source dataset stays unchanged. Whole population weights are assigned by projected representative point, so estimates are coarse at small scales.
 
 Only matching typed services count toward a scenario baseline, including services outside the selected area. Missing matching inventory means unknown existing access, not verified absence. Distances are straight-line metres in a local projected CRS; routes, terrain, capacity, and travel barriers are not modeled. Whole-tract population allocation is coarse for hyperlocal analysis and is not an exact count of nearby residents.
 

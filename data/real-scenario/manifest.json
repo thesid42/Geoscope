@@ -59,9 +59,15 @@
       "clinic",
       "library"
     ],
+    "service_inventory_completeness": {
+      "clinic": "synthetic_example_only",
+      "library": "synthetic_example_only",
+      "school": "unknown",
+      "community_center": "unknown"
+    },
     "all_simulated_records": true,
     "availability_claim": "None. Candidate land_status is fixture logic only; city ownership and availability are unknown."
   },
   "output_file": "sf-mock.geojson",
-  "output_sha256": "79f45b45bc76ca59d0fce068b7341bfec34a87656221a869c6d3b25cb967fa84"
+  "output_sha256": "0930a1dbb3b5a3f467421e837fcc306dc97f92f515e0c8e68f8152c4d7d2fa8e"
 }

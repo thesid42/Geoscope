@@ -127,6 +127,15 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
             "population_year": 2020,
             "synthetic": False,
         },
+        "service_inventory": {
+            "source": "Simulated SF mock clinic/library points; no real service inventory used",
+            "as_of": SCENARIO_AS_OF,
+            "record_counts_scope": "supplied simulated point features only; not actual citywide facility counts",
+            "completeness_by_type": {
+                "clinic": "synthetic_example_only", "library": "synthetic_example_only",
+                "school": "unknown", "community_center": "unknown",
+            },
+        },
         "land_inventory": {
             "source": "SF mock-simulation rectangles, obstructions, and restrictions; no parcel/availability records used",
             "as_of": SCENARIO_AS_OF,
@@ -167,6 +176,10 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
             "buildings": "One simulated 56m x 46m footprint overlaps the building-blocked lot; no actual footprint source is represented.",
             "restrictions": "One simulated restriction covers the restricted test lot; no legal/environmental restriction is represented.",
             "service_points": ["clinic", "library"],
+            "service_inventory_completeness": {
+                "clinic": "synthetic_example_only", "library": "synthetic_example_only",
+                "school": "unknown", "community_center": "unknown",
+            },
             "all_simulated_records": True,
             "availability_claim": "None. Candidate land_status is fixture logic only; city ownership and availability are unknown.",
         },

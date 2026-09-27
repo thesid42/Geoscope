@@ -190,3 +190,25 @@ def test_oversized_upload_returns_controlled_413(client, monkeypatch):
     assert response.status_code == 413
     assert "limit" in response.text.lower()
     assert list(controller.DATASET_DIR.glob("*.geojson")) == []
+
+
+def test_population_area_without_predefined_zones_reaches_worker_check(client):
+    controller.DATASETS["demo"] = small_dataset()
+    response = client.post("/api/runs", headers=AUTH, json=run_payload(
+        analysis_mode="exposure", study_area=[-122.43, 37.76, -122.41, 37.78]))
+    assert response.status_code == 503
+    assert "worker" in response.text.lower()
+
+
+def test_population_area_replaces_zones_without_mutating_dataset():
+    dataset = copy.deepcopy(DEMO)
+    dataset["features"][0]["id"] = "selected-study-area"
+    original = copy.deepcopy(dataset)
+    area = [-122.43, 37.76, -122.41, 37.78]
+    prepared = controller._population_area_dataset(dataset, area)
+    zones = [f for f in prepared["features"] if f["properties"]["layer"] == "zone"]
+    assert len(zones) == 1
+    assert zones[0]["geometry"]["coordinates"] == [[[-122.43,37.76],[-122.41,37.76],[-122.41,37.78],[-122.43,37.78],[-122.43,37.76]]]
+    assert len({f["id"] for f in prepared["features"]}) == len(prepared["features"])
+    assert dataset == original
+    assert [f for f in prepared["features"] if f["properties"]["layer"] != "zone"] == [f for f in dataset["features"] if f["properties"]["layer"] != "zone"]

@@ -13,3 +13,6 @@ python scripts/generate_sf_mock_scenario.py
 ```
 
 The script intentionally requires the source GeoJSON and manifest to be present and fails if any selected population GEOID is missing. It writes `sf-mock.geojson` and `manifest.json` in this directory.
+
+
+Service count semantics: scenario output counts only supplied `layer=service` feature records whose projected geometry representative point is covered by the selected study area. It reports `existing_service_counts` for clinic, library, school, and community center, plus `existing_services_in_area` for the selected service type. These are mapped-record counts, not a count of every real facility or building. This fixture includes one simulated clinic point and one simulated library point. Their inventory status is `synthetic_example_only`; school and community center coverage is `unknown`. A zero record count never means the real-world service type is absent.
