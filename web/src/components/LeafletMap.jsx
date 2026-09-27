@@ -60,6 +60,7 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
     sourceLayerRef.current = layer;
     if (datasetId === 'sf2020') map.fitBounds([[37.70, -122.53], [37.83, -122.35]]);
     else if (datasetId === 'nyc2020') map.fitBounds([[40.49, -74.26], [40.92, -73.70]]);
+    else if (datasetId === 'nycland') map.fitBounds([[40.790, -73.955], [40.812, -73.930]]);
     else { const bounds = layer.getBounds(); if (bounds.isValid()) map.fitBounds(bounds.pad(0.08)); }
     return undefined;
   }, [data, datasetId]);

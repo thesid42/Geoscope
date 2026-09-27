@@ -15,6 +15,7 @@ tmp
 output
 data/real/raw
 data/real-nyc/raw
+data/real-nyc-land/raw
 
 **/node_modules
 web/dist

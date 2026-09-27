@@ -33,7 +33,7 @@ def validate_study_area(value):
 def validate_land_dataset(dataset):
     sites = [f for f in dataset["features"] if f["properties"]["layer"] == "candidate_site"]
     if not sites:
-        raise ValueError("Scenario mode needs candidate_site parcel polygons. Select the SF mock or upload land data.")
+        raise ValueError("Scenario mode needs candidate_site parcel polygons. Select the East Harlem official lots, the SF mock, or upload land data.")
     if len(sites) > 100:
         raise ValueError("Scenario mode accepts at most 100 candidate plots.")
     ids = [f.get("id") for f in sites]

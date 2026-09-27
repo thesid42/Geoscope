@@ -89,8 +89,26 @@ describe('GeoScope React workflows', () => {
     expect(screen.getByText('Fabricated features for demonstration and testing. They do not describe a real neighborhood.')).toBeInTheDocument();
   });
 
+  it('defaults East Harlem official lots to facility-site mode', async () => {
+    const land = { type: 'FeatureCollection', name: 'East Harlem land', scenario_status: 'OFFICIAL_EXTRACT', features: [
+      population('eh-p', 80),
+      { type: 'Feature', id: 'lot-1', properties: { layer: 'candidate_site', land_status: 'available' }, geometry: { type: 'Polygon', coordinates: [[[-73.94, 40.80], [-73.939, 40.80], [-73.939, 40.801], [-73.94, 40.801], [-73.94, 40.80]]] } },
+      { ...service, id: 'eh-clinic', properties: { layer: 'service', service_type: 'clinic', name: 'Clinic' }, geometry: { type: 'Point', coordinates: [-73.941, 40.799] } },
+    ] };
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (url === '/api/config') return geojsonResponse({ ...config, nyc_land: { id: 'nycland', name: 'East Harlem lots', synthetic: false } });
+      if (url === '/api/worker-status') return geojsonResponse({ ok: true });
+      if (url === '/api/datasets/nycland') return geojsonResponse(land);
+      return response(404, {});
+    }));
+    render(<App />);
+    await screen.findByRole('heading', { name: 'East Harlem · official vacant lots' });
+    await ready();
+    expect(screen.getByLabelText('Analysis')).toHaveValue('scenario');
+    expect(screen.getByText(/MapPLUTO vacant tax lots/)).toBeInTheDocument();
+  });
+
   it('lists the New York City snapshot and uses Midtown comparison defaults', async () => {
-    const user = userEvent.setup();
     const nycData = { type: 'FeatureCollection', name: 'NYC fixture', features: [population('nyc-p', 120), { ...service, id: 'nyc-clinic', properties: { layer: 'service', service_type: 'clinic', name: 'Clinic', borough: 'Manhattan' }, geometry: { type: 'Point', coordinates: [-73.98, 40.75] } }] };
     const nycConfig = { ...config, nyc: { id: 'nyc2020', name: 'NYC sample', synthetic: false, features: 7927 } };
     vi.stubGlobal('fetch', vi.fn(async (url) => {
@@ -102,12 +120,8 @@ describe('GeoScope React workflows', () => {
       return response(404, {});
     }));
     render(<App />);
-    await ready();
-    await user.selectOptions(screen.getByLabelText('Dataset'), 'nyc2020');
     await screen.findByRole('heading', { name: 'New York City · 2020 Census + parks + facilities' });
-    await ready();
     expect(screen.getByText(/FacDB clinics, libraries, schools, and community centers/)).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('Analysis'), 'compare');
     expect(screen.getByLabelText('Candidate A longitude')).toHaveValue(-73.9832);
     expect(screen.getByLabelText('Candidate A latitude')).toHaveValue(40.7536);
     expect(screen.getByLabelText('Candidate B longitude')).toHaveValue(-73.9903);

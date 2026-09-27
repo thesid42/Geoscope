@@ -1,0 +1,70 @@
+{
+  "id": "nyc-east-harlem-land",
+  "kind": "official_extract",
+  "synthetic": false,
+  "title": "East Harlem official vacant lots, buildings, streets, and 2020 Census",
+  "crs": "EPSG:4326",
+  "study_area_wsen": [
+    -73.955,
+    40.79,
+    -73.93,
+    40.812
+  ],
+  "dataset_file": "nyc-east-harlem-land.geojson",
+  "sha256": "dcd8812aa748da0ac9b65931efa405690bfa359a436f2526a11acc2e391ccb37",
+  "bytes": 1236578,
+  "counts": {
+    "candidate_site_features": 80,
+    "building_features": 1786,
+    "road_corridor_features": 378,
+    "observed_city_features": 260,
+    "service_counts": {
+      "clinic": 59,
+      "library": 4,
+      "school": 61,
+      "community_center": 19
+    },
+    "source_vacant_lots": 215,
+    "source_buildings": 4810,
+    "source_streets": 1157,
+    "skipped_buildings": {},
+    "skipped_roads": {}
+  },
+  "sources": [
+    {
+      "id": "mappluto",
+      "title": "NYC DCP MapPLUTO vacant land polygons",
+      "url": "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/MAPPLUTO/FeatureServer/0/query",
+      "filter": "LandUse=11 intersecting East Harlem study rectangle; up to 80 largest lots"
+    },
+    {
+      "id": "building_footprints",
+      "title": "NYC DoITT Building Footprints",
+      "url": "https://data.cityofnewyork.us/resource/5zhs-2jue.geojson",
+      "filter": "Footprints intersecting an 80 m buffer of the selected vacant lots"
+    },
+    {
+      "id": "cscl",
+      "title": "NYC Street Centerline",
+      "url": "https://data.cityofnewyork.us/resource/inkn-q76z.geojson",
+      "filter": "Centerlines intersecting an 80 m buffer, buffered by CSCL streetwidth"
+    },
+    {
+      "id": "nyc_facilities_census",
+      "title": "Bundled NYC official snapshot",
+      "file": "data/real-nyc/nyc-facilities-census.geojson",
+      "filter": "Population, park, and FacDB service features intersecting the study rectangle"
+    }
+  ],
+  "preparation": {
+    "script": "data/real-nyc-land/prepare_snapshot.py",
+    "shapely_version": "2.1.2",
+    "context_buffer_m": 80
+  },
+  "limitations": [
+    "MapPLUTO LandUse 11 is a tax-lot vacancy class, not a listing of sites offered for a clinic or other facility.",
+    "Building footprints and buffered street centerlines are official inventories for this extract, not a construction survey or curb-accurate right-of-way.",
+    "Zoning, ownership, contamination, access, and permits are not established.",
+    "Only lots and nearby obstructions in this East Harlem rectangle are included."
+  ]
+}

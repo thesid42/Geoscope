@@ -12,6 +12,7 @@ const roleOf = (f) => f?.properties?.layer === 'park' ? 'service' : f?.propertie
 const defaultCandidates = (id, dataset) => {
   if (id === 'sf2020' || id === 'localdemo') return [[-122.43, 37.77], [-122.42, 37.76]];
   if (id === 'nyc2020') return [[-73.9832, 40.7536], [-73.9903, 40.7359]];
+  if (id === 'nycland') return [[-73.942, 40.798], [-73.938, 40.804]];
   let west = Infinity; let east = -Infinity; let south = Infinity; let north = -Infinity;
   for (const feature of dataset?.features ?? []) {
     const stack = [feature.geometry?.coordinates];
@@ -47,6 +48,7 @@ function datasetExtent(dataset) {
 function defaultStudyArea(id, dataset) {
   if (id === 'localdemo' || id === 'sf2020') return [-122.433, 37.758, -122.417, 37.776];
   if (id === 'nyc2020') return [-73.995, 40.748, -73.970, 40.764];
+  if (id === 'nycland') return [-73.955, 40.790, -73.930, 40.812];
   const extent = datasetExtent(dataset);
   if (!extent) return null;
   const [west, south, east, north] = extent; const cx = (west + east) / 2; const cy = (south + north) / 2;
@@ -233,7 +235,7 @@ export default function App() {
       try {
         const c = await readJson(await fetch('/api/config', { signal: controller.signal }));
         setConfig(c);
-        setDatasetId(c.scenario_demo?.id ?? c.real?.id ?? c.demo?.id ?? 'demo');
+        setDatasetId(c.nyc_land?.id ?? c.scenario_demo?.id ?? c.nyc?.id ?? c.real?.id ?? c.demo?.id ?? 'demo');
       } catch (error) {
         if (error.name !== 'AbortError') { setDatasetError(error.message || 'Service configuration is unavailable.'); setWorker({ ok: false, status: 'unavailable', message: 'Service status unavailable.' }); }
       }
@@ -262,7 +264,7 @@ export default function App() {
     if (!datasetId) return undefined;
     const controller = new AbortController();
     const revision = ++datasetRevision.current;
-    const url = datasetId === 'demo' ? '/api/datasets/demo' : datasetId === 'sf2020' ? '/api/datasets/real' : datasetId === 'nyc2020' ? '/api/datasets/nyc2020' : `/api/datasets/${encodeURIComponent(datasetId)}`;
+    const url = datasetId === 'demo' ? '/api/datasets/demo' : datasetId === 'sf2020' ? '/api/datasets/real' : datasetId === 'nyc2020' ? '/api/datasets/nyc2020' : datasetId === 'nycland' ? '/api/datasets/nycland' : `/api/datasets/${encodeURIComponent(datasetId)}`;
     setDatasetLoading(true); setDatasetError(''); setDataset(null); setRun(null); setActiveRunId(null);
     activeRunIdRef.current = null; setResultMap(null); setResultMapError(''); setDownloadError('');
     setCandidateA(defaultCandidates(datasetId)[0]); setCandidateB(defaultCandidates(datasetId)[1]); setThreshold(400); setStudyArea(null); setAreaSelectionActive(false); setSelectedScenarioCandidate(null); setBuilding(DEFAULT_BUILDING);
@@ -273,12 +275,13 @@ export default function App() {
       setStudyArea(defaultStudyArea(datasetId, data));
       const plotCoordinates = (data.features ?? []).filter((f) => roleOf(f) === 'candidate_site').flatMap((f) => { const out = []; const walk = (v) => Array.isArray(v) && (typeof v[0] === 'number' ? out.push(v) : v.forEach(walk)); walk(f.geometry?.coordinates); return out; });
       if (datasetId === 'localdemo') setStudyArea([-122.433, 37.758, -122.417, 37.776]);
+      else if (datasetId === 'nycland') setStudyArea([-73.955, 40.790, -73.930, 40.812]);
       else if (plotCoordinates.length) { const centerLon = plotCoordinates.reduce((sum, point) => sum + point[0], 0) / plotCoordinates.length; const centerLat = plotCoordinates.reduce((sum, point) => sum + point[1], 0) / plotCoordinates.length; setStudyArea([centerLon - 0.005, centerLat - 0.005, centerLon + 0.005, centerLat + 0.005].map((v) => Number(v.toFixed(6)))); }
       setMode((previous) => {
         const nextSchema = { population_features: data.features?.filter((f) => roleOf(f) === 'population').length ?? 0, service_features: data.features?.filter((f) => roleOf(f) === 'service').length ?? 0, zone_features: data.features?.filter((f) => roleOf(f) === 'zone').length ?? 0, candidate_site_features: data.features?.filter((f) => roleOf(f) === 'candidate_site').length ?? 0 };
         const supported = config?.supported_modes ?? MODES.map(([id]) => id);
         const usable = (candidate) => supported.includes(candidate) && (candidate === 'scenario' ? nextSchema.candidate_site_features > 0 : candidate === 'exposure' ? nextSchema.population_features > 0 : nextSchema.service_features > 0);
-        if (datasetId === 'localdemo' && usable('scenario')) return 'scenario';
+        if ((datasetId === 'localdemo' || datasetId === 'nycland') && usable('scenario')) return 'scenario';
         if (usable(previous)) return previous;
         return ['scenario', 'access', 'compare', 'exposure'].find(usable) ?? 'access';
       });
@@ -366,12 +369,13 @@ export default function App() {
 
   const sourceNote = datasetId === 'sf2020'
     ? <>2020 Census TIGERweb POP100 + selected parks inventory. Candidate coordinates are illustrative; inventory coverage has documented limits. <a href="/api/source-manifest" target="_blank" rel="noreferrer">Source dataset ↗</a></>
+    : datasetId === 'nycland' ? <>Official East Harlem extract: MapPLUTO vacant tax lots, DoITT building footprints, CSCL streets, 2020 Census, and FacDB facilities. Vacant-land class is not a sale or permit finding. <a href="/api/nyc-land-source-manifest" target="_blank" rel="noreferrer">Source dataset ↗</a></>
     : datasetId === 'nyc2020' ? <>2020 Census tracts for all five boroughs, selected NYC Parks properties, and FacDB clinics, libraries, schools, and community centers. Candidate coordinates are illustrative. <a href="/api/nyc-source-manifest" target="_blank" rel="noreferrer">Source dataset ↗</a></>
     : datasetId === 'localdemo' ? '2020 Census population + mapped OpenStreetMap facilities, buildings, and roads; simulated candidate plots. No real land availability is implied.'
     : datasetId === 'demo' ? 'Fabricated features for demonstration and testing. They do not describe a real neighborhood.'
       : datasetId ? 'User supplied EPSG:4326 GeoJSON. Feature roles and population field were validated.' : '';
   const onCandidateChange = useCallback((which, position) => { (which === 'A' ? setCandidateA : setCandidateB)(position); setRun(null); setResultMap(null); setResultMapError(''); }, []);
-  const mapTitle = datasetId === 'localdemo' ? 'San Francisco · simulated scenario land' : datasetId === 'sf2020' ? 'San Francisco · 2020 Census + selected parks' : datasetId === 'nyc2020' ? 'New York City · 2020 Census + parks + facilities' : datasetId === 'demo' ? 'Harborview · synthetic fixture' : uploadedNames[datasetId] ?? 'Uploaded GeoJSON';
+  const mapTitle = datasetId === 'localdemo' ? 'San Francisco · simulated scenario land' : datasetId === 'sf2020' ? 'San Francisco · 2020 Census + selected parks' : datasetId === 'nycland' ? 'East Harlem · official vacant lots' : datasetId === 'nyc2020' ? 'New York City · 2020 Census + parks + facilities' : datasetId === 'demo' ? 'Harborview · synthetic fixture' : uploadedNames[datasetId] ?? 'Uploaded GeoJSON';
 
   return <>
     {config?.demo_mode && <div className="scenario-demo-banner global">LOCAL MOCK MODE — no LLM, no generated-code execution, no cloud inference.</div>}<header className="topbar"><a className="brand" href="/"><span className="brand-icon">⌖</span> GEOSCOPE</a><div className="topmeta"><span className={`live-dot${worker.ok ? '' : ' offline'}`}></span><span title={worker.message}>{config?.demo_mode ? 'LOCAL MOCK' : worker.status === 'checking' ? 'CHECKING SERVICE' : worker.ok ? 'ANALYSIS READY' : 'SERVICE UNAVAILABLE'}</span></div></header>
@@ -382,7 +386,7 @@ export default function App() {
         {worker.status !== 'ready' && <div className="worker-readiness" role="status"><span>{worker.status === 'checking' ? 'Checking analysis service…' : worker.message}</span><button type="button" onClick={() => { setWorker({ ok: false, status: 'checking', message: 'Checking worker readiness…' }); setWorkerRefresh((value) => value + 1); }} disabled={worker.status === 'checking'}>{worker.status === 'checking' ? 'Checking…' : 'Retry check'}</button></div>}
         <label htmlFor="dataset">Dataset</label>
         <select id="dataset" value={datasetId} onChange={(e) => { setDatasetLoading(true); setDatasetId(e.target.value); }} disabled={!config || uploading || runStarting || Boolean(activeRunId)}>
-          {config?.nyc && <option value={config.nyc.id}>New York City · 2020 Census + parks + facilities</option>}{config?.scenario_demo && <option value={config.scenario_demo.id}>San Francisco · simulated scenario parcels</option>}{config?.real && <option value={config.real.id}>San Francisco · 2020 Census + parks</option>}{config?.demo && <option value={config.demo.id}>Harborview · synthetic fixture</option>}
+          {config?.nyc_land && <option value={config.nyc_land.id}>East Harlem · official vacant lots</option>}{config?.nyc && <option value={config.nyc.id}>New York City · 2020 Census + parks + facilities</option>}{config?.scenario_demo && <option value={config.scenario_demo.id}>San Francisco · simulated scenario parcels</option>}{config?.real && <option value={config.real.id}>San Francisco · 2020 Census + parks</option>}{config?.demo && <option value={config.demo.id}>Harborview · synthetic fixture</option>}
           {Object.entries(uploadedNames).map(([id, name]) => <option value={id} key={id}>{name} · uploaded</option>)}
         </select>
         <div className="source-note">{sourceNote}{datasetError && <span role="alert"> {datasetError}</span>}</div>
