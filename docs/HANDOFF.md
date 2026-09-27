@@ -1,116 +1,88 @@
 # Geoscope application handoff
 
-Recorded September 26, 2026 (America/Los_Angeles), September 27 UTC. Last tested and deployed **application** commit: `a8e7ba4` on `main`. Documentation commits may be newer. This is a status snapshot, not a claim that all future deployments have been tested.
-
-## September 27 addition: agent design and walking
-
-The working tree adds [agent-designed layouts and walking comparison](DESIGN_SIMULATION.md). The frontend defaults to agent design; legacy fixed-footprint requests remain compatible. Structured goals drive a bounded placement/massing search, with connected open-space measurements and a before/after scene. The agent's submitted placement parameters are recomputed in a fresh gVisor container; source data and constraints remain controller-bound.
-
-New backend modules: `app/simulation_program.py`, `app/simulation_runtime.py`, and `app/walking.py`. Walking snapshots live in `data/walk` and are included in the controller image. **Update the worker code as well as the controller image.** Existing sandbox GIS dependencies are sufficient. The local mock uses the same calculations without an LLM or cloud-containment claim.
-
-Earlier release/test figures below are historical; see the latest verification entry for this addition's checks and deployment status.
+Recorded September 27, 2026. Tested and deployed **application commit `1191c38`** on `main`; documentation commits may be newer.
 
 ## Start here
 
-- Public application: [http://149.28.204.217/](http://149.28.204.217/).
-- Repository: [thesid42/Geoscope](https://github.com/thesid42/Geoscope), public, branch `main`.
-- Stack: React/Vite, FastAPI, Leaflet, Three.js, Vultr Serverless Inference, a separate worker, and gVisor containers over Vultr VPC. **No NetBird integration.**
-- Live API checks and automated tests passed. The most recent browser retries failed **before accessing the page**, so the final rendered UI has not been accepted visually.
-- The dataset mixes observed population/facility records with simulated land. Geometric fit is checked; actual land availability is not established.
-- Credentials belong in the existing server environment files or the operator's private credential store. No passwords, API keys, worker tokens, or app secrets belong in this document or Git.
-
-### Facility-site ranking and multi-type demos
-
-Facility sites are ranked by **greatest straight-line distance to the nearest existing matching mapped service**, then largest plot area, then site ID. Population coverage is not used for scenario ranking. Supported scenario service types are clinic, library, school, and community center (not park).
-
-The SF mock fixture currently has **1,247 features (1,054,640 bytes)** with 690 mapped building footprints and 463 buffered road corridors. With the default study rectangle and 400 m threshold, `sfmock-fit-01` is preferred for clinic (~415 m), school (~384 m), and community center (~520 m); `sfmock-fit-02` is preferred for library (~778 m). Eligible fit plots sit on street-block lots (not Dolores Park / Church & 20th pavement). Four of seven plots remain eligible; three are excluded for building conflict, road conflict, or undersized lot.
-
-Commit `84ea118` adds a deterministic **Why Site N is ranked here** panel. It explains verified footprint/setback fit, building/road/restriction clearance, mapped-service gap, and the gap/area/plot-ID tie-break from reference-verified fields.
-
-East Harlem official lots (`nycland`) also return Ã¢â€°Â¥1 eligible ranked site for each of the four facility types. Park proximity remains an access/compare workflow on the parks+census snapshots.
+- Public application: [Geoscope](http://149.28.204.217/).
+- Repository: [thesid42/Geoscope](https://github.com/thesid42/Geoscope), public.
+- React/Vite, FastAPI, Leaflet, Three.js, Vultr Serverless Inference, a separate worker and gVisor containers over a private Vultr VPC. No NetBird integration.
+- Default workflow: **Design & compare**. Choose an area and facility; the agent searches a building layout and reports reserved open space and walking outcomes. Use Before/After to switch the map and 3D scene.
+- Backend/frontend tests, production build, real gVisor checks and two live agent runs passed. **Visual browser acceptance remains outstanding** because automation fails before navigation.
+- Secrets stay in the existing server environment files. Do not put passwords, provider keys, worker tokens or app secrets in Git.
 
 ## Implemented behavior
 
 | Workflow | Inputs and outcome |
 | --- | --- |
-| Facility sites (`scenario`) | Select a rectangle, facility type, dimensions, setback, and service distance. Check supplied plots and obstructions; rank up to three independent proposals; display the checked footprint in 3D. |
-| Population estimate (`exposure`) | Count whole population weights whose projected representative points fall inside the drawn rectangle. A rectangle replaces pre-existing zones for that run without modifying the source dataset. API clients may omit the rectangle and use supplied zones. |
-| Nearby services (`access`) | Estimate existing proximity and population inside/outside the chosen straight-line distance. |
-| Compare locations (`compare`) | Compare A/B against the supplied service inventory; pins and coordinates lock during execution and changed inputs invalidate old results. |
+| Design & compare (`scenario` with `design`) | Area, facility, floor-area goal, maximum floors, open-space target, setback and walking budget. Agent selects a bounded strategy, searches placements/proportions/rotations/floors, then submits up to 12 designs. A fresh sandbox independently recomputes them; up to three checked alternatives appear. |
+| Fixed-footprint scenario (`design` omitted/null) | Existing width/depth/height/setback workflow remains compatible; checks source land and obstacles and ranks eligible plots. |
+| Population estimate (`exposure`) | Estimates whole Census weights whose projected representative points fall in the drawn area. |
+| Nearby services (`access`) | Straight-line proximity to supplied services. |
+| Compare locations (`compare`) | Compares A/B against the supplied service inventory. |
 
-The live controller supports all four workflows. `verification/scenario_demo_server.py` is an explicitly labeled local fixed-reference demo supporting only scenarios; it does not invoke an LLM or claim cloud execution.
+All four API modes remain enabled. The local `verification/scenario_demo_server.py` supports scenarios using fixed calculations only; it does not call an LLM or claim cloud containment.
 
-The UI now has task-specific actions, collapsible advanced settings, result headlines, and technical details/downloads behind a disclosure. Map labels align with ranked Site 1/2/3 cards. Blue dashed lines mark the study boundary, purple outlines mark candidate plots, teal identifies the selected plot, orange shows proposed footprints, gray shows supplied building records, and red shows restrictions. Excluded plots have labels and reasons. Clicking a ranked marker selects its result; a separate button zooms to the selected site.
+### Agent design and walking
 
-The 3D view provides building close-up and neighborhood views, nine current-view OpenStreetMap tiles, north and metric-scale cues, nearby service labels, and a checked proposal footprint. Supplied buildings with documented heights can be extruded; unknown heights stay flat. Tile/WebGL failures have fallback states. Street imagery and display heights do not participate in land-fit verification.
+Defaults are **900 m2 gross floor area, at most 3 floors, 40% connected usable open space, 3 m setback, and a 10-minute walk at 1.2 m/s**. Supported facility types are clinic, library, school and community center. Park proximity remains an access/compare workflow.
+
+The agent chooses `balanced`, `open_space` or `low_rise` from the analyst question. Structured goals cannot be weakened by the question or generated script. Every footprint plus setback must fit the supplied parcel/area and avoid supplied buildings, road corridors and restrictions. Open reserve must be on the same connected unobstructed land component as the building; a 4 m geometric-width proxy removes narrow fragments. The percentage denominator is the whole source parcel. This is reserved land, not a measured carbon, energy, permeability or planning certification.
+
+Designs rank by mapped-service gap, then usable open-space percentage, then plot ID. These are the best submitted alternatives, not a global optimum. Walking outcomes are shown separately so a geometrically valid site can still show no access benefit. No submitted design does not prove that all possible buildings are infeasible.
+
+The before/after calculation uses the same population origins on an offline pedestrian graph. Network connectors and facility entrances are inferred. Known unchanged origins remain in the comparable cohort, missing baseline stays unknown, and unsupported network coverage reports unavailable. The UI exposes the compared/unmatched population, walking times, coverage, source dates and assumptions. Input edits clear stale results.
+
+See [DESIGN_SIMULATION.md](DESIGN_SIMULATION.md) for the full API contract, geometry checks, search limits and verification boundary.
+
+### Map and 3D scene
+
+Ranked Site 1/2/3 markers select matching result cards. The selected plot has its own color; only its proposed building and open reserve appear in After. Before hides the proposal and retains the surrounding context. Population-point colors and example routes change with the selected phase. The 3D mass uses the verified footprint, candidate-specific height/floors, and highlighted open reserve.
+
+Existing street tiles, mapped buildings/services, north and approximate metric-scale cues remain. Unknown surrounding building heights stay flat; imagery does not participate in land verification. Tile/WebGL failures have fallback states. No browser visual inspection of this release has been completed.
 
 ## Data and expected default results
 
-The default SF study rectangle is `[-122.433, 37.758, -122.417, 37.776]` in west/south/east/north order. The building defaults to **24 Ãƒâ€” 18 Ãƒâ€” 12 m**, setback **3 m**, service distance **400 m**, and type **clinic**.
-
-| Data | Scope, size, and provenance |
+| Data | Current scope |
 | --- | --- |
-| [SF population and parks](../data/real/sf-parks-census.geojson) | 1,837,936 bytes (~1.84 MB); 244 population tracts and 226 selected park features. See its [manifest](../data/real/manifest.json). |
-| [Raw facility download](../data/real-scenario/sf-osm-services-raw.json) | 34,310 bytes; 76 OSM elements in the query response. |
-| [Normalized facilities](../data/real-scenario/sf-osm-services.geojson) | 41,358 bytes (~41.4 kB); 75 records after excluding one explicitly disused clinic: 21 clinics, 4 libraries, 34 schools, 16 community centers. |
-| [Combined SF demo](../data/real-scenario/sf-mock.geojson) | 1,054,640 bytes; 1,247 features: 12 unchanged Census tracts, 75 mapped facilities, 7 simulated plots, 690 mapped building footprints, and 463 buffered road/footpath corridors. |
+| SF scenario (`localdemo`) | 1,247 features: 12 observed Census tracts, 75 mapped OSM facilities, 7 simulated plots, 690 mapped building footprints and 463 buffered road/footpath corridors. Candidate land is simulated. |
+| East Harlem (`nycland`) | Official MapPLUTO vacant-classified lots, supplied buildings/streets, Census population and FacDB facilities. Source vacancy/use declarations do not establish current availability, ownership or permission to build. |
+| SF walking snapshot | 20,834 nodes / 25,969 edges; OSM source timestamp 2026-05-06T03:25:00Z. |
+| East Harlem walking snapshot | 28,427 nodes / 35,594 edges; OSM timestamp 2026-09-27T15:50:06Z. |
 
-The facility query covers a neighborhood extract, **not the whole city**. Its source timestamp is **2026-05-06T03:25:00Z**, even though it was downloaded in September. OSM coverage and operating status may be incomplete or stale. Counts are mapped feature records, not a certified directory or a count of distinct architectural structures. Ways and relations use the center returned by Overpass; separate OSM elements may describe the same real facility. Attribution and ODbL terms are recorded in the [facility manifest](../data/real-scenario/sf-osm-services-manifest.json).
+Both pedestrian extracts have roughly 850 m rectangular buffers. The runtime checks the actual available buffer for the requested walking budget. Preparation dates, exact bounds, hashes, filters, ODbL attribution and refresh commands are in [data/walk](../data/walk/README.md). Offline runtime needs no Overpass access. The SF source is older than its September download date.
 
-Observed default facility-site results (gap Ã¢â€ â€™ plot area Ã¢â€ â€™ site ID):
+Default areas: SF `[-122.433, 37.758, -122.417, 37.776]`; East Harlem `[-73.955, 40.790, -73.930, 40.812]`, west/south/east/north. SF's selected area contains 12 mapped clinics, 1 library, 13 schools and 7 community centers. Counts are mapped records, not a certified directory. Missing inventory does not prove absence.
 
-| Metric | Verified value |
-| --- | --- |
-| Population weight across all 12 input tracts | 40,776 (context only; not used to rank sites) |
-| Mapped facilities inside the rectangle | 12 clinics; 1 library; 13 schools; 7 community centers |
-| Plot fit | 4 eligible out of 7; top 3 displayed |
-| Ranking basis | Greatest distance to nearest matching mapped service, then plot area, then site ID |
-| Preferred clinic / library / school / community center | `sfmock-fit-01` / `sfmock-fit-02` / `sfmock-fit-01` / `sfmock-fit-01` (~415 / ~778 / ~384 / ~520 m) |
-| Ranked clinic plot IDs | `sfmock-fit-01`, `sfmock-fit-02`, `sfmock-fit-03` |
-
-A plot fitting the supplied constraints does not by itself establish a need for another facility. Distances are straight-line proxies to mapped records.
-
-`existing_services_in_area` counts the selected facility type. `existing_service_counts` contains all four type counts. A service is counted when its projected geometry representative point is covered by the selected area, including boundary points. `service_features` remains the global matching-type inventory count used for baseline distances, including records outside the rectangle. `service_inventory` carries source/date/completeness. Missing records are not evidence of absence.
+The SF parks/Census and five-borough NYC parks/facility datasets remain available for basic access/population/compare tasks. Walking snapshots attach only to their matching bundled land scenario. Uploaded datasets without a trusted staged network retain design results with walking explicitly unavailable.
 
 ## Verification evidence
 
-Local recheck after multi-type gap-ranking fixture refresh (not yet redeployed): **151** backend tests passed with `APP_DATA_DIR` set to a writable temp directory; **33** frontend Vitest tests passed; `verification/scenario_reference_smoke.py` passed for all four facility types.
+- **194 backend tests passed** on Python 3.12 with GIS dependencies; **50 frontend tests passed**; production build passed. Existing Starlette/HTTPX deprecation and Three.js bundle-size advisories remain.
+- Both cities passed `verification/design_sandbox_smoke.py` in real worker gVisor containers, including independent verification. Fixed-script SF took 4.39 seconds and NYC 9.39 seconds. This checks containment/integration, not model decision-making.
+- Live SF library run `bf968aac0ac245c78f50922a8e87248b`: first attempt, agent chose `balanced`; preferred design has 3 floors and 77.8% connected reserve. Modeled coverage rose from 6,530 to 14,687 population weight; mean walk fell from 12.856 to 11.550 minutes.
+- Live NYC clinic run `048da08b633e4d168dff41838d25fd43`: first attempt, agent chose `low_rise`; preferred design has 2 floors and 79.7% reserve. Coverage and mean time remained unchanged. Another checked alternative reduced mean time from 4.062 to 3.878 minutes with no additional coverage.
+- Both live outputs are reference verified with `verification_kind: submitted_design_recomputed`. JSON, GeoJSON, script and trace downloads passed; public HTML/JS/CSS and worker readiness passed; no `park-agent.managed=true` containers remained.
+- Installed worker Python modules match the release checkout. Controller and worker environment files, proxy and persistent volume were preserved.
+- Browser automation exits during Windows sandbox initialization before a page opens. DOM/geometry tests do not establish actual rendered appearance.
 
-Earlier implementation checks, completed before this documentation update:
-
-| Check | Recorded outcome |
-| --- | --- |
-| Full backend suite | **139 passed** in Linux with GIS dependencies; Starlette/HTTPX deprecation warning only. |
-| Frontend suite | **31 passed** across App, site-ranking explanations, map lifecycle, scene geometry, and viewer lifecycle/fallback tests. |
-| Production build | Passed. Lazy Three.js bundle is ~609 kB minified; Vite reports its >500 kB size advisory. |
-| Public deployment | Homepage and built JS/CSS returned 200; all four modes enabled; worker readiness returned `ok: true`; scenario dataset served 1,085 features; the deployed bundle contains the deterministic site-reasoning panel. |
-| Empty-population preflight | Live run `03ba51011fcf4bbdafee66977e70cc4f` stopped before the model catalog/inference call and returned the user-facing larger-area/finer-data guidance without a traceback. |
-| Street texture request | Returned 200 with `Access-Control-Allow-Origin: *`; this is connectivity evidence, not visual verification. |
-| Final live population job | `c956d92a615843b192f723ad47d10ae5`, completed, reference verified, one execution attempt. |
-| Final live scenario job | `813e604c322449d79f6e9b686f6c1840`, completed and reference verified on attempt 3 after two bounded repairs. It returned four eligible plots and preferred `sfmock-fit-02`; every ranked candidate reported no building, road, or other restriction overlap. |
-| Worker cleanup | No managed analysis containers remained after the job. Installed `scenario.py` and `scenario_program.py` matched the `55e8a63` repository checksums. |
-| Public worker exposure | TCP 8100 was previously checked as unreachable on the worker's public address; worker communication uses the private VPC. |
-| Final visual browser pass | **Not completed.** Browser runtime exits before navigation with `windows sandbox failed: helper_unknown_error: setup refresh had errors`. Reset/retry also failed. |
-
-The deployment update rechecked public HTML, configuration, worker readiness, and the 1,085-feature dataset and ran the paid live scenario above. It did not rerun the whole test suite on the server; the recorded 138 backend and 30 frontend tests ran locally before deployment.
-
-Local full run records and downloaded artifacts are in ignored `tmp/live-smoke/`, including `population-area.json`, `scenario.json`, result JSON/GeoJSON, analysis scripts, and traces. They are convenience evidence on this workstation, not a committed test fixture or a public API access grant. Guest-owned run endpoints require the original session or authorized operator access; do not assume another browser can fetch these IDs. Server run data is subject to retention limits. [VERIFICATION.md](../VERIFICATION.md) preserves older verification stages, which must not override this newer status.
+Ignored local evidence: `tmp/live-smoke/design-sf*` and `design-nyc*`. These session-owned run IDs are not public artifact links. Whole Census weights are coarse estimates, not exact resident counts or predicted facility demand. [VERIFICATION.md](../VERIFICATION.md) keeps historical checks separately.
 
 ## Deployment and operations
 
 | Component | Current layout |
 | --- | --- |
-| Controller | Vultr VM serving the public HTTP URL through **Nginx**. Repository checkout: `/root/Geoscope`. |
-| Controller container | Compose service `controller`, current container `deploy-controller-1`, image `geoscope-controller:local`; published on `127.0.0.1:8000`. FastAPI serves React's built assets; no separate Vite server runs in production. |
-| Controller configuration | `/root/Geoscope/deploy/controller.env`; run data at container `/data` in the named `controller-data` volume. Preserve the existing secrets and volume. |
-| Worker | Separate Vultr VM, private VPC HTTP endpoint on port 8100, systemd service `parkscope-worker`. No NetBird dependency. |
-| Installed worker code | `/opt/parkscope/app`; environment `/etc/parkscope/worker.env`; venv `/opt/parkscope/venv`; service user `parkscope`. A repository pull alone does **not** update this installed code. |
-| Sandbox | `parkscope-sandbox:local`, mandatory `runsc`, no network, non-root, read-only root/input, resource/output limits, cleanup verification. |
-| Inference | Last deployed model: `deepseek-v4.1-flash`, called through Vultr Serverless Inference. Backend explicitly sets `reasoning_effort: "none"` for DeepSeek V4 models to avoid exhausting the output budget on reasoning. |
+| Controller | Vultr VM 149.28.204.217, public HTTP through Nginx; checkout `/root/Geoscope`. |
+| Controller container | `deploy-controller-1`, image `geoscope-controller:local`, port `127.0.0.1:8000`; FastAPI serves the compiled React app. |
+| Controller configuration | `/root/Geoscope/deploy/controller.env`; persistent `/data` is the named `controller-data` volume. |
+| Worker | Vultr VM 140.82.51.227; private VPC endpoint on 8100; systemd `parkscope-worker`. |
+| Installed code/config | `/opt/parkscope/app`, `/opt/parkscope/venv`, `/etc/parkscope/worker.env`; service user `parkscope`. A git pull alone does not update installed code. |
+| Sandbox | `parkscope-sandbox:local`, mandatory gVisor/runsc, no network, non-root, read-only root/inputs, bounded resources/output and verified cleanup. |
+| Inference | Vultr Serverless Inference; deployed DeepSeek configuration remains server-side. |
 
-The [simple setup guide](VULTR_SETUP.md) describes a **fresh** Caddy/domain/HTTPS installation. The live instance currently uses Nginx and plain HTTP. Do not blindly rerun preparation scripts or replace the proxy on an existing host. Use [the advanced guide](VULTR_ADVANCED.md) for infrastructure changes.
+Both worker and controller need the new toolkit. The controller image includes `data/walk`; worker changes include `simulation_program.py`, `simulation_runtime.py`, `walking.py`, `sandbox.py` and `reference.py`. Existing sandbox Shapely/PyProj dependencies are sufficient. Previous installed worker code was backed up at `/root/geoscope-release-backup-1191c38/app`.
 
-For a normal controller code/frontend update, run in its existing checkout after reviewing any local changes:
+For an existing controller update, first account for local changes:
 
 ```bash
 cd /root/Geoscope
@@ -118,10 +90,9 @@ git status --short
 git pull --ff-only
 docker compose -f deploy/controller.compose.yaml up -d --build
 docker compose -f deploy/controller.compose.yaml ps
-docker compose -f deploy/controller.compose.yaml logs --tail=100 controller
 ```
 
-For worker changes, compare the repository and installed modules first, account for local differences, and confirm no jobs are active. The supported full installer updates dependencies, sandbox image, installed code, and the service while preserving an existing environment file:
+For worker updates, compare installed modules and confirm no active jobs. The full installer preserves an existing environment file:
 
 ```bash
 cd /root/Geoscope
@@ -129,89 +100,49 @@ git status --short
 git pull --ff-only
 sudo bash scripts/install-worker.sh
 sudo systemctl status parkscope-worker --no-pager
-sudo journalctl -u parkscope-worker -n 100 --no-pager
 ```
 
-A small source-only fix can update the exact changed modules under `/opt/parkscope/app` with owner `root`, group `parkscope`, mode `0640`, then restart the worker; copy all affected dependencies together. The last reference update used this approach. Do not copy controller-only changes or overwrite unreviewed installed differences.
-
-Worker readiness/preflight without printing environment contents:
+A reviewed source-only update may copy all affected modules together as `root:parkscope`, mode `0640`, and restart the worker. Keep unreviewed installed changes and existing secrets intact.
 
 ```bash
 sudo -u parkscope bash -c 'set -a; source /etc/parkscope/worker.env; set +a; /opt/parkscope/venv/bin/python /opt/parkscope/scripts/worker-preflight.py'
-docker ps --filter label=park-agent.managed=true --format '{{.Names}} {{.Status}}'
-```
-
-Public checks that do not start an inference job:
-
-```bash
-curl --fail http://149.28.204.217/ -o /dev/null
+docker ps --all --filter label=park-agent.managed=true --format '{{.Names}} {{.Status}}'
 curl --fail http://149.28.204.217/api/worker-status
 ```
 
-If the trusted sandbox **image build** again fails with PyPI name-resolution errors, follow the Step 4 recovery in the setup guide. Host-network image builds are supported only for that installation step; never grant runtime networking or fall back from gVisor to runc for agent jobs. Do not use `docker compose down -v` to update the application; it removes persistent run data.
+The [simple setup guide](VULTR_SETUP.md) describes a fresh installation. Do not replace the existing Nginx proxy or delete the run volume when updating. Host-network image builds are an installation DNS workaround only; agent containers must remain network-disabled. A domain and HTTPS remain outstanding.
 
 ## Development and verification commands
 
-From the repository root, the [README](../README.md#quick-start-local-scenario-preview) contains the local fixed-reference demo commands. For separate development processes after configuring `.env`:
+Use [README quick start](../README.md#quick-start-local-scenario-preview) for the single-process fixed-reference preview. Separate development servers require configured backend environment values:
 
 ```powershell
-# Terminal 1: configured FastAPI controller
+# Terminal 1
 .\.venv\Scripts\python.exe -m uvicorn app.controller:app --env-file .env --host 127.0.0.1 --port 8000
-
-# Terminal 2: React/Vite; proxies /api to 127.0.0.1:8000
+# Terminal 2
 npm --prefix web run dev
 ```
 
-Set `PUBLIC_ORIGIN=http://127.0.0.1:5173` for this Vite flow. Credentials stay in the backend environment; there is no token field in the UI. Do not leave development processes running after a test unless requested.
+For Vite, set `PUBLIC_ORIGIN=http://127.0.0.1:5173`. Credentials stay in the backend environment. No local application servers were left running after this release.
 
 ```powershell
-npm --prefix web test
-npm --prefix web run build
 .\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
 $env:APP_DATA_DIR = ".\local-data"
 .\.venv\Scripts\python.exe -m pytest -q --basetemp=tmp/pytest-local
+npm --prefix web test
+npm --prefix web run build
 ```
 
-The last full backend suite used a Linux environment with Shapely and PyProj. This workstation's system Python 3.14 lacked PyProj; do not interpret missing GIS dependencies as application regressions. A local `geoscope-verification:local` Docker image was used for offline verification, but it is a workstation convenience and is not published or guaranteed on a new machine.
+The workspace now has Python 3.12 in `.venv` with GIS dependencies. System Python 3.14 lacks those packages; use the venv. On the Linux worker, run `python -m verification.design_sandbox_smoke sf nyc` from a prepared checkout to repeat fixed-script gVisor integration.
 
-Rebuild the downloaded data without network, or deliberately refresh the small extract:
+## Code map and remaining work
 
-```powershell
-# Recreate normalized records from the bundled raw response
-python scripts/fetch_sf_osm_services.py --prepare-only
-python scripts/generate_sf_mock_scenario.py
+- `app/controller.py`: binds authoritative inputs/snapshots, calls Vultr, handles bounded repair and saves artifacts.
+- `app/simulation_program.py`: bounded design search, geometry/reserve checks and verified outcomes.
+- `app/walking.py`: offline graph, same-cohort walking metrics, route/sample output and unknown-data handling.
+- `app/simulation_runtime.py`: model toolkit contract, proposal allowlist and trusted loader.
+- `app/sandbox.py`: isolated execution and fresh independent recomputation of submitted designs.
+- `web/src/App.jsx`, `scenario.js`, `components/LeafletMap.jsx`, `components/ScenarioViewer.jsx`: goals, outcomes, selection and Before/After display.
+- `scripts/fetch_walk_networks.py`, `data/walk`: controlled data refresh and provenance.
 
-# Optional refresh: replaces the bundled service snapshot
-python scripts/fetch_sf_osm_services.py
-python scripts/generate_sf_mock_scenario.py
-```
-
-Review source dates, hashes, counts, and expected scenario results before committing refreshed data. The primary Overpass endpoint and other mirrors timed out during the last fetch; `overpass.private.coffee` returned the saved response. No live Overpass call is needed to run a deployed analysis.
-
-## Code map and recent fixes
-
-| Location | Responsibility |
-| --- | --- |
-| `web/src/App.jsx` | Task controls, readiness, polling, result cards, facility counts, invalidation, downloads. |
-| `web/src/components/LeafletMap.jsx` | Layer styles/labels, selection, drawn rectangles, compare-pin locking, legends, resize handling. |
-| `web/src/components/ScenarioViewer.jsx`, `web/src/scenario.js` | Checked-footprint scene, aligned street tiles, camera/scale, provenance, cleanup/fallbacks. |
-| `app/controller.py` | API/auth orchestration, run inputs, Vultr calls, exact generation/repair contracts, saved artifacts. |
-| `app/scenario_program.py` | Fixed scenario placement, baseline, facility counts, ranking, and result schema. |
-| `app/reference.py`, `app/scenario_reference.py` | Trusted reference programs submitted to isolated execution. |
-| `app/worker.py`, `app/sandbox.py` | Worker API, container isolation, reference comparisons, artifact validation, cleanup. |
-| `app/access.py`, `app/datasets.py` | Signed guest ownership/origin checks and input/dataset validation. |
-| `scripts/`, `deploy/`, `tests/` | Snapshot generation, installers/preflight, deployment examples, regression checks. |
-
-Recent resolved failures: empty/truncated inference output, DeepSeek reasoning consuming the code budget, generated scripts assuming the wrong request wrapper or obstruction-layer name, missing sandbox `re` import, unhelpful worker errors, stale readiness/coordinate defaults, population mode requiring preloaded zones, and placement-grid ambiguity. The last placement failure used bbox edges instead of 5Ãƒâ€”5 **cell centers**. Generation and repair now specify `(col + 0.5) / 5` and `(row + 0.5) / 5`; the corrected live scenario passed without a repair.
-
-The worker compares generated metrics and geometry to an independent fixed calculation. Keep generation/repair instructions synchronized with the reference schema; never loosen verification merely to pass incorrect generated output. A natural-language summary is model text and does not receive the same numerical/geometry guarantee.
-
-## Remaining work and priorities
-
-1. **Complete browser acceptance.** Restore the browser automation runtime first, then test the deployed release at desktop and narrow widths. Check population mode/drawing/run submission, plot labels and marker-to-card selection, selected-site zoom, both 3D camera views, tile fallback, compare-pin locking/result invalidation, and downloads. Inspect console errors and capture screenshots. Unit tests mock DOM/WebGL and cannot replace this pass.
-2. **Finish domain/HTTPS deployment.** The current public URL is plain HTTP. Coordinate the existing Nginx setup and `PUBLIC_ORIGIN`; verify the final origin and guest session/write behavior after the change. Keep worker traffic private.
-3. **Improve summary precision.** Saved LLM explanations sometimes call the entire hybrid dataset synthetic, describe observed facilities ambiguously, or include irrelevant scenario caveats in a population result. Structured metrics and source labels are the reliable output. Make prompts mode-specific and preserve per-layer provenance when refining summaries.
-4. **Improve data quality for real planning.** Obtain observed parcels, obstruction coverage, availability/use evidence, and finer population units before claiming real constructibility or precise hyperlocal resident counts. OSM services alone do not validate land. Consider deduplicating facility records and checking status as a separate sourced task.
-5. **Record a final demo/containment acceptance run.** Retain the checked artifacts and visual evidence for the deployed revision. Existing live jobs and cleanup passed, but this document does not claim a comprehensive security audit or that every historical adversarial probe was rerun against the latest deployment.
-
-Preserve the existing React/FastAPI split, Vultr inference path, separate worker, strict sandbox checks, environment-only credentials, real facility attribution, and explicit simulated-land labels. The authorized development workflow used a Luna-high executor with an Astra-xhigh advisor; that workflow does not grant permission to message other user chats or expose credentials.
+Remaining work: browser acceptance at desktop/narrow widths; domain/HTTPS; finer population and verified entrances/access, land-use and availability evidence for real planning. New requests should preserve containment, environment-only credentials, explicit simulated-land labels and measured-versus-assumed distinctions. A natural-language explanation remains model text; structured geometry and metrics receive independent verification.

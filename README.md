@@ -14,12 +14,12 @@ See the [simulation guide](docs/DESIGN_SIMULATION.md) for constraints, agent dec
 
 ## Current status
 
-The application is deployed at **[Geoscope](http://149.28.204.217/)**. The last verified application release is `a8e7ba4` (September 26, 2026 Pacific / September 27 UTC).
+The application is deployed at **[Geoscope](http://149.28.204.217/)**. The last verified application release is `1191c38` (September 27, 2026).
 
 - All four analysis workflows are enabled on the live controller. Population estimation accepts a drawn area without preloaded zone polygons.
 - The interface labels plot boundaries and selected sites, puts outcomes first, and includes street context, service markers, scale, and camera controls in the 3D view.
-- Proposal results report mapped facilities already inside the selected area and explicitly identify zero added population coverage.
-- Last recorded verification: **139 backend tests, 31 frontend tests, production build, and live population/scenario jobs passed**. The road/building-aware scenario run matched the fixed GIS reference on its third bounded execution attempt.
+- The agent selects placement, shape and floors within your goals. Before/After switches the map and 3D scene; results report reserved open space, walking-time changes, existing mapped facilities and zero added coverage when appropriate.
+- Latest verification: **194 backend tests, 50 frontend tests, production build, real gVisor checks, and live SF/NYC agent-design jobs passed**. Both live design jobs completed on their first execution attempt with independently recomputed layouts and walking results.
 - **Final visual browser testing is still outstanding.** Browser automation crashes during Windows sandbox initialization before opening the site. DOM/geometry tests and API checks do not establish rendered appearance.
 - The current public endpoint uses **HTTP through Nginx**. A domain and HTTPS are still deployment follow-up work.
 
