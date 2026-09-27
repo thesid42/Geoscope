@@ -37,7 +37,7 @@ export function explainScenarioCandidate(candidate, candidates, metrics) {
   const rank = Math.max(0, ranked.findIndex((item) => item.id === candidate.id));
   const building = metrics?.building ?? {};
   const check = candidate.land_check ?? {};
-  const facility = ({ clinic: 'clinic', library: 'library', school: 'school', community_center: 'community center' })[metrics?.service_type] || 'facility';
+  const facility = ({ clinic: 'clinic', library: 'library', school: 'school', community_center: 'community centre' })[metrics?.service_type] || 'facility';
   const noInventory = metrics?.inventory_status === 'no matching service inventory supplied';
   const area = Number(candidate.plot_area_m2);
   const distance = Number(candidate.nearest_existing_service_m);

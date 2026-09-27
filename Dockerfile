@@ -18,7 +18,7 @@ COPY data/real-nyc-land ./data/real-nyc-land
 COPY data/real-scenario ./data/real-scenario
 RUN useradd --uid 10001 --create-home app \
     && mkdir -p /data \
-    && chown 10001:10001 /data
+    && chown -R app:app /app /data
 USER app
 ENV APP_DATA_DIR=/data
 EXPOSE 8000

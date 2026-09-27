@@ -353,6 +353,98 @@ describe('GeoScope React workflows', () => {
     expect(await screen.findByText('threshold_m: Input should be less than 5000')).toBeInTheDocument();
   });
 
+
+
+
+  it('keeps the run action outside the scrolling controls pane', async () => {
+    render(<App />);
+    await ready();
+    const controls = screen.getByRole('complementary', { name: 'Analysis controls' });
+    const scroll = controls.querySelector('.controls-scroll');
+    const run = screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ });
+    expect(scroll).toBeTruthy();
+    expect(scroll).not.toContainElement(run);
+    expect(controls).toContainElement(run);
+    expect(document.querySelector('.app-frame')).toBeTruthy();
+  });
+
+  it('splits the workspace into controls, map stage, and results stage', async () => {
+    render(<App />);
+    await ready();
+    expect(screen.getByRole('complementary', { name: 'Analysis controls' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Map stage')).toBeInTheDocument();
+    expect(screen.getByLabelText('Results stage')).toBeInTheDocument();
+    expect(screen.getByLabelText('Map and analysis results')).toBeInTheDocument();
+    const results = screen.getByLabelText('Results stage');
+    expect(results).toContainElement(screen.getByText('No results yet'));
+    const mapStage = screen.getByLabelText('Map stage');
+    expect(mapStage).toContainElement(screen.getByTestId('map-view'));
+  });
+
+  it('orders the workflow as task, dataset, study area, then run, and shows an empty results state', async () => {
+    render(<App />);
+    await ready();
+    expect(screen.getByRole('heading', { name: 'Choose a task' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Choose a dataset' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Review settings' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Run analysis' })).toBeInTheDocument();
+    expect(screen.getByText('No results yet')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Check facility sites \(needs candidate plots\)/ })).toBeDisabled();
+    const modes = screen.getByLabelText('Analysis');
+    expect([...modes.options].map((option) => option.value)).toEqual(['scenario', 'access', 'compare', 'exposure']);
+  });
+
+  it('explains why run is disabled when the analysis service is unavailable', async () => {
+    const fetchMock = vi.fn(async (url) => {
+      if (url === '/api/config') return geojsonResponse(config);
+      if (url === '/api/worker-status') return response(503, { detail: 'worker endpoint offline' });
+      if (url === '/api/datasets/real') return geojsonResponse(sfData);
+      return response(404, {});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+    await screen.findByRole('heading', { name: 'San Francisco · 2020 Census + selected parks' });
+    expect(await screen.findByText(/Analysis service is unavailable/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ })).toBeDisabled();
+  });
+
+  it('shows a park note on access and compare, and lists community centre for facility siting', async () => {
+    const user = userEvent.setup();
+    const scenarioData = {
+      type: 'FeatureCollection',
+      features: [
+        population(),
+        service,
+        { type: 'Feature', id: 'plot-1', properties: { layer: 'candidate_site' }, geometry: { type: 'Polygon', coordinates: [[[-122.43, 37.77], [-122.429, 37.77], [-122.429, 37.771], [-122.43, 37.771], [-122.43, 37.77]]] } },
+      ],
+    };
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (url === '/api/config') return geojsonResponse({ ...config, scenario_demo: { id: 'localdemo', name: 'SF mock' }, supported_modes: ['scenario', 'access', 'compare'] });
+      if (url === '/api/worker-status') return geojsonResponse({ ok: true });
+      if (url === '/api/datasets/localdemo') return geojsonResponse(scenarioData);
+      return response(404, {});
+    }));
+    render(<App />);
+    await ready();
+    expect(screen.getByLabelText('Analysis')).toHaveValue('scenario');
+    expect(screen.getByRole('option', { name: 'Community centre' })).toBeInTheDocument();
+    expect(screen.queryByText(/Park is not a facility-site type/i)).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Analysis'), 'access');
+    expect(screen.getByText(/Park proximity is available in Find nearby services and Compare two locations/i)).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Analysis'), 'compare');
+    expect(screen.getByText(/Park is not a facility-site type/i)).toBeInTheDocument();
+  });
+
+  it('labels completed findings with plain-language status pills', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', baseFetch());
+    render(<App />);
+    await ready();
+    await user.click(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ }));
+    expect(await screen.findByText('Done')).toBeInTheDocument();
+    expect(screen.getByText(/people within walking-range threshold/i)).toBeInTheDocument();
+  });
+
   it('does not claim reference verification for a planned but failed run', async () => {
     const user = userEvent.setup();
     const fetchMock = baseFetch({});

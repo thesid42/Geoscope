@@ -104,3 +104,9 @@ it('does not mark observed services simulated just because the land scenario is 
   const model = makeScenarioSceneData({area,candidate,building,dataset:source});
   expect(model.services.map((service)=>service.simulated)).toEqual([false,true]);
 });
+
+it('uses product facility language for community centre ranking copy', () => {
+  const candidates = [{ id: 'plot-a', plot_area_m2: 2100, nearest_existing_service_m: 500, land_check: { setback_m: 3, no_building_overlap: true, no_road_overlap: true, no_restriction_overlap: true } }];
+  const reasons = explainScenarioCandidate(candidates[0], candidates, { building: { width_m: 24, depth_m: 18 }, service_type: 'community_center', inventory_status: 'matching services supplied' });
+  expect(reasons.join(' ')).toMatch(/nearest mapped community centre/);
+});

@@ -170,15 +170,16 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
     return undefined;
   }, [resultData]);
 
-  return <div className="map-wrapper">
+  return <div className="map-wrapper map-frame">
     <div id="map" ref={elementRef} aria-label="Map of population areas, places, selected area, and candidate sites" />
     {mode === 'scenario' && selectedCandidateId && <button type="button" className="map-focus-button" onClick={() => {
       const candidate = scenarioCandidates?.find((site) => String(site.id) === String(selectedCandidateId));
       if (candidate) mapRef.current?.setView([Number(candidate.latitude), Number(candidate.longitude)], 18);
     }}>Zoom to selected site</button>}
     <div className="map-key" aria-label="Map legend">
+      <strong className="map-key-title">Legend</strong>
       {['scenario', 'exposure'].includes(mode) && <span className="map-key-item"><i className="key-area" />{mode === 'exposure' ? 'Count boundary' : 'Study boundary'}</span>}
-      {mode === 'scenario' ? <><span className="map-key-item"><i className="key-plot" />Candidate plot</span><span className="map-key-item"><i className="key-selected" />Selected plot</span><span className="map-key-item"><i className="key-building" />Proposed building</span><span className="map-key-item"><i className="key-blocker" />Building record</span><span className="map-key-item"><i className="key-restricted" />Restricted area</span><span className="map-key-item"><i className="key-service" />Mapped service</span></> : <><span className="map-key-item"><i className="key-population" />Population areas</span><span className="map-key-item"><i className="key-service" />Services</span></>}
+      {mode === 'scenario' ? <><span className="map-key-item"><i className="key-plot" />Candidate plot</span><span className="map-key-item"><i className="key-selected" />Selected plot</span><span className="map-key-item"><i className="key-building" />Proposed building</span><span className="map-key-item"><i className="key-blocker" />Building record</span><span className="map-key-item"><i className="key-restricted" />Restricted area</span><span className="map-key-item"><i className="key-service" />Mapped service</span></> : <><span className="map-key-item"><i className="key-population" />Population areas</span><span className="map-key-item"><i className="key-service" />{mode === 'access' || mode === 'compare' ? 'Services / parks' : 'Services'}</span></>}
       {resultData?.features?.length > 0 && <><span className="map-key-item"><i className="key-result-orange" />{mode === 'exposure' ? 'Inside count boundary' : 'Outside current service range'}</span><span className="map-key-item"><i className="key-result-green" />{mode === 'exposure' ? 'Outside count boundary' : 'Within current service range'}</span></>}
     </div>
     {areaSelectionActive && <div className="map-draw-hint" role="status">Click one corner, then the opposite corner to choose your area.</div>}
