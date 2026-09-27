@@ -100,3 +100,11 @@ def test_non_json_worker_failure_has_actionable_status():
     import httpx
     error = controller._worker_detail(httpx.Response(500, text="Internal Server Error"))
     assert "HTTP 500" in error and "worker service logs" in error
+
+
+@pytest.mark.parametrize("mode", ["access", "compare", "exposure", "scenario"])
+def test_every_generation_and_repair_contract_names_the_actual_input_shape(mode):
+    instructions = controller._script_instructions(mode)
+    assert "features = request['features']" in instructions
+    assert "NOT wrappers present in the input file" in instructions
+    assert "'restricted', NOT 'restriction'" in instructions

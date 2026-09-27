@@ -330,7 +330,7 @@ def _verify_result(actual: Any, expected: Any) -> None:
             coordinate = path.endswith((".longitude", ".latitude")) or path.startswith("metrics.study_area[") or ".footprint.coordinates[" in path or path.startswith("metrics.building.")
             tolerance = 0 if isinstance(want, int) else (1e-7 if coordinate else 0.05)
             if abs(got - want) > tolerance:
-                raise SandboxFailure(f"Generated metric {path} differed from the trusted reference.")
+                raise SandboxFailure(f"Generated metric {path} differed from the trusted reference. Expected {want!r}, received {got!r}. Recompute from the input features using the required methodology.")
         else:
             raise SandboxFailure(f"Unsupported trusted metric type at {path}.")
 
