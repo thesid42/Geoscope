@@ -218,9 +218,10 @@ async def _chat(client: httpx.AsyncClient, system: str, user: str, *, max_tokens
         "temperature": 0.1,
         "max_tokens": max_tokens,
     }
-    # Reasoning shares the completion budget on the deployed DeepSeek model.
-    if settings.vultr_model_id.lower().startswith("deepseek-"):
-        payload["reasoning_effort"] = "low"
+    # Vultr passes this setting through for DeepSeek V4. Without it, reasoning
+    # can consume the entire budget before any executable source is returned.
+    if settings.vultr_model_id.lower().startswith("deepseek-v4"):
+        payload["reasoning_effort"] = "none"
     for attempt in range(2):
         response = await client.post(
             f"{_base_url()}/chat/completions",

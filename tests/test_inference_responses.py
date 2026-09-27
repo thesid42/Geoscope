@@ -36,7 +36,7 @@ def test_incomplete_inference_retries_before_accepting_python(first, monkeypatch
     source = asyncio.run(controller._chat(client, "Write only Python", "test", max_tokens=3500))
     assert source == "print('complete')"
     assert [call["max_tokens"] for call in client.calls] == [3500, 8192]
-    assert all(call["reasoning_effort"] == "low" for call in client.calls)
+    assert all(call["reasoning_effort"] == "none" for call in client.calls)
     assert client.calls[0]["messages"] == client.calls[1]["messages"]
 
 
