@@ -49,20 +49,20 @@ it('loads only nine current-view public street tiles, keeps attribution, and tol
   expect(screen.getByRole('link', {name:'OpenStreetMap'})).toHaveAttribute('href','https://www.openstreetmap.org/copyright');
   act(() => { state.loads[0].failed(); state.loads.slice(1).forEach(({ready,texture})=>ready(texture)); });
   expect(screen.getByRole('status')).toHaveTextContent('Some street tiles unavailable');
-  expect(screen.getByText(/The candidate land records are simulated/)).toBeInTheDocument();
+  expect(screen.getByText(/Candidate land records are simulated/)).toBeInTheDocument();
 });
 
 it('releases the old view and late textures, switches neighborhood scale, and cleans up on unmount', () => {
   const rendered = render(<ScenarioViewer {...props} />); const oldLoads = [...state.loads];
-  fireEvent.click(screen.getByRole('button',{name:'Neighborhood context'}));
-  expect(screen.getByRole('button',{name:'Neighborhood context'})).toHaveAttribute('aria-pressed','true');
+  fireEvent.click(screen.getByRole('button',{name:'Neighborhood'}));
+  expect(screen.getByRole('button',{name:'Neighborhood'})).toHaveAttribute('aria-pressed','true');
   expect(state.loads).toHaveLength(18); expect(state.loads.slice(9).every(({url})=>url.includes('/16/'))).toBe(true);
   expect(state.renderers[0].dispose).toHaveBeenCalledTimes(1); expect(state.controls[0].dispose).toHaveBeenCalledTimes(1);
   const beforeLate = oldLoads[0].texture.dispose.mock.calls.length;
   act(() => oldLoads[0].ready(oldLoads[0].texture));
   expect(oldLoads[0].texture.dispose).toHaveBeenCalledTimes(beforeLate+1);
   expect(screen.getByRole('status')).toHaveTextContent('Loading street map');
-  fireEvent.click(screen.getByRole('button',{name:'Reset view'}));
+  fireEvent.click(screen.getByRole('button',{name:'Reset'}));
   expect(state.controls[1].update.mock.calls.length).toBeGreaterThan(1);
   rendered.unmount();
   expect(state.renderers[1].dispose).toHaveBeenCalledTimes(1);
@@ -73,7 +73,7 @@ it('releases the old view and late textures, switches neighborhood scale, and cl
 it('shows an accessible fallback and retries context creation after a view change', () => {
   state.failRenderer = true; render(<ScenarioViewer {...props} />);
   expect(screen.getByRole('status')).toHaveTextContent('3D is unavailable'); expect(state.loads).toHaveLength(0);
-  state.failRenderer = false; fireEvent.click(screen.getByRole('button',{name:'Neighborhood context'}));
+  state.failRenderer = false; fireEvent.click(screen.getByRole('button',{name:'Neighborhood'}));
   expect(state.loads).toHaveLength(9); expect(screen.queryByText(/3D is unavailable/)).not.toBeInTheDocument();
   act(()=>state.loads.forEach(({failed})=>failed()));
   expect(screen.getByRole('status')).toHaveTextContent('Street map unavailable; supplied geometry remains visible.');

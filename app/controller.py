@@ -135,11 +135,11 @@ if NYC_LAND_PATH.is_file():
         NYC_LAND_DATASET = None
 PUBLIC_DATASET_IDS = {"demo", "localdemo", "sf2020", "nyc2020", "nycland"}
 DATASET_LABELS = {
-    "demo": "Harborview synthetic demo",
-    "localdemo": "San Francisco land simulation · mock",
-    "sf2020": "San Francisco parks + 2020 Census",
-    "nyc2020": "New York City parks, facilities + 2020 Census",
-    "nycland": "East Harlem vacant lots + buildings + streets",
+    "demo": "Harborview",
+    "localdemo": "San Francisco",
+    "sf2020": "San Francisco",
+    "nyc2020": "New York",
+    "nycland": "East Harlem",
 }
 RUNS: dict[str, dict[str, Any]] = {}
 MAX_RUNS = 100
@@ -345,11 +345,11 @@ def index():
 def public_config(request: Request, response: Response):
     issue_session(request, response)
     return {
-        "demo": {"id": "demo", "name": "Harborview synthetic demo", "synthetic": True, "features": len(DEMO["features"])},
-        "real": {"id": "sf2020", "name": DATASET_LABELS["sf2020"], "synthetic": False, "features": len(REAL_DATASET["features"])} if REAL_DATASET else None,
-        "nyc": {"id": "nyc2020", "name": DATASET_LABELS["nyc2020"], "synthetic": False, "features": len(NYC_DATASET["features"])} if NYC_DATASET else None,
-        "nyc_land": {"id": "nycland", "name": DATASET_LABELS["nycland"], "synthetic": False, "features": len(NYC_LAND_DATASET["features"])} if NYC_LAND_DATASET else None,
-        "scenario_demo": {"id": "localdemo", "name": DATASET_LABELS["localdemo"], "synthetic": True, "features": len(LOCAL_DEMO["features"])} if LOCAL_DEMO is not None else None,
+        "demo": {"id": "demo", "name": "Harborview synthetic demo", "synthetic": True, "features": len(DEMO["features"]), "scenario_capable": False},
+        "real": {"id": "sf2020", "name": DATASET_LABELS["sf2020"], "synthetic": False, "features": len(REAL_DATASET["features"]), "scenario_capable": False} if REAL_DATASET else None,
+        "nyc": {"id": "nyc2020", "name": DATASET_LABELS["nyc2020"], "synthetic": False, "features": len(NYC_DATASET["features"]), "scenario_capable": False} if NYC_DATASET else None,
+        "nyc_land": {"id": "nycland", "name": DATASET_LABELS["nycland"], "synthetic": False, "features": len(NYC_LAND_DATASET["features"]), "scenario_capable": True} if NYC_LAND_DATASET else None,
+        "scenario_demo": {"id": "localdemo", "name": DATASET_LABELS["localdemo"], "synthetic": True, "features": len(LOCAL_DEMO["features"]), "scenario_capable": True} if LOCAL_DEMO is not None else None,
         "real_manifest": REAL_MANIFEST if REAL_DATASET else None,
         "nyc_manifest": NYC_MANIFEST if NYC_DATASET else None,
         "nyc_land_manifest": NYC_LAND_MANIFEST if NYC_LAND_DATASET else None,

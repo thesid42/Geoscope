@@ -121,22 +121,25 @@ export default function ScenarioViewer({ area, candidate, building, serviceType,
   const tileStatus = tiles.loaded + tiles.failed < tiles.total ? 'Loading street map…' : tiles.loaded === 0 ? 'Street map unavailable; supplied geometry remains visible.' : tiles.failed ? 'Some street tiles unavailable; supplied geometry remains visible.' : 'OpenStreetMap street context · independent of supplied land records';
   const name = ({ clinic: 'clinic', library: 'library', school: 'school', community_center: 'community centre' })[serviceType] || String(serviceType || 'facility').replaceAll('_', ' ');
   return <section className="scenario-viewer" aria-label="Verified 3D footprint preview">
-    <div className="scenario-viewer-head"><div><b>PROPOSAL IN ITS NEIGHBORHOOD</b><span>Proposed {name} · {dimensions}</span></div><span className="scenario-viewer-help">Flat ground · hypothetical building<br />Drag to orbit · scroll to zoom</span></div>
+    <div className="scenario-viewer-head"><div><b>3D FOOTPRINT</b><span>{name} · {dimensions}</span></div><span className="scenario-viewer-help">Drag to orbit · scroll to zoom</span></div>
     <div className="scenario-viewer-body">
       <div className="scenario-view-controls" role="group" aria-label="3D camera view">
-        <button type="button" className="download-link" aria-pressed={view === 'closeup'} onClick={() => setView('closeup')}>Building close-up</button>
-        <button type="button" className="download-link" aria-pressed={view === 'neighborhood'} onClick={() => setView('neighborhood')}>Neighborhood context</button>
-        <button type="button" className="download-link" onClick={() => resetViewRef.current?.()}>Reset view</button>
+        <button type="button" className="download-link" aria-pressed={view === 'closeup'} onClick={() => setView('closeup')}>Close-up</button>
+        <button type="button" className="download-link" aria-pressed={view === 'neighborhood'} onClick={() => setView('neighborhood')}>Neighborhood</button>
+        <button type="button" className="download-link" onClick={() => resetViewRef.current?.()}>Reset</button>
       </div>
       <div className="scenario-scene-stage">
         <div className="scenario-canvas" ref={hostRef} hidden={Boolean(error)} aria-label="Interactive 3D street map with checked building footprint, selected plot, north and metric scale" />
         {error && <div className="scenario-3d-error" role="status">{error}</div>}
-        <div className="scenario-map-credit">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors</div>
+        <div className="scenario-map-credit">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a></div>
       </div>
       {!error && <div className="scenario-tile-status" role="status">{tileStatus}</div>}
-      <div className="scenario-context-key" aria-label="3D scene legend"><span>Orange: checked proposal</span><span>Teal: selected plot</span><span>Purple: other supplied plots</span><span>Blue: study boundary</span><span>Red: road/restriction exclusions</span><span>Green: supplied services</span><span>Gray: supplied building footprints</span></div>
-      <details className="scenario-parcel-details"><summary>Selected parcel record</summary><span>{candidate.id}</span></details>
-      <p className="scenario-viewer-note">Street imagery provides location context, not land availability. {model.simulated ? 'The candidate land records are simulated. ' : 'Candidate land records come from the supplied dataset. '}{model.services.some((service) => service.simulated) ? 'Service markers labelled simulated are mock records; other markers come from the supplied service inventory. ' : 'Service markers come from the supplied inventory, not an inferred complete neighborhood inventory. '}Buildings rise only where a source includes height_m; others remain flat. Context is limited to nearby supplied features; large population fills are omitted to keep streets readable. The proposal uses the checked footprint and requested height on flat ground, with approximate local metre scale. No ownership, planning approval, terrain or real-world feasibility is established.</p>
+      <details className="scenario-extras">
+        <summary>Legend &amp; notes</summary>
+        <div className="scenario-context-key" aria-label="3D scene legend"><span>Orange: proposal</span><span>Teal: selected plot</span><span>Purple: other plots</span><span>Blue: study area</span><span>Red: restrictions</span><span>Green: services</span><span>Gray: buildings</span></div>
+        <p className="scenario-viewer-note">Street imagery is context only, not land availability. {model.simulated ? 'Candidate land records are simulated. ' : 'Land records come from the supplied dataset. '}{model.services.some((service) => service.simulated) ? 'Simulated service markers are mock records; others come from the inventory. ' : 'Service markers come from the supplied inventory. '}Buildings rise only where height_m is supplied. Flat ground · approximate metre scale · no ownership or feasibility claim.</p>
+        <p className="scenario-parcel-inline">Parcel {candidate.id}</p>
+      </details>
     </div>
   </section>;
 }

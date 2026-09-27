@@ -4,8 +4,18 @@ import { explainScenarioCandidate, validateBuilding, validateStudyArea } from '.
 const ScenarioViewer = lazy(() => import('./components/ScenarioViewer.jsx'));
 
 const TERMINAL = new Set(['completed', 'failed', 'interrupted']);
-const COPY = { access: 'Which population areas are farthest from the nearest service, and how many residents are within 400 meters?', compare: 'Which candidate serves more residents within 400 meters, and how much does each reduce average distance?', exposure: 'What population estimate falls inside the selected study area, and how much falls outside?', scenario: 'Which supplied plots meet the requested facility and clearance rules, and how do eligible sites compare?' };
-const MODES = [['scenario', 'Check facility sites'], ['access', 'Find nearby services'], ['compare', 'Compare two locations'], ['exposure', 'Estimate population in an area']];
+const COPY = {
+  scenario: 'Which supplied plots fit the facility footprint, and how do eligible sites rank by service gap?',
+  compare: 'Which of two candidate locations newly serves more residents within the service radius?',
+  access: 'Which population areas are farthest from the nearest mapped service?',
+  exposure: 'What population estimate falls inside the selected study area?',
+};
+const FEATURED_MODES = [['scenario', 'Check facility sites'], ['compare', 'Compare two locations']];
+const LEGACY_MODES = [['access', 'Find nearby services'], ['exposure', 'Estimate population in an area']];
+const MODES = [...FEATURED_MODES, ...LEGACY_MODES];
+const MODE_PRIORITY = ['scenario', 'compare', 'access', 'exposure'];
+const isFeaturedMode = (value) => value === 'scenario' || value === 'compare';
+const SCENARIO_BUNDLED_IDS = new Set(['nycland', 'localdemo']);
 const SERVICE_TYPES = [['clinic', 'Clinic'], ['library', 'Library'], ['school', 'School'], ['community_center', 'Community centre']];
 const DEFAULT_BUILDING = { width_m: 24, depth_m: 18, height_m: 12, setback_m: 3 };
 
@@ -166,28 +176,34 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
       ? `${areaLabel(best.plot_area_m2)} plot · no mapped ${facilityName} in the inventory`
       : `${areaLabel(best.plot_area_m2)} plot · ${d(best.nearest_existing_service_m)} from nearest mapped ${facilityName}`;
     return <div className="result-panel scenario-result-layout">
-      <div className="result-summary">
-        <div className="result-top"><div><div className="eyebrow">{run.demo_mode ? 'SF MOCK SIMULATION · LOCAL FIXED REFERENCE' : 'VERIFIED SCENARIO'}</div><h2>Facility site results</h2></div><span className="status-pill">{run.demo_mode ? 'Mock · geometry checked' : 'Checked'}</span></div>
-        {run.demo_mode && <p className="scenario-demo-banner">SF MOCK SIMULATION — local fixed-reference calculation; no cloud agent run.</p>}
-        <div className="scenario-headline"><strong>{n(m.eligible_sites)} of {n(m.sites_evaluated)} plots fit</strong><span>Building footprint checked against supplied plot, area, and obstruction layers.</span></div>
+      <header className="result-outcome">
+        <div className="result-top"><div><div className="eyebrow">{run.demo_mode ? 'MOCK' : 'RESULTS'}</div><h2>Facility sites</h2></div><span className="status-pill">{run.demo_mode ? 'Mock · geometry checked' : 'Checked'}</span></div>
+        <div className="scenario-headline" id="summary"><strong>{n(m.eligible_sites)} of {n(m.sites_evaluated)} plots fit</strong><span>Footprint checked against plot, area, and obstruction layers.</span></div>
         {best && <div className="scenario-best"><b>Site {selectedRank}</b><span>{bestHeadline}</span></div>}
-        <div className="scenario-existing-service"><b>Already in this area</b><strong>{n(existingCount)} mapped {existingCount === 1 ? facilityName : pluralFacility}</strong><span>Mapped records of this facility type. Coverage may be incomplete; missing records do not prove a service is absent.</span>{(inventory.source || inventory.as_of) && <small>Source: {inventoryLabel}{inventory.as_of ? ` · ${inventory.as_of}` : ''}</small>}{m.existing_service_counts && <details><summary>Counts by facility type</summary><p>{Object.entries(m.existing_service_counts).map(([type, count]) => `${facilityLabel(type)}: ${n(count)}`).join(' · ')}</p></details>}</div>
-        <p className="scenario-caveat">Facility services and land evidence are {landIsSimulated ? 'simulated plots checked against mapped buildings and road corridors, alongside mapped facility records' : 'limited to supplied records'}. Distances are straight-line, not walking routes. This does not establish real land availability, ownership, zoning approval, or permits.</p>
-        <h3 className="scenario-subhead">Best eligible sites</h3>
-        {m.candidates?.length ? <div className="scenario-rankings" role="list">{m.candidates.map((candidate, index) => <button type="button" role="listitem" className={`scenario-rank${best?.id === candidate.id ? ' selected' : ''}`} key={candidate.id} onClick={() => onSelectScenarioCandidate(candidate)} aria-pressed={best?.id === candidate.id}>
-          <span className="rank-number" aria-label={`Rank ${index + 1}`}>{index + 1}</span>
-          <span className="rank-main"><b>Site {index + 1}</b><small className="rank-meta">Plot {candidate.id} · {areaLabel(candidate.plot_area_m2)} · {candidate.land_check?.setback_m ?? '—'} m clearance</small></span>
-          <span className="rank-pop">{candidate.nearest_existing_service_m == null ? areaLabel(candidate.plot_area_m2) : d(candidate.nearest_existing_service_m)}<small>{candidate.nearest_existing_service_m == null ? 'plot area (rank key)' : `gap to nearest ${facilityName}`}</small></span>
-        </button>)}</div> : <p className="panel-state empty">No eligible supplied plot passed the requested footprint checks. No building placement is shown.</p>}
-        {best && selectedReasons.length > 0 && <section className="scenario-reasoning" aria-labelledby="scenario-reasoning-title"><h3 id="scenario-reasoning-title">Why Site {selectedRank} is ranked here</h3><ul>{selectedReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul><p>Ranking order: greatest distance to the nearest mapped {facilityName}, then largest plot area, then plot ID.</p></section>}
-        {(m.site_checks?.length > 0 || m.land_inventory) && <details className="scenario-sources"><summary>Land checks and sources</summary>{m.land_inventory && <div><b>Supplied land evidence · {m.land_inventory.as_of || 'date not recorded'}</b><p>{m.land_inventory.source || 'Source not recorded'}</p></div>}{m.site_checks?.length > 0 && <ul className="site-checks">{m.site_checks.map((site) => <li key={site.id}><b>{site.id}: {site.status}</b> · {site.reason} <span>Evidence: {site.source || 'not supplied'}</span></li>)}</ul>}</details>}
+      </header>
+      <div className="result-main">
+        <div className="result-summary">
+          <h3 className="scenario-subhead">Ranked sites</h3>
+          {m.candidates?.length ? <div className="scenario-rankings" role="list">{m.candidates.map((candidate, index) => <button type="button" role="listitem" className={`scenario-rank${best?.id === candidate.id ? ' selected' : ''}`} key={candidate.id} onClick={() => onSelectScenarioCandidate(candidate)} aria-pressed={best?.id === candidate.id}>
+            <span className="rank-number" aria-label={`Rank ${index + 1}`}>{index + 1}</span>
+            <span className="rank-main"><b>Site {index + 1}</b><small className="rank-meta">Plot {candidate.id} · {areaLabel(candidate.plot_area_m2)} · {candidate.land_check?.setback_m ?? '—'} m setback</small></span>
+            <span className="rank-pop">{candidate.nearest_existing_service_m == null ? areaLabel(candidate.plot_area_m2) : d(candidate.nearest_existing_service_m)}<small>{candidate.nearest_existing_service_m == null ? 'plot area' : `to nearest ${facilityName}`}</small></span>
+          </button>)}</div> : <p className="panel-state empty">No eligible plot passed the footprint checks.</p>}
+          {best && selectedReasons.length > 0 && <section className="scenario-reasoning" aria-labelledby="scenario-reasoning-title"><h3 id="scenario-reasoning-title">Why Site {selectedRank} is ranked here</h3><ul>{selectedReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul><p>Order: farthest from mapped {facilityName}, then largest plot, then plot ID.</p></section>}
+          <details className="result-context">
+            <summary>Area context &amp; limits</summary>
+            <div className="scenario-existing-service"><b>Already nearby</b><strong>{n(existingCount)} mapped {existingCount === 1 ? facilityName : pluralFacility}</strong><span>Mapped inventory may be incomplete.</span>{(inventory.source || inventory.as_of) && <small>Source: {inventoryLabel}{inventory.as_of ? ` · ${inventory.as_of}` : ''}</small>}{m.existing_service_counts && <details><summary>Counts by type</summary><p>{Object.entries(m.existing_service_counts).map(([type, count]) => `${facilityLabel(type)}: ${n(count)}`).join(' · ')}</p></details>}</div>
+            <p className="scenario-caveat">Facility services and land evidence are {landIsSimulated ? 'simulated plots checked against mapped buildings and road corridors, alongside mapped facility records' : 'limited to supplied records'}. Distances are straight-line, not walking routes. This does not establish real land availability, ownership, zoning approval, or permits.</p>
+            {(m.site_checks?.length > 0 || m.land_inventory) && <div className="scenario-sources-inline">{m.land_inventory && <div><b>Land evidence · {m.land_inventory.as_of || 'date unknown'}</b><p>{m.land_inventory.source || 'Source not recorded'}</p></div>}{m.site_checks?.length > 0 && <ul className="site-checks">{m.site_checks.map((site) => <li key={site.id}><b>{site.id}: {site.status}</b> · {site.reason} <span>Evidence: {site.source || 'not supplied'}</span></li>)}</ul>}</div>}
+          </details>
+        </div>
+        {best && <div className="result-scene"><h3 className="scenario-subhead">3D view</h3><Suspense fallback={<div className="panel-state" role="status">Preparing 3D footprint view…</div>}><ScenarioViewer area={m.study_area} candidate={best} building={m.building} serviceType={m.service_type} dataset={dataset} /></Suspense></div>}
       </div>
-      {best && <div className="result-scene"><Suspense fallback={<div className="panel-state" role="status">Preparing 3D footprint view…</div>}><ScenarioViewer area={m.study_area} candidate={best} building={m.building} serviceType={m.service_type} dataset={dataset} /></Suspense></div>}
       <div className="result-footer"><RunTechnicalDetails run={run} files={files} onDownload={onDownload} downloadError={downloadError} failed={failed} verified={verified} /></div>
     </div>;
   }
   let cards = [];
-  const title = failed ? 'Run stopped' : ({ access: 'Nearby services', compare: 'Site comparison', exposure: 'Population estimate', scenario: 'Facility scenario' }[run.analysis_mode] ?? 'GIS analysis');
+  const title = failed ? 'Run stopped' : ({ access: 'Nearby services', compare: 'Comparison', exposure: 'Population', scenario: 'Facility sites' }[run.analysis_mode] ?? 'Analysis');
   if (run.status === 'completed' && run.result) {
     if (run.analysis_mode === 'exposure') cards = [
       <MetricCard key="inside" value={n(m.inside_population)} label="estimated population inside area" />,
@@ -208,12 +224,14 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
   const headline = failed ? (run.error || run.summary || 'The analysis could not be completed.') : run.status === 'completed' && run.analysis_mode === 'exposure' ? `${n(m.inside_population)} estimated people inside the selected area` : run.status === 'completed' && run.analysis_mode === 'compare' ? `Site ${run.result?.comparison?.preferred_candidate ?? 'tie'} is preferred` : run.status === 'completed' ? `${n(m.baseline?.served_population)} estimated people within ${n(m.threshold_m ?? run.threshold_m)} m` : run.status === 'starting' ? 'Starting the analysis…' : 'Analysis is running. Outcomes will appear here when it finishes.';
   const missingPopulationCoverage = failed && String(run.error ?? '').startsWith('No population sample points fall inside the selected area.');
   return <div className="result-panel">
-    <div className="result-top"><div><div className="eyebrow">{verified ? 'CHECKED FINDINGS' : failed ? 'NEEDS ATTENTION' : 'ANALYSIS STATUS'}</div><h2>{title}</h2></div><span className={`status-pill${failed ? ' failed' : ''}`}>{statusLabel(run.status)}</span></div>
-    <p id="summary" className="result-headline">{headline}</p>
+    <header className="result-outcome">
+      <div className="result-top"><div><div className="eyebrow">{verified ? 'RESULTS' : failed ? 'ATTENTION' : 'RUNNING'}</div><h2>{title}</h2></div><span className={`status-pill${failed ? ' failed' : ''}`}>{statusLabel(run.status)}</span></div>
+      <p id="summary" className="result-headline">{headline}</p>
+    </header>
     {missingPopulationCoverage && <section className="run-recovery" aria-labelledby="population-recovery-title"><h3 id="population-recovery-title">Choose a larger study area</h3><p>The population layer uses one representative point for each supplied area. Draw a rectangle that contains at least one of those points, or upload finer local population data. The land check did not run and no model request was made.</p></section>}
-    {run.status === 'completed' && <p className="result-caveat">Population estimates use census-area representative points; this is not an exact address-level count. Service distances are straight-line, not routes.</p>}
     {cards.length > 0 && <div className="metrics">{cards}</div>}
-    <RunTechnicalDetails run={run} files={files} onDownload={onDownload} downloadError={downloadError} failed={failed} verified={verified} />
+    {run.status === 'completed' && <details className="result-context"><summary>Estimate limits</summary><p className="result-caveat">Population estimates use census-area representative points; this is not an exact address-level count. Service distances are straight-line, not routes.</p></details>}
+    <div className="result-footer"><RunTechnicalDetails run={run} files={files} onDownload={onDownload} downloadError={downloadError} failed={failed} verified={verified} /></div>
   </div>;
 }
 export default function App() {
@@ -225,8 +243,9 @@ export default function App() {
   const [dataset, setDataset] = useState(null);
   const [datasetLoading, setDatasetLoading] = useState(true);
   const [datasetError, setDatasetError] = useState('');
-  const [uploadedNames, setUploadedNames] = useState({});
-  const [mode, setMode] = useState('access');
+  const [uploadedMeta, setUploadedMeta] = useState({});
+  const uploadedNames = useMemo(() => Object.fromEntries(Object.entries(uploadedMeta).map(([id, meta]) => [id, meta.name])), [uploadedMeta]);
+  const [mode, setMode] = useState('scenario');
   const [threshold, setThreshold] = useState(400);
   const [studyArea, setStudyArea] = useState(null);
   const [areaSelectionActive, setAreaSelectionActive] = useState(false);
@@ -235,7 +254,7 @@ export default function App() {
   const [selectedScenarioCandidate, setSelectedScenarioCandidate] = useState(null);
   const [candidateA, setCandidateA] = useState([-122.43, 37.77]);
   const [candidateB, setCandidateB] = useState([-122.42, 37.76]);
-  const [question, setQuestion] = useState(COPY.access);
+  const [question, setQuestion] = useState(COPY.scenario);
   const [questionEdited, setQuestionEdited] = useState(false);
   const [run, setRun] = useState(null);
   const [activeRunId, setActiveRunId] = useState(null);
@@ -263,7 +282,52 @@ export default function App() {
   const scenarioCandidates = useMemo(() => scenarioResultAllowed ? (run.result?.metrics?.candidates ?? []).map((candidate, index) => ({ ...candidate, rank: index + 1 })) : [], [scenarioResultAllowed, run?.result?.metrics?.candidates]);
   const selectScenarioCandidate = useCallback((candidate) => setSelectedScenarioCandidate(candidate), []);
   const modeAllowed = (key, source = schema) => source && (!config?.supported_modes || config.supported_modes.includes(key)) && (key === 'scenario' ? source.candidate_site_features > 0 : key === 'exposure' ? source.population_features > 0 : source.service_features > 0);
+  const datasetSupportsScenario = useCallback((id, meta = uploadedMeta) => {
+    if (!id) return false;
+    if (SCENARIO_BUNDLED_IDS.has(id)) return true;
+    const bundled = [config?.nyc_land, config?.scenario_demo, config?.nyc, config?.real, config?.demo].filter(Boolean);
+    const entry = bundled.find((item) => item.id === id);
+    if (entry && typeof entry.scenario_capable === 'boolean') return entry.scenario_capable;
+    return (meta[id]?.schema?.candidate_site_features ?? 0) > 0;
+  }, [config, uploadedMeta]);
+  const datasetCatalog = useMemo(() => {
+    const rows = [];
+    if (config?.nyc_land) rows.push({ id: config.nyc_land.id, label: 'East Harlem', scenario: datasetSupportsScenario(config.nyc_land.id), compare: true });
+    if (config?.scenario_demo) rows.push({ id: config.scenario_demo.id, label: 'San Francisco', scenario: datasetSupportsScenario(config.scenario_demo.id), compare: true });
+    if (config?.nyc) rows.push({ id: config.nyc.id, label: 'New York', scenario: false, compare: true });
+    if (config?.real) rows.push({ id: config.real.id, label: 'San Francisco', scenario: false, compare: true });
+    if (config?.demo) rows.push({ id: config.demo.id, label: 'Harborview', scenario: false, compare: true });
+    for (const [id, meta] of Object.entries(uploadedMeta)) {
+      const scenario = (meta.schema?.candidate_site_features ?? 0) > 0;
+      const compare = scenario || (meta.schema?.service_features ?? 0) > 0;
+      const exposure = (meta.schema?.population_features ?? 0) > 0;
+      rows.push({ id, label: meta.name || 'Uploaded GeoJSON', scenario, compare, exposure });
+    }
+    return rows;
+  }, [config, uploadedMeta, datasetSupportsScenario]);
+  const visibleDatasets = useMemo(() => {
+    if (mode === 'scenario') return datasetCatalog.filter((row) => row.scenario);
+    if (mode === 'compare' || mode === 'access') return datasetCatalog.filter((row) => row.compare || row.scenario);
+    if (mode === 'exposure') return datasetCatalog.filter((row) => row.exposure !== false);
+    return datasetCatalog;
+  }, [datasetCatalog, mode]);
+
   const canRun = Boolean(config?.analysis_enabled && worker.ok && dataset && !datasetLoading && !runStarting && !activeRunId && !uploading && !areaSelectionActive && modeAllowed(mode) && (mode === 'exposure' ? !validateStudyArea(studyArea) : mode !== 'scenario' || (!validateStudyArea(studyArea) && !validateBuilding(building))));
+  useEffect(() => {
+    if (mode !== 'scenario' || !config) return;
+    if (datasetId && datasetSupportsScenario(datasetId)) return;
+    const fallback = visibleDatasets[0]?.id;
+    if (fallback) {
+      if (fallback !== datasetId && !datasetLoading) {
+        setDatasetLoading(true);
+        setDatasetId(fallback);
+      }
+      return;
+    }
+    // Facility-site datasets are unavailable in this install — use Compare instead of an empty picker.
+    setMode('compare');
+  }, [mode, config, datasetId, datasetLoading, datasetSupportsScenario, visibleDatasets]);
+
 
   useEffect(() => {
     const controller = new AbortController();
@@ -318,8 +382,11 @@ export default function App() {
         const supported = config?.supported_modes ?? MODES.map(([id]) => id);
         const usable = (candidate) => supported.includes(candidate) && (candidate === 'scenario' ? nextSchema.candidate_site_features > 0 : candidate === 'exposure' ? nextSchema.population_features > 0 : nextSchema.service_features > 0);
         if ((datasetId === 'localdemo' || datasetId === 'nycland') && usable('scenario')) return 'scenario';
+        if (usable(previous) && isFeaturedMode(previous)) return previous;
+        const featured = MODE_PRIORITY.filter(isFeaturedMode).find(usable);
+        if (featured) return featured;
         if (usable(previous)) return previous;
-        return ['scenario', 'access', 'compare', 'exposure'].find(usable) ?? 'access';
+        return MODE_PRIORITY.find(usable) ?? 'scenario';
       });
     }).catch((error) => {
       if (error.name !== 'AbortError' && revision === datasetRevision.current) { setDatasetError(error.message || 'Dataset could not be loaded.'); setDataset(null); }
@@ -369,10 +436,10 @@ export default function App() {
     setUploadError(''); setUploading(true); const body = new FormData(); body.append('file', file);
     try {
       const uploaded = await readJson(await fetch('/api/datasets', { method: 'POST', body }));
-      setUploadedNames((previous) => ({ ...previous, [uploaded.id]: file.name }));
+      setUploadedMeta((previous) => ({ ...previous, [uploaded.id]: { name: file.name, schema: uploaded.schema ?? {} } }));
       if (uploaded.schema?.candidate_site_features) onModeChange('scenario');
-      else if (!uploaded.schema?.zone_features && uploaded.schema?.service_features) onModeChange('access');
-      else if (!uploaded.schema?.service_features && uploaded.schema?.zone_features) onModeChange('exposure');
+      else if (uploaded.schema?.service_features) onModeChange('compare');
+      else if (uploaded.schema?.population_features || uploaded.schema?.zone_features) onModeChange('exposure');
       setDatasetLoading(true);
       setDatasetId(uploaded.id);
     } catch (error) { setUploadError(error.message || 'Upload failed.'); }
@@ -411,7 +478,7 @@ export default function App() {
     : datasetId === 'demo' ? 'Fabricated features for demonstration and testing. They do not describe a real neighborhood.'
       : datasetId ? 'User supplied EPSG:4326 GeoJSON. Feature roles and population field were validated.' : '';
   const onCandidateChange = useCallback((which, position) => { (which === 'A' ? setCandidateA : setCandidateB)(position); setRun(null); setResultMap(null); setResultMapError(''); }, []);
-  const mapTitle = datasetId === 'localdemo' ? 'San Francisco · simulated scenario land' : datasetId === 'sf2020' ? 'San Francisco · 2020 Census + selected parks' : datasetId === 'nycland' ? 'East Harlem · official vacant lots' : datasetId === 'nyc2020' ? 'New York City · 2020 Census + parks + facilities' : datasetId === 'demo' ? 'Harborview · synthetic fixture' : uploadedNames[datasetId] ?? 'Uploaded GeoJSON';
+  const mapTitle = datasetId === 'localdemo' || datasetId === 'sf2020' ? 'San Francisco' : datasetId === 'nycland' ? 'East Harlem' : datasetId === 'nyc2020' ? 'New York' : datasetId === 'demo' ? 'Harborview' : uploadedNames[datasetId] ?? 'Uploaded GeoJSON';
   const blockedReason = runBlockedReason({ config, worker, dataset, datasetLoading, datasetError, runStarting, activeRunId, uploading, areaSelectionActive, mode, allowed: modeAllowed(mode), studyArea, building });
   const modeHint = COPY[mode];
 
@@ -419,56 +486,58 @@ export default function App() {
     {config?.demo_mode && <div className="scenario-demo-banner global">LOCAL MOCK MODE — no LLM, no generated-code execution, no cloud inference.</div>}
     <header className="topbar"><a className="brand" href="/"><span className="brand-icon">⌖</span> GEOSCOPE</a><div className="topmeta"><span className={`live-dot${worker.ok ? '' : ' offline'}`}></span><span title={worker.message}>{config?.demo_mode ? 'LOCAL MOCK' : worker.status === 'checking' ? 'CHECKING SERVICE' : worker.ok ? 'ANALYSIS READY' : 'SERVICE UNAVAILABLE'}</span></div></header>
     <main className="shell">
-      <section className="intro"><div><h1>Plan a local service site.</h1><p className="lede">Facility → dataset → area → Run. Map and top results stay in view.</p></div></section>
+      <section className="intro"><div><h1>Site a facility or compare two locations.</h1><p className="lede">Pick a task, dataset, and inputs — then Run. Map and top results stay in view.</p></div></section>
       <div className="workspace"><aside className="controls" aria-label="Analysis controls">
         <div className="controls-scroll">
         {worker.status !== 'ready' && <div className="worker-readiness" role="status"><span>{worker.status === 'checking' ? 'Checking analysis service…' : worker.message}</span><button type="button" onClick={() => { setWorker({ ok: false, status: 'checking', message: 'Checking worker readiness…' }); setWorkerRefresh((value) => value + 1); }} disabled={worker.status === 'checking'}>{worker.status === 'checking' ? 'Checking…' : 'Retry check'}</button></div>}
 
         <div className="workflow-step primary-step" data-step="1">
-          <div className="section-heading"><span className="step-badge" aria-hidden="true">1</span><div><h2>{mode === 'scenario' ? 'Facility' : 'Task'}</h2></div></div>
-          {mode === 'scenario' ? <>
+          <div className="section-heading"><span className="step-badge" aria-hidden="true">1</span><div><h2>Task</h2></div></div>
+          <label htmlFor="analysis-mode">Task</label>
+          <select id="analysis-mode" value={mode} onChange={(e) => onModeChange(e.target.value)} disabled={!dataset || datasetLoading || runStarting || Boolean(activeRunId)}>
+            {FEATURED_MODES.map(([value, label]) => {
+              const allowed = modeAllowed(value);
+              const hint = !allowed && schema ? ` (needs ${MODE_NEED[value]})` : '';
+              return <option key={value} value={value} disabled={!allowed}>{`${label}${hint}`}</option>;
+            })}
+            {!isFeaturedMode(mode) && LEGACY_MODES.filter(([value]) => value === mode).map(([value, label]) => (
+              <option key={value} value={value}>{`${label} (basic)`}</option>
+            ))}
+          </select>
+          <p className="task-hint">{modeHint}</p>
+          {mode === 'scenario' && <>
             <label htmlFor="service-type">Facility</label>
             <select id="service-type" value={serviceType} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setServiceType(e.target.value); clearScenarioResult(); }}>{SERVICE_TYPES.map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select>
-            <details className="more-modes">
-              <summary>Other analyses</summary>
-              <label htmlFor="analysis-mode">Analysis</label>
-              <select id="analysis-mode" value={mode} onChange={(e) => onModeChange(e.target.value)} disabled={!dataset || datasetLoading || runStarting || Boolean(activeRunId)}>
-                {MODES.map(([value, label]) => {
-                  const allowed = modeAllowed(value);
-                  const hint = !allowed && schema ? ` (needs ${MODE_NEED[value]})` : '';
-                  return <option key={value} value={value} disabled={!allowed}>{`${label}${hint}`}</option>;
-                })}
-              </select>
-              <p className="task-hint">{modeHint}</p>
-            </details>
-          </> : <>
-            <label htmlFor="analysis-mode">Analysis</label>
-            <select id="analysis-mode" value={mode} onChange={(e) => onModeChange(e.target.value)} disabled={!dataset || datasetLoading || runStarting || Boolean(activeRunId)}>
-              {MODES.map(([value, label]) => {
+          </>}
+          {mode === 'compare' && <p className="park-note" role="note">Compare two proposed locations against the mapped service network. Park records count as services when the dataset includes them.</p>}
+          <details className="more-modes legacy-modes">
+            <summary>More tools (basic proximity / population)</summary>
+            <p className="legacy-modes-note">These answer common GIS questions available elsewhere. Geoscope focuses on facility siting and candidate comparison.</p>
+            <label htmlFor="legacy-mode">Basic analysis</label>
+            <select id="legacy-mode" value={isFeaturedMode(mode) ? '' : mode} onChange={(e) => { if (e.target.value) onModeChange(e.target.value); }} disabled={!dataset || datasetLoading || runStarting || Boolean(activeRunId)}>
+              <option value="" disabled={isFeaturedMode(mode)}>{isFeaturedMode(mode) ? 'Choose a basic tool…' : 'Using a basic tool'}</option>
+              {LEGACY_MODES.map(([value, label]) => {
                 const allowed = modeAllowed(value);
                 const hint = !allowed && schema ? ` (needs ${MODE_NEED[value]})` : '';
                 return <option key={value} value={value} disabled={!allowed}>{`${label}${hint}`}</option>;
               })}
             </select>
-            <p className="task-hint">{modeHint}</p>
-            {(mode === 'access' || mode === 'compare') && <p className="park-note" role="note">Park proximity is available in Find nearby services and Compare two locations when the dataset includes parks. Park is not a facility-site type — use clinic, library, school, or community centre under Check facility sites.</p>}
-            {modeAllowed('scenario') && <button type="button" className="text-link-button" onClick={() => onModeChange('scenario')}>Back to facility sites</button>}
-          </>}
+          </details>
         </div>
 
         <div className="workflow-step" data-step="2">
           <div className="section-heading"><span className="step-badge" aria-hidden="true">2</span><div><h2>Dataset</h2></div></div>
           <label htmlFor="dataset">Dataset</label>
           <select id="dataset" value={datasetId} onChange={(e) => { setDatasetLoading(true); setDatasetId(e.target.value); }} disabled={!config || uploading || runStarting || Boolean(activeRunId)}>
-            {config?.nyc_land && <option value={config.nyc_land.id}>East Harlem · official vacant lots</option>}{config?.nyc && <option value={config.nyc.id}>New York City · 2020 Census + parks + facilities</option>}{config?.scenario_demo && <option value={config.scenario_demo.id}>San Francisco · simulated scenario parcels</option>}{config?.real && <option value={config.real.id}>San Francisco · 2020 Census + parks</option>}{config?.demo && <option value={config.demo.id}>Harborview · synthetic fixture</option>}
-            {Object.entries(uploadedNames).map(([id, name]) => <option value={id} key={id}>{name} · uploaded</option>)}
+            {visibleDatasets.map((row) => <option value={row.id} key={row.id}>{row.label}</option>)}
           </select>
+          {mode === 'scenario' && <p className="dataset-filter-note">Facility sites need parcel + land-check data (East Harlem lots or SF mock). Other city snapshots stay available under Compare.</p>}
           <div className="source-note">{datasetLoading ? <span role="status">Loading dataset…</span> : sourceNote}{datasetError && <span role="alert"> {datasetError}</span>}</div>
           <details className="upload-settings"><summary>Upload GeoJSON</summary><label className="upload-label" htmlFor="upload">Choose a GeoJSON file <span>↗</span></label><input id="upload" type="file" accept=".json,.geojson,application/geo+json,application/json" onChange={onUpload} disabled={uploading || runStarting || Boolean(activeRunId)} />{uploading && <small role="status">Uploading and validating dataset…</small>}{uploadError && <small role="alert">{uploadError}</small>}</details>
         </div>
 
         <div className="workflow-step" data-step="3">
-          <div className="section-heading"><span className="step-badge" aria-hidden="true">3</span><div><h2>{mode === 'compare' ? 'Sites' : mode === 'exposure' || mode === 'scenario' ? 'Area' : 'Options'}</h2></div></div>
+          <div className="section-heading"><span className="step-badge" aria-hidden="true">3</span><div><h2>{mode === 'compare' ? 'Sites' : mode === 'scenario' || mode === 'exposure' ? 'Area' : 'Options'}</h2></div></div>
           {(mode === 'scenario' || mode === 'exposure') && <section className="study-area-controls" aria-label="Study area">
             <button type="button" className="select-area-button primary-secondary" disabled={runStarting || Boolean(activeRunId)} onClick={() => { setAreaSelectionActive((active) => !active); clearScenarioResult(); setResultMap(null); }}>{areaSelectionActive ? 'Click two opposite map corners…' : 'Draw area on map'}</button>
             {studyArea?.every(Number.isFinite) && <small className="area-readout">About {areaDimensions(studyArea)}</small>}
@@ -516,7 +585,7 @@ export default function App() {
             {resultMapError && <div className="panel-state error" role="alert">{resultMapError}</div>}
           </div>
           <div className="results-stage" aria-label="Results stage">
-            {!run && !datasetLoading && !datasetError && <div className="panel-state empty result-empty" role="status"><strong>No results yet</strong><span>Pick a facility, dataset, and area, then run.</span></div>}
+            {!run && !datasetLoading && !datasetError && <div className="panel-state empty result-empty" role="status"><strong>No results yet</strong><span>Pick a task, dataset, and run — ranks, 3D, and downloads appear here.</span></div>}
             <ResultsPanel run={run} onDownload={onDownload} downloadError={downloadError} dataset={dataset} selectedScenarioCandidate={selectedScenarioCandidate} onSelectScenarioCandidate={selectScenarioCandidate} />
           </div>
         </div>

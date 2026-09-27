@@ -80,12 +80,12 @@ describe('GeoScope React workflows', () => {
     expect(run).toBeDisabled();
     expect(screen.getByRole('option', { name: 'Estimate population in an area' })).toBeDisabled();
     await user.selectOptions(screen.getByLabelText('Dataset'), 'demo');
-    await screen.findByRole('heading', { name: 'Harborview · synthetic fixture' });
+    await screen.findByRole('heading', { name: 'Harborview' });
     expect(screen.getByRole('option', { name: 'Estimate population in an area' })).not.toBeDisabled();
     await waitFor(() => expect(run).toBeEnabled());
     oldRequest.resolve(geojsonResponse(sfData));
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(screen.getByRole('heading', { name: 'Harborview · synthetic fixture' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Harborview' })).toBeInTheDocument();
     expect(screen.getByText('Fabricated features for demonstration and testing. They do not describe a real neighborhood.')).toBeInTheDocument();
   });
 
@@ -102,9 +102,9 @@ describe('GeoScope React workflows', () => {
       return response(404, {});
     }));
     render(<App />);
-    await screen.findByRole('heading', { name: 'East Harlem · official vacant lots' });
+    await screen.findByRole('heading', { name: 'East Harlem' });
     await ready();
-    expect(screen.getByLabelText('Analysis')).toHaveValue('scenario');
+    expect(screen.getByLabelText('Task')).toHaveValue('scenario');
     expect(screen.getByText(/MapPLUTO vacant tax lots/)).toBeInTheDocument();
   });
 
@@ -120,7 +120,7 @@ describe('GeoScope React workflows', () => {
       return response(404, {});
     }));
     render(<App />);
-    await screen.findByRole('heading', { name: 'New York City · 2020 Census + parks + facilities' });
+    await screen.findByRole('heading', { name: 'New York' });
     expect(screen.getByText(/FacDB clinics, libraries, schools, and community centers/)).toBeInTheDocument();
     expect(screen.getByLabelText('Candidate A longitude')).toHaveValue(-73.9832);
     expect(screen.getByLabelText('Candidate A latitude')).toHaveValue(40.7536);
@@ -139,9 +139,9 @@ describe('GeoScope React workflows', () => {
       return response(404, {});
     }));
     render(<App />);
-    await screen.findByRole('heading', { name: 'San Francisco · simulated scenario land' });
+    await screen.findByRole('heading', { name: 'San Francisco' });
     await ready();
-    await user.selectOptions(screen.getByLabelText('Analysis'), 'compare');
+    await user.selectOptions(screen.getByLabelText('Task'), 'compare');
     expect(screen.getByLabelText('Candidate A longitude')).toHaveValue(-122.43);
     expect(screen.getByLabelText('Candidate A latitude')).toHaveValue(37.77);
     expect(screen.getByLabelText('Candidate B longitude')).toHaveValue(-122.42);
@@ -168,8 +168,9 @@ describe('GeoScope React workflows', () => {
     render(<App />);
     await ready(user);
     await user.selectOptions(screen.getByLabelText('Dataset'), 'demo');
-    await screen.findByRole('heading', { name: 'Harborview · synthetic fixture' });
-    await user.selectOptions(screen.getByLabelText('Analysis'), 'exposure');
+    await screen.findByRole('heading', { name: 'Harborview' });
+    await user.click(screen.getByText(/More tools \(basic proximity \/ population\)/));
+    await user.selectOptions(screen.getByLabelText('Basic analysis'), 'exposure');
     await user.click(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ }));
     await screen.findByText('Zero-population test result.');
     const exposurePost = fetchMock.mock.calls.find(([url, init]) => url === '/api/runs' && init?.method === 'POST');
@@ -178,7 +179,7 @@ describe('GeoScope React workflows', () => {
     expect(screen.getAllByText('N/A').length).toBeGreaterThan(0);
     expect(screen.getByText('share of total population')).toBeInTheDocument();
     // A new run starts from a clean result view even if the next poll cannot be read.
-    await user.selectOptions(screen.getByLabelText('Analysis'), 'access');
+    await user.selectOptions(screen.getByLabelText('Basic analysis'), 'access');
     await user.click(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ }));
     expect(await screen.findByText(/Could not retrieve run status: worker unavailable/)).toBeInTheDocument();
     expect(screen.queryByText('Zero-population test result.')).not.toBeInTheDocument();
@@ -199,9 +200,10 @@ describe('GeoScope React workflows', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     render(<App />);
-    await screen.findByRole('heading', { name: 'San Francisco · 2020 Census + selected parks' });
+    await screen.findByRole('heading', { name: 'San Francisco' });
     await ready();
-    await user.selectOptions(screen.getByLabelText('Analysis'), 'exposure');
+    await user.click(screen.getByText(/More tools \(basic proximity \/ population\)/));
+    await user.selectOptions(screen.getByLabelText('Basic analysis'), 'exposure');
     expect(screen.getByRole('button', { name: 'Draw area on map' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Estimate population/ })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: /Estimate population/ }));
@@ -236,7 +238,9 @@ describe('GeoScope React workflows', () => {
     await user.click(screen.getByText('Upload GeoJSON'));
     await user.upload(screen.getByLabelText(/Choose a GeoJSON file/i), file);
     await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => url === '/api/datasets' && init?.method === 'POST')).toBe(true));
-    await screen.findByText('fixture.geojson');
+    await screen.findByRole('heading', { name: 'fixture.geojson' });
+    await user.click(screen.getByText(/More tools \(basic proximity \/ population\)/));
+    await user.selectOptions(screen.getByLabelText('Basic analysis'), 'access');
     await user.click(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ }));
     await screen.findByText('Access fixture complete.');
     await user.click(screen.getByRole('button', { name: 'result.json ↓' }));
@@ -257,7 +261,7 @@ describe('GeoScope React workflows', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     render(<App />);
-    await screen.findByRole('heading', { name: 'San Francisco · 2020 Census + selected parks' });
+    await screen.findByRole('heading', { name: 'San Francisco' });
     await screen.findByText(/2020 Census TIGERweb POP100/);
     expect(screen.getByText('SERVICE UNAVAILABLE')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ })).toBeDisabled();
@@ -283,7 +287,7 @@ describe('GeoScope React workflows', () => {
     await ready(user);
     await user.click(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ }));
     expect(screen.getByLabelText('Dataset')).toBeDisabled();
-    expect(screen.getByLabelText('Analysis')).toBeDisabled();
+    expect(screen.getByLabelText('Task')).toBeDisabled();
     await user.click(screen.getByText('Upload GeoJSON'));
     expect(screen.getByLabelText(/Choose a GeoJSON file/i)).toBeDisabled();
     const post = fetchMock.mock.calls.find(([url, init]) => url === '/api/runs' && init?.method === 'POST');
@@ -303,7 +307,7 @@ describe('GeoScope React workflows', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     render(<App />);
-    await screen.findByRole('heading', { name: 'San Francisco · 2020 Census + selected parks' });
+    await screen.findByRole('heading', { name: 'San Francisco' });
     expect(await screen.findByText('worker still starting')).toBeInTheDocument();
     expect(screen.getByText('SERVICE UNAVAILABLE')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry check' })).toBeEnabled();
@@ -368,6 +372,36 @@ describe('GeoScope React workflows', () => {
     expect(document.querySelector('.app-frame')).toBeTruthy();
   });
 
+  it('puts outcome first in the results stage with ranked sites and collapsible context', async () => {
+    const user = userEvent.setup();
+    const area = [-122.433, 37.758, -122.417, 37.776];
+    const ring = [[-122.426, 37.766], [-122.424, 37.766], [-122.424, 37.768], [-122.426, 37.768], [-122.426, 37.766]];
+    const data = { type: 'FeatureCollection', scenario_status: 'simulated land inventory', features: [population(), { type: 'Feature', id: 'plot-a', properties: { layer: 'candidate_site' }, geometry: { type: 'Polygon', coordinates: [ring] } }] };
+    const candidate = { id: 'plot-a', longitude: -122.425, latitude: 37.767, plot_area_m2: 400, nearest_existing_service_m: null, services_within_threshold: 0, footprint: { type: 'Polygon', coordinates: [ring] }, land_check: { source: 'Mock plot', setback_m: 3, plot_fit: true, area_fit: true, no_building_overlap: true, no_road_overlap: true, no_restriction_overlap: true } };
+    const completed = { id: 'scenario-1', status: 'completed', analysis_mode: 'scenario', demo_mode: true, summary: 'Mock checks completed.', logs: [], result: { reference_verified: false, geometry_verified: true, metrics: { service_type: 'clinic', study_area: area, building: { width_m: 24, depth_m: 18, height_m: 12, setback_m: 3 }, eligible_sites: 1, sites_evaluated: 1, candidates: [candidate], site_checks: [], land_inventory: { source: 'SF mock', as_of: '2026-09-26' }, existing_services_in_area: 1, existing_service_counts: { clinic: 1 }, service_inventory: { source: 'OpenStreetMap mapped facilities', as_of: '2026-05-06' } } } };
+    vi.stubGlobal('fetch', vi.fn(async (url, init = {}) => {
+      if (url === '/api/config') return geojsonResponse({ ...config, scenario_demo: { id: 'localdemo' }, supported_modes: ['scenario'], demo_mode: true });
+      if (url === '/api/worker-status') return geojsonResponse({ ok: true, mock: true });
+      if (url === '/api/datasets/localdemo') return geojsonResponse(data);
+      if (url === '/api/runs' && init.method === 'POST') return geojsonResponse({ id: 'scenario-1', status: 'queued' }, 202);
+      if (url === '/api/runs/scenario-1') return geojsonResponse(completed);
+      if (url === '/api/runs/scenario-1/map') return geojsonResponse({ type: 'FeatureCollection', features: [] });
+      return response(404, {});
+    }));
+    render(<App />);
+    await ready();
+    await user.click(screen.getByRole('button', { name: /Check facility sites|Run the analysis/ }));
+    const results = screen.getByLabelText('Results stage');
+    await within(results).findByText(/1 of 1 plots fit/);
+    expect(within(results).getByRole('heading', { name: 'Facility sites' })).toBeInTheDocument();
+    expect(within(results).getByRole('heading', { name: 'Ranked sites' })).toBeInTheDocument();
+    expect(within(results).getByRole('heading', { name: '3D view' })).toBeInTheDocument();
+    expect(within(results).getByRole('heading', { name: 'Why Site 1 is ranked here' })).toBeInTheDocument();
+    expect(within(results).getByText('Area context & limits')).toBeInTheDocument();
+    expect(results.querySelector('.result-outcome')).not.toBeNull();
+    expect(results.querySelector('.result-main')).not.toBeNull();
+  });
+
   it('splits the workspace into controls, map stage, and results stage', async () => {
     render(<App />);
     await ready();
@@ -382,7 +416,44 @@ describe('GeoScope React workflows', () => {
   });
 
 
-  it('keeps facility type on the primary path and hides secondary modes behind Other analyses', async () => {
+
+  it('lists only scenario-capable datasets for facility sites and keeps city snapshots for compare', async () => {
+    const user = userEvent.setup();
+    const land = { type: 'FeatureCollection', name: 'East Harlem land', scenario_status: 'OFFICIAL_EXTRACT', features: [
+      population('eh-p', 80),
+      { type: 'Feature', id: 'lot-1', properties: { layer: 'candidate_site', land_status: 'available' }, geometry: { type: 'Polygon', coordinates: [[[-73.94, 40.80], [-73.939, 40.80], [-73.939, 40.801], [-73.94, 40.801], [-73.94, 40.80]]] } },
+      { ...service, id: 'eh-clinic', properties: { layer: 'service', service_type: 'clinic', name: 'Clinic' }, geometry: { type: 'Point', coordinates: [-73.941, 40.799] } },
+    ] };
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (url === '/api/config') return geojsonResponse({
+        ...config,
+        nyc_land: { id: 'nycland', name: 'East Harlem lots', synthetic: false, scenario_capable: true },
+        scenario_demo: { id: 'localdemo', name: 'SF mock', synthetic: true, scenario_capable: true },
+        real: { id: 'sf2020', name: 'SF sample', synthetic: false, scenario_capable: false },
+        nyc: { id: 'nyc2020', name: 'NYC sample', synthetic: false, scenario_capable: false },
+        demo: { id: 'demo', name: 'Harborview', synthetic: true, scenario_capable: false },
+      });
+      if (url === '/api/worker-status') return geojsonResponse({ ok: true });
+      if (url === '/api/datasets/nycland') return geojsonResponse(land);
+      if (url === '/api/datasets/localdemo') return geojsonResponse({ ...land, name: 'SF mock' });
+      if (url === '/api/datasets/real') return geojsonResponse(sfData);
+      if (url === '/api/datasets/nyc2020') return geojsonResponse(sfData);
+      if (url === '/api/datasets/demo') return geojsonResponse(demoData);
+      return response(404, {});
+    }));
+    render(<App />);
+    await screen.findByRole('heading', { name: 'East Harlem' });
+    await ready();
+    expect(screen.getByLabelText('Task')).toHaveValue('scenario');
+    const scenarioOptions = [...screen.getByLabelText('Dataset').options].map((option) => option.value);
+    expect(scenarioOptions).toEqual(['nycland', 'localdemo']);
+    expect(screen.getByText(/Facility sites need parcel \+ land-check data/i)).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Task'), 'compare');
+    const compareOptions = [...screen.getByLabelText('Dataset').options].map((option) => option.value);
+    expect(compareOptions).toEqual(['nycland', 'localdemo', 'nyc2020', 'sf2020', 'demo']);
+  });
+
+  it('features facility sites and compare, burying access and exposure as basic tools', async () => {
     const user = userEvent.setup();
     const scenarioData = {
       type: 'FeatureCollection',
@@ -400,16 +471,19 @@ describe('GeoScope React workflows', () => {
     }));
     render(<App />);
     await ready();
-    expect(screen.getByRole('heading', { name: 'Facility' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Task')).toHaveValue('scenario');
     expect(screen.getByLabelText('Facility')).toHaveValue('clinic');
-    expect(screen.getByText('Other analyses')).toBeInTheDocument();
+    const featured = [...screen.getByLabelText('Task').options].map((option) => option.value);
+    expect(featured.filter((value) => value === 'scenario' || value === 'compare')).toEqual(['scenario', 'compare']);
+    expect(featured).not.toContain('access');
+    expect(featured).not.toContain('exposure');
+    expect(screen.getByText(/More tools \(basic proximity \/ population\)/)).toBeInTheDocument();
     expect(screen.getByText('Advanced')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Width (m)')).not.toBeVisible();
-    await user.click(screen.getByText('Other analyses'));
-    await user.selectOptions(screen.getByLabelText('Analysis'), 'access');
-    expect(screen.getByRole('heading', { name: 'Task' })).toBeInTheDocument();
-    expect(screen.getByText(/Park proximity is available/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Back to facility sites' })).toBeInTheDocument();
+    await user.click(screen.getByText(/More tools \(basic proximity \/ population\)/));
+    await user.selectOptions(screen.getByLabelText('Basic analysis'), 'access');
+    expect(screen.getByLabelText('Task')).toHaveValue('access');
+    await user.selectOptions(screen.getByLabelText('Task'), 'compare');
+    expect(screen.getByText(/Compare two proposed locations/i)).toBeInTheDocument();
   });
 
   it('orders the workflow as task, dataset, study area, then run, and shows an empty results state', async () => {
@@ -417,12 +491,12 @@ describe('GeoScope React workflows', () => {
     await ready();
     expect(screen.getByRole('heading', { name: 'Task' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Dataset' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Options' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sites' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Run' })).toBeInTheDocument();
     expect(screen.getByText('No results yet')).toBeInTheDocument();
+    expect(screen.getByLabelText('Task')).toHaveValue('compare');
     expect(screen.getByRole('option', { name: /Check facility sites \(needs candidate plots\)/ })).toBeDisabled();
-    const modes = screen.getByLabelText('Analysis');
-    expect([...modes.options].map((option) => option.value)).toEqual(['scenario', 'access', 'compare', 'exposure']);
+    expect([...screen.getByLabelText('Task').options].map((option) => option.value)).toEqual(['scenario', 'compare']);
   });
 
   it('explains why run is disabled when the analysis service is unavailable', async () => {
@@ -434,12 +508,12 @@ describe('GeoScope React workflows', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     render(<App />);
-    await screen.findByRole('heading', { name: 'San Francisco · 2020 Census + selected parks' });
+    await screen.findByRole('heading', { name: 'San Francisco' });
     expect(await screen.findByText(/Analysis service is unavailable/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ })).toBeDisabled();
   });
 
-  it('shows a park note on access and compare, and lists community centre for facility siting', async () => {
+  it('lists community centre for facility siting and explains parks on compare', async () => {
     const user = userEvent.setup();
     const scenarioData = {
       type: 'FeatureCollection',
@@ -457,13 +531,10 @@ describe('GeoScope React workflows', () => {
     }));
     render(<App />);
     await ready();
-    expect(screen.getByLabelText('Analysis')).toHaveValue('scenario');
+    expect(screen.getByLabelText('Task')).toHaveValue('scenario');
     expect(screen.getByRole('option', { name: 'Community centre' })).toBeInTheDocument();
-    expect(screen.queryByText(/Park is not a facility-site type/i)).not.toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('Analysis'), 'access');
-    expect(screen.getByText(/Park proximity is available in Find nearby services and Compare two locations/i)).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('Analysis'), 'compare');
-    expect(screen.getByText(/Park is not a facility-site type/i)).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Task'), 'compare');
+    expect(screen.getByText(/Park records count as services when the dataset includes them/i)).toBeInTheDocument();
   });
 
   it('labels completed findings with plain-language status pills', async () => {
@@ -513,7 +584,7 @@ it('submits the SF mock scenario without a token, shows checked proposals, and i
     return response(404,{});
   });
   vi.stubGlobal('fetch',mock); render(<App/>); await ready();
-  expect(screen.getByLabelText('Analysis')).toHaveValue('scenario');
+  expect(screen.getByLabelText('Task')).toHaveValue('scenario');
   expect(screen.queryByLabelText('Analysis access key')).not.toBeInTheDocument();
   await user.click(screen.getByRole('button',{name:/Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/}));
   await user.click(await screen.findByText('Technical details and files'));

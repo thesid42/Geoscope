@@ -34,10 +34,57 @@ function candidateIcon(label, selected) {
   return L.divIcon({ className: '', html: root.outerHTML, iconSize: [29, 29], iconAnchor: [14, 14] });
 }
 
+/** Known dataset extents [southWest, northEast] in lat/lng order for Leaflet.fitBounds. */
+const DATASET_BOUNDS = {
+  sf2020: [[37.70, -122.53], [37.83, -122.35]],
+  localdemo: [[37.755, -122.438], [37.780, -122.412]],
+  nycland: [[40.790, -73.955], [40.812, -73.930]],
+  nyc2020: [[40.49, -74.26], [40.92, -73.70]],
+};
+
+/** Label every plot only when the inventory is small; otherwise keep the map readable. */
+const PLOT_LABEL_ALL_MAX = 12;
+/** When decluttering, keep permanent labels for the selected site plus this many top ranks. */
+const PLOT_LABEL_TOP_RANKS = 8;
+
+function shouldShowPermanentPlotLabel({ selected, item, plotCount, hasResults }) {
+  if (selected) return true;
+  if (item && Number.isFinite(Number(item.rank)) && Number(item.rank) <= PLOT_LABEL_TOP_RANKS) return true;
+  // Small pre-run inventories (e.g. SF mock) keep lettered labels; dense extracts do not.
+  if (!hasResults && plotCount <= PLOT_LABEL_ALL_MAX) return true;
+  return false;
+}
+
+function boundsFromStudyArea(area) {
+  if (!area?.length || area.length !== 4 || !area.every(Number.isFinite)) return null;
+  const [west, south, east, north] = area;
+  if (!(west < east && south < north)) return null;
+  return L.latLngBounds([[south, west], [north, east]]);
+}
+
+function resolveViewBounds({ datasetId, layer, scenarioArea, mode }) {
+  if (['scenario', 'exposure'].includes(mode)) {
+    const study = boundsFromStudyArea(scenarioArea);
+    if (study) return study;
+  }
+  if (DATASET_BOUNDS[datasetId]) return L.latLngBounds(DATASET_BOUNDS[datasetId]);
+  const layerBounds = layer?.getBounds?.();
+  if (layerBounds?.isValid?.()) return layerBounds.pad(0.08);
+  return null;
+}
+
+function applyMapBounds(map, bounds, options = { padding: [35, 35], maxZoom: 16 }) {
+  if (!map || !bounds) return;
+  map.invalidateSize({ animate: false });
+  map.fitBounds(bounds, { animate: false, ...options });
+}
+
 export default function LeafletMap({ data, datasetId, resultData, mode, candidateA, candidateB, onCandidateChange, scenarioArea, scenarioCandidates, selectedCandidateId, onScenarioAreaSelected, areaSelectionActive, onSelectScenarioCandidate, scenarioSiteChecks, interactionsLocked = false }) {
   const elementRef = useRef(null); const mapRef = useRef(null);
   const sourceLayerRef = useRef(null); const resultLayerRef = useRef(null); const candidateLayersRef = useRef([]);
   const scenarioLayersRef = useRef([]); const areaLayerRef = useRef(null); const clicksRef = useRef([]);
+  const viewBoundsRef = useRef(null);
+  const fittedDatasetRef = useRef(null);
 
   useEffect(() => {
     const map = L.map(elementRef.current, { zoomControl: false }).setView([37.764, -122.44], 12);
@@ -45,7 +92,10 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
     L.control.scale({ position: 'bottomleft', imperial: false }).addTo(map);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     mapRef.current = map;
-    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => map.invalidateSize({ pan: false }));
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
+      map.invalidateSize({ animate: false });
+      if (viewBoundsRef.current) map.fitBounds(viewBoundsRef.current, { animate: false, padding: [35, 35], maxZoom: 16 });
+    });
     resize?.observe(elementRef.current);
     return () => { resize?.disconnect(); map.remove(); mapRef.current = null; };
   }, []);
@@ -62,12 +112,16 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
     }) };
     const layer = L.geoJSON(visible, { style: (feature) => roleOf(feature) === 'candidate_site' ? { ...styleFor(feature), opacity: 0, fillOpacity: 0 } : styleFor(feature), pointToLayer: (feature, latlng) => L.circleMarker(latlng, pointStyle(feature)), onEachFeature: (feature, child) => child.bindPopup(popupNode(feature)) }).addTo(map);
     sourceLayerRef.current = layer;
-    if (datasetId === 'sf2020') map.fitBounds([[37.70, -122.53], [37.83, -122.35]]);
-    else if (datasetId === 'nyc2020') map.fitBounds([[40.49, -74.26], [40.92, -73.70]]);
-    else if (datasetId === 'nycland') map.fitBounds([[40.790, -73.955], [40.812, -73.930]]);
-    else { const bounds = layer.getBounds(); if (bounds.isValid()) map.fitBounds(bounds.pad(0.08)); }
+
+    const datasetChanged = fittedDatasetRef.current !== datasetId;
+    const bounds = resolveViewBounds({ datasetId, layer, scenarioArea, mode });
+    if (bounds && (datasetChanged || !viewBoundsRef.current)) {
+      viewBoundsRef.current = bounds;
+      fittedDatasetRef.current = datasetId;
+      applyMapBounds(map, bounds);
+    }
     return undefined;
-  }, [data, datasetId, mode]);
+  }, [data, datasetId, mode, scenarioArea]);
 
   useEffect(() => {
     const map = mapRef.current; if (!map) return undefined;
@@ -89,18 +143,41 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
     const candidates = scenarioCandidates ?? [];
     const plots = (data?.features ?? []).filter((f) => roleOf(f) === 'candidate_site');
     if (mode === 'scenario') {
+      const plotCount = plots.length;
+      const hasResults = candidates.length > 0;
+      const labelAllPlots = !hasResults && plotCount <= PLOT_LABEL_ALL_MAX;
       for (const [index, feature] of plots.entries()) {
         const id = String(feature.id ?? feature.properties?.id);
         const item = candidates.find((candidate) => String(candidate.id) === id);
         const check = scenarioSiteChecks?.find((site) => String(site.id) === id);
         const selected = id === String(selectedCandidateId);
-        const label = item ? `Site ${item.rank}` : `Plot ${index < 26 ? String.fromCharCode(65 + index) : index + 1}${check?.status === 'excluded' ? ' · excluded' : check?.status === 'eligible' ? ' · fits' : ''}`;
+        const letter = index < 26 ? String.fromCharCode(65 + index) : String(index + 1);
+        const label = item
+          ? `Site ${item.rank}`
+          : labelAllPlots
+            ? `Plot ${letter}${check?.status === 'excluded' ? ' · excluded' : check?.status === 'eligible' ? ' · fits' : ''}`
+            : check?.status === 'excluded'
+              ? 'Excluded plot'
+              : check?.status === 'eligible'
+                ? 'Eligible plot'
+                : 'Candidate plot';
+        const permanent = shouldShowPermanentPlotLabel({ selected, item, plotCount, hasResults });
         const outline = L.geoJSON(feature, {
-          style: { color: selected ? '#087f8c' : check?.status === 'excluded' ? '#8a8585' : '#7654a3', weight: selected ? 4 : 2, fillColor: selected ? '#4ec7c8' : '#b29ad0', fillOpacity: selected ? 0.25 : 0.10, dashArray: check && !item ? '4 4' : null },
+          style: {
+            color: selected ? '#087f8c' : check?.status === 'excluded' ? '#8a8585' : '#7654a3',
+            weight: selected ? 4 : permanent ? 2 : 1.2,
+            fillColor: selected ? '#4ec7c8' : '#b29ad0',
+            fillOpacity: selected ? 0.28 : permanent ? 0.12 : 0.06,
+            dashArray: check && !item ? '4 4' : null,
+          },
           onEachFeature: (_f, child) => {
             const root = popupNode(feature);
             const status = document.createElement('p');
-            status.textContent = item ? `${label} · fit checked. Select this site to see its building and estimated coverage.` : check ? `${label} · ${check.status}: ${check.reason}` : `${label} · candidate land plot. Run the analysis to check fit.`;
+            status.textContent = item
+              ? `${label} · fit checked. Select this site to see its building and estimated coverage.`
+              : check
+                ? `${label} · ${check.status}: ${check.reason}`
+                : `${label} · candidate land plot. Run the analysis to check fit.`;
             root.append(status); child.bindPopup(root);
             if (item) child.on('click', () => { if (!areaSelectionActive) onSelectScenarioCandidate?.(item); });
           },
@@ -108,8 +185,15 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
         scenarioLayersRef.current.push(outline);
         const bounds = outline.getBounds();
         if (!bounds.isValid()) continue;
-        const labelNode = document.createElement('span'); labelNode.textContent = `${selected ? 'Selected · ' : ''}${label}`;
-        outline.bindTooltip(labelNode, { permanent: true, direction: 'top', className: `plot-label${selected ? ' selected' : ''}`, interactive: false });
+        const labelNode = document.createElement('span');
+        labelNode.textContent = `${selected ? 'Selected · ' : ''}${label}`;
+        outline.bindTooltip(labelNode, {
+          permanent,
+          direction: 'top',
+          className: `plot-label${selected ? ' selected' : permanent ? '' : ' hover-only'}`,
+          interactive: false,
+          opacity: selected ? 1 : permanent ? 0.95 : 0.9,
+        });
       }
       for (const item of candidates) {
         if (!Number.isFinite(Number(item.longitude)) || !Number.isFinite(Number(item.latitude))) continue;
@@ -139,10 +223,14 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
     return undefined;
   }, [data, mode, scenarioArea, scenarioCandidates, selectedCandidateId, scenarioSiteChecks, areaSelectionActive, onSelectScenarioCandidate]);
 
+  // When the study area changes for an already-fitted dataset (draw/edit), follow it without requiring a dataset reload.
   useEffect(() => {
-    if (!mapRef.current || !['scenario', 'exposure'].includes(mode) || !scenarioArea?.every(Number.isFinite)) return;
-    const [west, south, east, north] = scenarioArea;
-    if (west < east && south < north) mapRef.current.fitBounds([[south, west], [north, east]], { padding: [35, 35], maxZoom: 16 });
+    const map = mapRef.current; if (!map) return;
+    if (!['scenario', 'exposure'].includes(mode)) return;
+    const bounds = boundsFromStudyArea(scenarioArea);
+    if (!bounds) return;
+    viewBoundsRef.current = bounds;
+    applyMapBounds(map, bounds);
   }, [mode, scenarioArea]);
 
   useEffect(() => {
