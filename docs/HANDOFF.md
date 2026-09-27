@@ -114,7 +114,7 @@ The [simple setup guide](VULTR_SETUP.md) describes a fresh installation. Do not 
 
 ## Development and verification commands
 
-Use [README quick start](../README.md#quick-start-local-scenario-preview) for the single-process fixed-reference preview. Separate development servers require configured backend environment values:
+Use [README quick start](../README.md#run-locally) for the single-process fixed-reference preview. Separate development servers require configured backend environment values:
 
 ```powershell
 # Terminal 1
