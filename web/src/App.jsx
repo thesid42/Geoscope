@@ -175,8 +175,19 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
     const selectedRank = best ? (m.candidates ?? []).findIndex((candidate) => candidate.id === best.id) + 1 : 0;
     const selectedReasons = best ? explainScenarioCandidate(best, m.candidates ?? [], m) : [];
     const agentic = Boolean(m.design);
+    const accessRanked = agentic && (String(m.ranking_basis || '').includes('newly served') || (m.candidates ?? []).some((candidate) => candidate.access?.status === 'available' && candidate.access?.baseline_known === true));
+    const agenticRankValue = (candidate) => {
+      if (accessRanked && candidate.access?.baseline_known === true) {
+        const newly = candidate.access?.newly_served_population;
+        return newly == null ? 'N/A' : n(newly);
+      }
+      return candidate.design?.usable_open_space_pct == null ? 'N/A' : `${Number(candidate.design.usable_open_space_pct).toFixed(0)}%`;
+    };
+    const agenticRankLabel = accessRanked ? 'newly served' : 'usable open space';
     const bestHeadline = !best ? '' : agentic
-      ? `${areaLabel(best.design?.gross_floor_area_m2)} floor area · ${best.design?.floors ?? '—'} floors · ${best.design?.usable_open_space_pct == null ? 'open-space result unknown' : `${Number(best.design.usable_open_space_pct).toFixed(0)}% usable open space`}`
+      ? (accessRanked && best.access?.baseline_known === true
+        ? `${n(best.access?.newly_served_population)} newly served · ${minutesLabel(best.access?.mean_walk_reduction_minutes)} shorter walks · ${best.design?.usable_open_space_pct == null ? 'open space unknown' : `${Number(best.design.usable_open_space_pct).toFixed(0)}% open space`}`
+        : `${areaLabel(best.design?.gross_floor_area_m2)} floor area · ${best.design?.floors ?? '—'} floors · ${best.design?.usable_open_space_pct == null ? 'open-space result unknown' : `${Number(best.design.usable_open_space_pct).toFixed(0)}% usable open space`}`)
       : best.nearest_existing_service_m == null
         ? `${areaLabel(best.plot_area_m2)} plot · no mapped ${facilityName} in the inventory`
         : `${areaLabel(best.plot_area_m2)} plot · ${d(best.nearest_existing_service_m)} from nearest mapped ${facilityName}`;
@@ -192,7 +203,7 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
           {m.candidates?.length ? <div className="scenario-rankings" role="list">{m.candidates.map((candidate, index) => <button type="button" role="listitem" className={`scenario-rank${best?.id === candidate.id ? ' selected' : ''}`} key={candidate.id} onClick={() => onSelectScenarioCandidate(candidate)} aria-pressed={best?.id === candidate.id}>
             <span className="rank-number" aria-label={`Rank ${index + 1}`}>{index + 1}</span>
             <span className="rank-main"><b>Site {index + 1}</b><small className="rank-meta">Plot {candidate.id} · {areaLabel(candidate.plot_area_m2)} · {agentic ? `${candidate.design?.floors ?? '—'} floors · ${areaLabel(candidate.design?.gross_floor_area_m2)} gross` : `${candidate.land_check?.setback_m ?? '—'} m setback`}</small></span>
-            <span className="rank-pop">{agentic ? (candidate.design?.usable_open_space_pct == null ? 'N/A' : `${Number(candidate.design.usable_open_space_pct).toFixed(0)}%`) : candidate.nearest_existing_service_m == null ? areaLabel(candidate.plot_area_m2) : d(candidate.nearest_existing_service_m)}<small>{agentic ? 'usable open space' : candidate.nearest_existing_service_m == null ? 'plot area' : `to nearest ${facilityName}`}</small></span>
+            <span className="rank-pop">{agentic ? agenticRankValue(candidate) : candidate.nearest_existing_service_m == null ? areaLabel(candidate.plot_area_m2) : d(candidate.nearest_existing_service_m)}<small>{agentic ? agenticRankLabel : candidate.nearest_existing_service_m == null ? 'plot area' : `to nearest ${facilityName}`}</small></span>
           </button>)}</div> : <p className="panel-state empty">{agentic ? 'No submitted plot produced a design that meets these goals.' : 'No eligible plot passed the footprint checks.'}</p>}
           {best && agentic && <section className="design-comparison" aria-label="Walking access comparison">
             <div className="comparison-switch" role="group" aria-label="Show proposed design"><button type="button" aria-pressed={scenarioView === 'before'} onClick={() => onScenarioViewChange('before')}>Before</button><button type="button" aria-pressed={scenarioView === 'after'} onClick={() => onScenarioViewChange('after')}>After</button></div>
@@ -205,10 +216,10 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
               <MetricCard value={n(best.access?.baseline_known === true ? best.access.newly_served_population : null)} label="estimated newly served" />
               <MetricCard value={minutesLabel(best.access?.before_mean_minutes)} label="mean walk before" />
               <MetricCard value={minutesLabel(best.access?.after_mean_minutes)} label="mean walk after" />
-              <MetricCard value={minutesLabel(best.access?.mean_walk_reduction_minutes)} label="mean walk reduction" />
+              <MetricCard value={minutesLabel(best.access?.baseline_known === true ? best.access.mean_walk_reduction_minutes : null)} label="mean walk reduction" />
             </div>
             <p className="scenario-caveat">Compared population: {n(best.access?.compared_population)} · unmatched population: {n(best.access?.unmatched_population)}. {best.access?.baseline_known === false ? 'Before access and change are unknown because no connected facility inventory was supplied.' : best.access?.baseline_known == null ? 'Before-baseline availability was not reported.' : best.access?.newly_served_population > 0 ? `${n(best.access.newly_served_population)} people move inside the walking limit (${Number(best.access.newly_served_pct ?? 0).toFixed(1)}% of compared population).` : 'This design does not add people inside the walking limit at the selected threshold; the reduction card shows any shorter walks within the already-served population.'} {best.access?.baseline_known === true ? `Walking reach uses a ${best.access.minutes ?? '—'} minute limit at ${best.access.speed_mps ?? '—'} m/s.` : ''} Population points are coarse census weights; connectors are inferred and entrances are not verified.</p>
-            <details className="design-rationale"><summary>Why this design</summary><p>{best.design?.floors ?? 'Unknown'} floors provide {areaLabel(best.design?.gross_floor_area_m2)} gross floor area. The design reserves {best.design?.usable_open_space_pct == null ? 'an unknown share' : `${Number(best.design.usable_open_space_pct).toFixed(1)}% usable open space`} against a {m.design?.min_open_space_pct ?? 'unknown'}% minimum goal. {best.design?.strategy ? `Design approach: ${best.design.strategy}. ` : ''}Ranked among submitted designs by {m.ranking_basis || 'service gap, then usable open-space share, then plot ID'}.</p></details>
+            <details className="design-rationale"><summary>Why this design</summary><p>{best.design?.floors ?? 'Unknown'} floors provide {areaLabel(best.design?.gross_floor_area_m2)} gross floor area. The design reserves {best.design?.usable_open_space_pct == null ? 'an unknown share' : `${Number(best.design.usable_open_space_pct).toFixed(1)}% usable open space`} against a {m.design?.min_open_space_pct ?? 'unknown'}% minimum goal. {best.design?.strategy ? `Design approach: ${best.design.strategy}. ` : ''}Ranked among submitted designs by {m.ranking_basis || 'verified land and walking outcomes'}.</p></details>
             <p className="scenario-caveat">{scenarioView === 'before' ? 'The proposed building and reserved open space are hidden in this view.' : 'Green shows reserved open space; it is not a mapped park or an environmental certification.'}</p>
           </section>}{best && !agentic && selectedReasons.length > 0 && <section className="scenario-reasoning" aria-labelledby="scenario-reasoning-title"><h3 id="scenario-reasoning-title">Why Site {selectedRank} is ranked here</h3><ul>{selectedReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul><p>Order: farthest from mapped {facilityName}, then largest plot, then plot ID.</p></section>}
           <details className="result-context">
@@ -306,7 +317,7 @@ export default function App() {
   }, [dataset]);
   const scenarioResultAllowed = Boolean(run?.status === 'completed' && run.analysis_mode === 'scenario' && (run.result?.reference_verified === true || (run.demo_mode === true && run.result?.geometry_verified === true)));
   const scenarioCandidates = useMemo(() => scenarioResultAllowed ? (run.result?.metrics?.candidates ?? []).map((candidate, index) => ({ ...candidate, rank: index + 1 })) : [], [scenarioResultAllowed, run?.result?.metrics?.candidates]);
-  const selectScenarioCandidate = useCallback((candidate) => setSelectedScenarioCandidate(candidate), []);
+  const selectScenarioCandidate = useCallback((candidate) => { setSelectedScenarioCandidate(candidate); setScenarioView('after'); }, []);
   const modeAllowed = (key, source = schema) => source && (!config?.supported_modes || config.supported_modes.includes(key)) && (key === 'scenario' ? source.candidate_site_features > 0 : key === 'exposure' ? source.population_features > 0 : source.service_features > 0);
   const datasetSupportsScenario = useCallback((id, meta = uploadedMeta) => {
     if (!id) return false;
@@ -512,13 +523,13 @@ export default function App() {
     {config?.demo_mode && <div className="scenario-demo-banner global">LOCAL MOCK MODE — no LLM, no generated-code execution, no cloud inference.</div>}
     <header className="topbar"><a className="brand" href="/"><span className="brand-icon">⌖</span> GEOSCOPE</a><div className="topmeta"><span className={`live-dot${worker.ok ? '' : ' offline'}`}></span><span title={worker.message}>{config?.demo_mode ? 'LOCAL MOCK' : worker.status === 'checking' ? 'CHECKING SERVICE' : worker.ok ? 'ANALYSIS READY' : 'SERVICE UNAVAILABLE'}</span></div></header>
     <main className="shell">
-      <section className="intro"><div><h1>Design a facility and compare the places it could serve.</h1><p className="lede">Choose a facility, set its needs, and compare candidate plots with walking access before and after.</p></div></section>
+      <section className="intro"><div><h1>Design a facility and compare the places it could serve.</h1><p className="lede">Facility → dataset → area → Run. Design goals stay under Advanced; map and top results stay in view.</p></div></section>
       <div className="workspace"><aside className="controls" aria-label="Analysis controls">
         <div className="controls-scroll">
         {worker.status !== 'ready' && <div className="worker-readiness" role="status"><span>{worker.status === 'checking' ? 'Checking analysis service…' : worker.message}</span><button type="button" onClick={() => { setWorker({ ok: false, status: 'checking', message: 'Checking worker readiness…' }); setWorkerRefresh((value) => value + 1); }} disabled={worker.status === 'checking'}>{worker.status === 'checking' ? 'Checking…' : 'Retry check'}</button></div>}
 
         <div className="workflow-step primary-step" data-step="1">
-          <div className="section-heading"><span className="step-badge" aria-hidden="true">1</span><div><h2>Task</h2></div></div>
+          <div className="section-heading"><span className="step-badge" aria-hidden="true">1</span><div><h2>{mode === 'scenario' ? 'Facility' : 'Task'}</h2></div></div>
           <label htmlFor="analysis-mode">Task</label>
           <select id="analysis-mode" value={mode} onChange={(e) => onModeChange(e.target.value)} disabled={!dataset || datasetLoading || runStarting || Boolean(activeRunId)}>
             {FEATURED_MODES.map(([value, label]) => {
@@ -535,17 +546,10 @@ export default function App() {
             <label htmlFor="service-type">Facility</label>
             <select id="service-type" value={serviceType} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setServiceType(e.target.value); clearScenarioResult(); }}>{SERVICE_TYPES.map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select>
             <label className="design-mode-toggle"><input type="checkbox" checked={designMode} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setDesignMode(e.target.checked); clearScenarioResult(); }} /> <span>{designMode ? 'Agent chooses the layout' : 'Fixed footprint mode'}</span></label>
-            {designMode ? <div className="design-inputs" aria-label="Design goals">
-              <p className="scenario-input-note">The agent fits a building to each plot, keeps open space, and compares walking access.</p>
-              <div className="building-grid">
-                {[['target_floor_area_m2', 'Target floor area', 'm²', 100, 5000, 50], ['max_floors', 'Maximum floors', 'floors', 1, 6, 1], ['min_open_space_pct', 'Minimum open space', '%', 10, 85, 5]].map(([key, label, unit, min, max, step]) => <label key={key} htmlFor={`design-${key}`}>{label}<div className="unit-input"><input id={`design-${key}`} type="number" min={min} max={max} step={step} value={Number.isFinite(design[key]) ? design[key] : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setDesign((current) => ({ ...current, [key]: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /><span>{unit}</span></div></label>)}
-                <label htmlFor="design-setback">Setback<div className="unit-input"><input id="design-setback" type="number" min="0" max="20" step="0.5" value={Number.isFinite(design.setback_m) ? design.setback_m : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setDesign((current) => ({ ...current, setback_m: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /><span>m</span></div></label>
-              </div>
-              <label htmlFor="walk-minutes">Walking time</label><div className="unit-input"><input id="walk-minutes" type="number" min="3" max="20" step="1" value={Number.isFinite(walk.minutes) ? walk.minutes : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setWalk((current) => ({ ...current, minutes: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /><span>minutes</span></div>
-              {(validateDesign(design) || validateWalk(walk)) && <small role="alert">{validateDesign(design) || validateWalk(walk)}</small>}
-            </div> : <p className="scenario-input-note">Use a fixed footprint and setback for a compatibility check.</p>}
+            <p className="scenario-input-note">{designMode ? 'Defaults: 900 m² · 3 floors · 40% open space · 10 min walk. Adjust under Advanced.' : 'Use a fixed footprint and setback for a compatibility check (Advanced).'}</p>
+            {(designMode ? (validateDesign(design) || validateWalk(walk)) : validateBuilding(building)) && <small role="alert">{designMode ? (validateDesign(design) || validateWalk(walk)) : validateBuilding(building)}</small>}
           </>}
-          {mode === 'compare' && <p className="park-note" role="note">Compare two proposed locations against the mapped service network. Park records count as services when the dataset includes them.</p>}
+          {mode === 'compare' && <p className="park-note" role="note">Compare two proposed locations against mapped services. Parks count here when present — Design & compare uses clinic, library, school, or community centre only.</p>}
           <details className="more-modes legacy-modes">
             <summary>More tools (basic proximity / population)</summary>
             <p className="legacy-modes-note">These answer common GIS questions available elsewhere. Geoscope focuses on facility siting and candidate comparison.</p>
@@ -589,12 +593,22 @@ export default function App() {
           <details className="advanced-settings advanced-bundle">
             <summary>Advanced</summary>
             {mode === 'scenario' && <div className="advanced-block" id="scenario-controls" aria-label="Facility scenario settings">
-              {!designMode && <>
+              {designMode ? <>
+                <details className="design-inputs" open={false}><summary>Design goals · {Number.isFinite(design.target_floor_area_m2) ? design.target_floor_area_m2 : '—'} m² · ≤{Number.isFinite(design.max_floors) ? design.max_floors : '—'} floors · ≥{Number.isFinite(design.min_open_space_pct) ? design.min_open_space_pct : '—'}% open · {Number.isFinite(walk.minutes) ? walk.minutes : '—'} min walk</summary>
+                  <p className="scenario-input-note">The agent fits a building to each plot, keeps open space, and compares walking access.</p>
+                  <div className="building-grid" aria-label="Design goals">
+                    {[['target_floor_area_m2', 'Target floor area', 'm²', 100, 5000, 50], ['max_floors', 'Maximum floors', 'floors', 1, 6, 1], ['min_open_space_pct', 'Minimum open space', '%', 10, 85, 5]].map(([key, label, unit, min, max, step]) => <label key={key} htmlFor={`design-${key}`}>{label}<div className="unit-input"><input id={`design-${key}`} type="number" min={min} max={max} step={step} value={Number.isFinite(design[key]) ? design[key] : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setDesign((current) => ({ ...current, [key]: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /><span>{unit}</span></div></label>)}
+                    <label htmlFor="design-setback">Setback<div className="unit-input"><input id="design-setback" type="number" min="0" max="20" step="0.5" value={Number.isFinite(design.setback_m) ? design.setback_m : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setDesign((current) => ({ ...current, setback_m: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /><span>m</span></div></label>
+                  </div>
+                  <label htmlFor="walk-minutes">Walking time</label><div className="unit-input"><input id="walk-minutes" type="number" min="3" max="20" step="1" value={Number.isFinite(walk.minutes) ? walk.minutes : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setWalk((current) => ({ ...current, minutes: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /><span>minutes</span></div>
+                  {(validateDesign(design) || validateWalk(walk)) && <small role="alert">{validateDesign(design) || validateWalk(walk)}</small>}
+                </details>
+                <details className="walking-assumptions"><summary>Walking assumptions · {Number.isFinite(walk.speed_mps) ? walk.speed_mps : '—'} m/s · snap {Number.isFinite(walk.max_snap_m) ? walk.max_snap_m : '—'} m</summary><div className="building-grid"><label htmlFor="walk-speed">Walking speed (m/s)<input id="walk-speed" type="number" min="0.5" max="2" step="0.1" value={Number.isFinite(walk.speed_mps) ? walk.speed_mps : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setWalk((current) => ({ ...current, speed_mps: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /></label><label htmlFor="walk-snap">Maximum snap distance (m)<input id="walk-snap" type="number" min="10" max="200" step="10" value={Number.isFinite(walk.max_snap_m) ? walk.max_snap_m : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setWalk((current) => ({ ...current, max_snap_m: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /></label></div><p className="scenario-input-note">Estimated paths use inferred street connectors; entrances are not verified.</p>{validateWalk(walk) && <small role="alert">{validateWalk(walk)}</small>}</details>
+              </> : <>
                 <details className="building-settings" open={false}><summary>Building · {Number.isFinite(building.width_m) ? building.width_m : '—'}×{Number.isFinite(building.depth_m) ? building.depth_m : '—'}×{Number.isFinite(building.height_m) ? building.height_m : '—'} m · setback {Number.isFinite(building.setback_m) ? building.setback_m : '—'} m</summary><div className="building-grid">{[['width_m', 'Width'], ['depth_m', 'Depth'], ['height_m', 'Height'], ['setback_m', 'Setback']].map(([key, label]) => <label key={key} htmlFor={`building-${key}`}>{label} (m)<input id={`building-${key}`} type="number" min={key === 'height_m' ? 3 : key === 'setback_m' ? 0 : 5} max={key === 'height_m' ? 80 : key === 'setback_m' ? 20 : 100} value={Number.isFinite(building[key]) ? building[key] : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setBuilding((current) => ({ ...current, [key]: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /></label>)}</div></details>
                 {validateBuilding(building) && <small role="alert">{validateBuilding(building)}</small>}
                 <p className="scenario-input-note">Fixed footprint mode uses supplied parcels, buildings, and road corridors.</p>
               </>}
-              {designMode && <details className="walking-assumptions"><summary>Walking assumptions</summary><div className="building-grid"><label htmlFor="walk-speed">Walking speed (m/s)<input id="walk-speed" type="number" min="0.5" max="2" step="0.1" value={Number.isFinite(walk.speed_mps) ? walk.speed_mps : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setWalk((current) => ({ ...current, speed_mps: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /></label><label htmlFor="walk-snap">Maximum snap distance (m)<input id="walk-snap" type="number" min="10" max="200" step="10" value={Number.isFinite(walk.max_snap_m) ? walk.max_snap_m : ''} disabled={runStarting || Boolean(activeRunId)} onChange={(e) => { setWalk((current) => ({ ...current, max_snap_m: e.target.value === '' ? NaN : Number(e.target.value) })); clearScenarioResult(); }} /></label></div><p className="scenario-input-note">Estimated paths use inferred street connectors; entrances are not verified.</p>{validateWalk(walk) && <small role="alert">{validateWalk(walk)}</small>}</details>}
             </div>}
             {mode !== 'exposure' && mode !== 'scenario' && <div className="advanced-block" id="threshold-group">
               <label htmlFor="threshold">Service radius (m)</label>

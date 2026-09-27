@@ -534,7 +534,8 @@ describe('GeoScope React workflows', () => {
     expect(screen.getByLabelText('Task')).toHaveValue('scenario');
     expect(screen.getByRole('option', { name: 'Community centre' })).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText('Task'), 'compare');
-    expect(screen.getByText(/Park records count as services when the dataset includes them/i)).toBeInTheDocument();
+    expect(screen.getByText(/Parks count here when present/i)).toBeInTheDocument();
+    expect(screen.getByText(/clinic, library, school, or community centre only/i)).toBeInTheDocument();
   });
 
   it('labels completed findings with plain-language status pills', async () => {
@@ -610,8 +611,37 @@ it('submits default agentic design and walking settings, shows unknown baseline 
   await user.click(within(results).getByRole('button',{name:'Before'}));
   expect(within(results).getByRole('button',{name:'Before'})).toHaveAttribute('aria-pressed','true');
   expect(within(results).getByText(/proposed building and reserved open space are hidden/i)).toBeInTheDocument();
+  await user.click(screen.getByText('Advanced'));
+  await user.click(screen.getByText(/Design goals ·/));
   await user.clear(screen.getByLabelText(/Target floor area/));
   await user.type(screen.getByLabelText(/Target floor area/),'1000');
   expect(screen.queryByTestId('scenario-3d')).not.toBeInTheDocument();
   expect(screen.queryByText('Three checked designs.')).not.toBeInTheDocument();
+});
+
+it('shows walking-benefit ranks and mean walk reduction when the baseline is known', async () => {
+  const user = userEvent.setup();
+  const area = [-122.433,37.758,-122.417,37.776];
+  const ring = [[-122.426,37.766],[-122.424,37.766],[-122.424,37.768],[-122.426,37.768],[-122.426,37.766]];
+  const data = {type:'FeatureCollection',scenario_status:'simulated land inventory',features:[population(),{type:'Feature',id:'plot-a',properties:{layer:'candidate_site'},geometry:{type:'Polygon',coordinates:[ring]}}]};
+  const candidate = {id:'plot-a',longitude:-122.425,latitude:37.767,plot_area_m2:400,footprint:{type:'Polygon',coordinates:[ring]},open_space:{type:'Polygon',coordinates:[ring]},building:{width_m:20,depth_m:15,height_m:9,setback_m:3,floors:3},design:{floors:3,gross_floor_area_m2:900,footprint_area_m2:300,total_open_area_m2:100,usable_open_area_m2:80,usable_open_space_pct:40,min_open_space_pct:40,strategy:'balanced'},access:{status:'available',minutes:10,speed_mps:1.2,network_source:'supplied roads',network_as_of:'2026-09-26',baseline_known:true,estimated_population_total:100,compared_population:100,unmatched_population:0,before_served_population:40,after_served_population:70,newly_served_population:30,newly_served_pct:30,before_mean_minutes:12.5,after_mean_minutes:9.2,mean_walk_reduction_minutes:3.3,samples:[],routes:[]}};
+  const completed = {id:'scenario-2',status:'completed',analysis_mode:'scenario',demo_mode:true,summary:'Checked designs.',plan:'Walking access compared.',logs:[],result:{reference_verified:false,geometry_verified:true,metrics:{service_type:'clinic',study_area:area,design:{target_floor_area_m2:900,max_floors:3,min_open_space_pct:40,setback_m:3},ranking_basis:'greatest newly served population, then mean walking-time reduction, then connected usable open-space percentage, then mapped-service gap and plot ID',eligible_sites:1,sites_evaluated:1,sites_available:4,existing_services_in_area:2,candidates:[candidate],site_checks:[],land_inventory:{source:'SF mock',as_of:'2026-09-26'}}}};
+  const mock = vi.fn(async (url,init={})=>{
+    if(url==='/api/config') return response(200,{...config,scenario_demo:{id:'localdemo'},supported_modes:['scenario'],demo_mode:true});
+    if(url==='/api/worker-status') return response(200,{ok:true,mock:true});
+    if(url==='/api/datasets/localdemo') return response(200,data);
+    if(url==='/api/runs' && init.method==='POST') return response(202,{id:'scenario-2',status:'queued'});
+    if(url==='/api/runs/scenario-2') return response(200,completed);
+    if(url==='/api/runs/scenario-2/map') return response(200,{type:'FeatureCollection',features:[]});
+    return response(404,{});
+  });
+  vi.stubGlobal('fetch',mock); render(<App/>); await ready();
+  await user.click(screen.getByRole('button',{name:/Design & compare/}));
+  const results=screen.getByLabelText('Results stage');
+  expect(await within(results).findByText('30',{selector:'.rank-pop'})).toBeInTheDocument();
+  expect(within(results).getByText('newly served',{selector:'.rank-pop small'})).toBeInTheDocument();
+  expect(within(results).getByText('3.3 min')).toBeInTheDocument();
+  expect(within(results).getByText(/30 people move inside the walking limit/)).toBeInTheDocument();
+  await user.click(within(results).getByText('Why this design'));
+  expect(within(results).getByText(/Ranked among submitted designs by greatest newly served population/)).toBeInTheDocument();
 });
