@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App.jsx';
 
@@ -50,6 +50,7 @@ function baseFetch(overrides = {}) {
 }
 
 beforeEach(() => {
+  window.history.replaceState(null, '', '/#/workspace');
   window.sessionStorage.clear();
   vi.stubGlobal('fetch', baseFetch());
   Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:fixture') });
@@ -683,4 +684,122 @@ it.each(['empty', 'unavailable'])('keeps %s design results usable without invent
     expect(within(results).getByText(/No walking network supplied/)).toBeInTheDocument();
     expect(await within(results).findByTestId('scenario-3d')).toHaveTextContent('plot-a');
   }
+});
+
+
+describe('Dashboard onboarding', () => {
+  const onboardingConfig = { ...config, scenario_demo: { id: 'localdemo', name: 'SF mock' }, nyc_land: { id: 'nycland', name: 'East Harlem lots' }, supported_modes: ['scenario', 'compare', 'access', 'exposure'] };
+  const land = { ...demoData, features: [...demoData.features, { ...zone, id: 'plot-1', properties: { layer: 'candidate_site' } }] };
+  const complete = { id: 'onboarding-run', status: 'completed', analysis_mode: 'scenario', result: { reference_verified: true, metrics: { design: { min_open_space_pct: 40 }, candidates: [], sites_evaluated: 1, eligible_sites: 0, service_type: 'library' } } };
+  let fetchMock;
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/');
+    fetchMock = vi.fn(async (url, init = {}) => {
+      if (url === '/api/config') return response(200, onboardingConfig);
+      if (url === '/api/worker-status') return response(200, { ok: true });
+      if (['/api/datasets/localdemo', '/api/datasets/nycland'].includes(url)) return response(200, land);
+      if (url === '/api/runs' && init.method === 'POST') return response(202, { id: 'onboarding-run', status: 'queued' });
+      if (url === '/api/runs/onboarding-run') return response(200, complete);
+      if (url === '/api/runs/onboarding-run/map') return response(200, { type: 'FeatureCollection', features: [] });
+      return response(404, {});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+  });
+  const runRequests = () => fetchMock.mock.calls.filter(([url, init]) => url === '/api/runs' && init?.method === 'POST');
+
+  it('opens the dashboard first and prepares an SF library without automatically running', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole('button', { name: 'Try a library in San Francisco' });
+    expect(screen.getByRole('main', { name: 'Geoscope dashboard' })).toBeInTheDocument();
+    expect(screen.queryByTestId('map-view')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
+    expect(document.title).toBe('Geoscope | Dashboard');
+    await user.click(screen.getByRole('button', { name: /Let's get started/ }));
+    await ready();
+    expect(window.location.hash).toBe('#/workspace');
+    expect(screen.getByLabelText('Dataset')).toHaveValue('localdemo');
+    expect(screen.getByLabelText('Facility')).toHaveValue('library');
+    expect(screen.getByLabelText('Task')).toHaveValue('scenario');
+    expect(screen.getByLabelText('Design preference').value).toContain('compact library');
+    expect(screen.getByRole('region', { name: 'Getting started' })).toHaveTextContent('Your San Francisco workspace is ready');
+    expect(runRequests()).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Dismiss getting started tips' }));
+    expect(screen.queryByRole('region', { name: 'Getting started' })).not.toBeInTheDocument();
+  });
+
+  it('opens the selected city example and preserves edits through dashboard and resume', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: 'Try a clinic in East Harlem' }));
+    await ready();
+    expect(screen.getByLabelText('Dataset')).toHaveValue('nycland');
+    expect(screen.getByLabelText('Facility')).toHaveValue('clinic');
+    await user.selectOptions(screen.getByLabelText('Facility'), 'school');
+    await user.clear(screen.getByLabelText('Design preference'));
+    await user.type(screen.getByLabelText('Design preference'), 'Leave space for a playground');
+    await user.click(screen.getByRole('link', { name: 'Dashboard' }));
+    expect(screen.getByRole('region', { name: 'Current exploration' })).toHaveTextContent('East Harlem');
+    expect(screen.queryByTestId('map-view')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Continue exploring/ }));
+    expect(screen.getByLabelText('Dataset')).toHaveValue('nycland');
+    expect(screen.getByLabelText('Facility')).toHaveValue('school');
+    expect(screen.getByLabelText('Design preference')).toHaveValue('Leave space for a playground');
+    expect(runRequests()).toHaveLength(0);
+  });
+
+  it('retains a running analysis and its completed results across dashboard navigation', async () => {
+    const user = userEvent.setup();
+    const pending = deferred();
+    const normalFetch = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation((url, init) => url === '/api/runs/onboarding-run' ? pending.promise : normalFetch(url, init));
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: 'Try a library in San Francisco' }));
+    await ready();
+    await user.click(screen.getByRole('button', { name: 'Design & compare' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/runs/onboarding-run', expect.anything()));
+    await user.click(screen.getByRole('link', { name: 'Dashboard' }));
+    expect(screen.getByRole('button', { name: 'Try a clinic in East Harlem' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: /Return to your analysis/ }));
+    expect(screen.getByLabelText('Facility')).toHaveValue('library');
+    await user.click(screen.getByRole('link', { name: 'Dashboard' }));
+    await act(async () => { pending.resolve(response(200, complete)); });
+    expect(await screen.findByText('Your results are ready')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Continue exploring/ }));
+    expect(screen.getByRole('heading', { name: 'Design results' })).toBeInTheDocument();
+    expect(runRequests()).toHaveLength(1);
+    expect(JSON.parse(runRequests()[0][1].body)).toMatchObject({ dataset_id: 'localdemo', analysis_mode: 'scenario', service_type: 'library', study_area: [-122.433, 37.758, -122.417, 37.776] });
+  });
+
+  it('honors direct workspace links and browser hash navigation', async () => {
+    window.history.replaceState(null, '', '/#/workspace');
+    render(<App />);
+    await ready();
+    expect(screen.getByTestId('map-view')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Getting started' })).not.toBeInTheDocument();
+    act(() => { window.history.replaceState(null, '', '/#/'); window.dispatchEvent(new HashChangeEvent('hashchange')); });
+    expect(screen.getByRole('main', { name: 'Geoscope dashboard' })).toBeInTheDocument();
+    act(() => { window.history.replaceState(null, '', '/#/workspace'); window.dispatchEvent(new HashChangeEvent('hashchange')); });
+    expect(screen.getByTestId('map-view')).toBeInTheDocument();
+    expect(document.title).toBe('Geoscope | Workspace');
+  });
+
+  it('keeps the workspace reachable if configuration fails', async () => {
+    const user = userEvent.setup();
+    const normalFetch = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation((url, init) => url === '/api/config' ? response(503, { detail: 'Configuration unavailable' }) : normalFetch(url, init));
+    render(<App />);
+    await screen.findByText('Examples could not load. Open the workspace for connection details.');
+    await user.click(screen.getByRole('button', { name: /Let's get started/ }));
+    expect(screen.getByRole('region', { name: 'Getting started' })).toHaveTextContent('Your workspace needs attention');
+    expect(screen.getByRole('button', { name: 'Design & compare' })).toBeDisabled();
+  });
+
+  it('does not advertise unavailable facility examples', async () => {
+    const normalFetch = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation((url, init) => url === '/api/config' ? response(200, { ...onboardingConfig, supported_modes: ['compare'] }) : normalFetch(url, init));
+    render(<App />);
+    await screen.findByText('Use the workspace to explore the datasets available on this installation.');
+    expect(screen.queryByRole('button', { name: /Try a/ })).not.toBeInTheDocument();
+  });
 });

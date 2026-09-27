@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LeafletMap from './components/LeafletMap.jsx';
+import Dashboard, { STARTER_PROJECTS } from './components/Dashboard.jsx';
 import { DEFAULT_DESIGN, DEFAULT_WALK, explainScenarioCandidate, makeScenarioRequest, validateBuilding, validateDesign, validateStudyArea, validateWalk } from './scenario.js';
 const ScenarioViewer = lazy(() => import('./components/ScenarioViewer.jsx'));
 
@@ -292,6 +293,21 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
   </div>;
 }
 export default function App() {
+  const [page, setPage] = useState(() => window.location.hash === '#/workspace' ? 'workspace' : 'dashboard');
+  const [hasWorkspace, setHasWorkspace] = useState(() => window.location.hash === '#/workspace');
+  const [showWelcome, setShowWelcome] = useState(false);
+  useEffect(() => {
+    const changed = () => { const next = window.location.hash === '#/workspace' ? 'workspace' : 'dashboard'; setPage(next); if (next === 'workspace') setHasWorkspace(true); };
+    window.addEventListener('hashchange', changed);
+    return () => window.removeEventListener('hashchange', changed);
+  }, []);
+  useEffect(() => { document.title = page === 'dashboard' ? 'Geoscope | Dashboard' : 'Geoscope | Workspace'; }, [page]);
+  const navigate = (next) => {
+    setPage(next);
+    if (next === 'workspace') setHasWorkspace(true);
+    const hash = next === 'workspace' ? '#/workspace' : '#/';
+    if (window.location.hash !== hash) window.location.hash = hash;
+  };
   useEffect(() => { try { window.sessionStorage.removeItem("geoscope_access_key"); } catch { /* No browser-stored bearer remains. */ } }, []);
   const [config, setConfig] = useState(null);
   const [worker, setWorker] = useState({ ok: false, status: 'checking', message: 'Checking worker readiness…' });
@@ -508,6 +524,7 @@ export default function App() {
   };
   const startRun = async () => {
     if (!canRun) return;
+    setShowWelcome(false);
     const request = { dataset_id: datasetId, analysis_mode: mode, question, threshold_m: Number(threshold) };
     if (mode === 'exposure') request.study_area = studyArea.map(Number);
     if (mode === 'scenario') {
@@ -546,10 +563,34 @@ export default function App() {
   const displayNumber = (value) => Number.isFinite(value) ? value.toLocaleString() : '—';
   const dataLabel = datasetId === 'localdemo' ? 'Demo parcels · mapped surroundings' : datasetId === 'nycland' ? 'Official lot records · availability unverified' : datasetId === 'demo' ? 'Synthetic demo data' : uploadedMeta[datasetId] ? 'Uploaded data' : 'Public city data';
 
+  const starters = STARTER_PROJECTS.filter((starter) =>
+    (!config?.supported_modes || config.supported_modes.includes('scenario')) &&
+    [config?.scenario_demo?.id, config?.nyc_land?.id].includes(starter.datasetId));
+  const openStarter = (starter) => {
+    if (inputsLocked || uploading) { navigate('workspace'); return; }
+    if (starter) {
+      clearScenarioResult(); setAreaSelectionActive(false); setServiceType(starter.serviceType);
+      setDesignMode(true); setDesign(DEFAULT_DESIGN); setWalk(DEFAULT_WALK); setBuilding(DEFAULT_BUILDING); setThreshold(400);
+      setStudyArea(defaultStudyArea(starter.datasetId, dataset)); setMode('scenario');
+      setQuestion(starter.question); setQuestionEdited(true);
+      if (datasetId !== starter.datasetId) { setDatasetLoading(true); setDatasetId(starter.datasetId); }
+    }
+    setShowWelcome(true); navigate('workspace');
+  };
+  const header = (
+    <header className="topbar"><a className="brand" href="#/" onClick={(event) => { event.preventDefault(); navigate('dashboard'); }}><span className="brand-icon">⌖</span> GEOSCOPE</a><nav className="app-navigation" aria-label="Main navigation"><a href="#/" aria-current={page === 'dashboard' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate('dashboard'); }}>Dashboard</a><a href="#/workspace" aria-current={page === 'workspace' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate('workspace'); }}>Workspace</a></nav><div className="topmeta"><span className={`live-dot${worker.ok ? '' : ' offline'}`}></span><span title={worker.message}>{config?.demo_mode ? 'LOCAL MOCK' : worker.status === 'checking' ? 'CHECKING SERVICE' : worker.ok ? 'ANALYSIS READY' : 'SERVICE UNAVAILABLE'}</span></div></header>
+  );
+  if (page === 'dashboard') return <div className="app-frame dashboard-page">
+    {header}
+    <Dashboard starters={starters} onStart={openStarter} onResume={() => navigate('workspace')} hasWorkspace={hasWorkspace} busy={inputsLocked || uploading} currentCity={mapTitle} currentTask={MODES.find(([key]) => key === mode)?.[1] ?? 'Analysis'} runStatus={run?.status} loading={!config && !datasetError} error={!config && Boolean(datasetError)} />
+    <footer className="dashboard-footer"><span>GEOSCOPE</span><span>{config?.demo_mode ? 'Local mock · fixed calculations' : 'Explore places. Understand possibilities.'}</span></footer>
+  </div>;
+
   return <div className="app-frame">
     {config?.demo_mode && <div className="scenario-demo-banner global">LOCAL MOCK MODE — no LLM, no generated-code execution, no cloud inference.</div>}
-    <header className="topbar"><a className="brand" href="/"><span className="brand-icon">⌖</span> GEOSCOPE</a><div className="topmeta"><span className={`live-dot${worker.ok ? '' : ' offline'}`}></span><span title={worker.message}>{config?.demo_mode ? 'LOCAL MOCK' : worker.status === 'checking' ? 'CHECKING SERVICE' : worker.ok ? 'ANALYSIS READY' : 'SERVICE UNAVAILABLE'}</span></div></header>
+    {header}
     <main className="shell">
+      {showWelcome && <section className="workspace-welcome" aria-label="Getting started"><div><strong>{datasetError ? 'Your workspace needs attention' : datasetLoading ? 'Preparing your starting point...' : `Your ${mapTitle} workspace is ready`}</strong><p>{datasetError ? 'Check the connection details below before starting an analysis.' : mode === 'scenario' ? 'The study area and goals are set. Choose your facility, then select Design & compare to run the analysis.' : 'Choose a task and review the highlighted area or map pins, then use the green button to run your analysis.'}</p></div><button type="button" aria-label="Dismiss getting started tips" onClick={() => setShowWelcome(false)}>Got it</button></section>}
       <section className="intro"><div><h1>Design a facility and compare the places it could serve.</h1><p className="lede">Choose a place and a facility. Compare designs, open space, and walking access.</p></div></section>
       <div className="workspace"><aside className="controls" aria-label="Analysis controls">
         <div className="controls-scroll">

@@ -4,6 +4,12 @@ Geoscope is a geospatial analysis app built with **React, FastAPI, Leaflet, and 
 
 The San Francisco demo combines **real Census population and mapped OpenStreetMap facilities, building footprints, and road corridors with simulated candidate plots**. The live application uses **Vultr Serverless Inference, gVisor sandboxes, and a Vultr VPC**. A separate local demo runs fixed-reference calculations without an LLM or cloud worker.
 
+## Start exploring
+
+The home page is a dashboard with a **Let's get started** button, a short three-step guide, and prepared **San Francisco library** and **East Harlem clinic** examples. Opening an example sets the area and design goals; review them in the workspace and select **Design & compare** to run it.
+
+Use **Dashboard** and **Workspace** in the top navigation to move between them. **Continue exploring** returns to your current inputs, running analysis, and results while the page remains open. Reloading starts a fresh session. The direct workspace link is `/#/workspace`.
+
 ## Agent design and walking simulation
 
 **Design & compare** is the default facility workflow. Set a floor-area goal and open-space target; the agent chooses the footprint, rotation, placement and floors, then a separate sandbox recomputes the submitted design's land checks, reserved open area and pedestrian-network outcomes. Switch between Before and After to inspect the change. Fixed-footprint checks remain available.
@@ -52,7 +58,7 @@ npm --prefix web run build
 
 On macOS/Linux, use `.venv/bin/python` instead of `.\.venv\Scripts\python.exe`. Open **http://127.0.0.1:8765**; use that exact host because the mock checks the request origin. FastAPI serves both the API and the built React frontend, so this demo needs only one server process.
 
-1. Choose East Harlem (official vacant-classified lots) or San Francisco (simulated plots), then choose a facility type.
+1. Select **Let's get started** on the dashboard for the San Francisco library example, or choose the East Harlem clinic card. Change the city or facility in the workspace if needed.
 2. Use **Draw area on map** to mark two opposite corners, or edit the coordinate bounds.
 3. Keep agent design enabled, optionally adjust the floor-area and open-space goals, then select **Design & compare**. Local preview uses the fixed toolkit; production uses the agent and isolated worker.
 4. Select **Site 1**, **Site 2**, or **Site 3** in the results or on the map. Use **Zoom to selected site** for its plot and checked footprint.
