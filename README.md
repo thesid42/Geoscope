@@ -2,7 +2,20 @@
 
 Geoscope is a geospatial analysis app built with **React, FastAPI, Leaflet, and Three.js**. Select a local area, propose a clinic or library, compare candidate plots, and inspect the proposed building in 3D. Land checks cover the whole building footprint, setbacks, plot boundaries, and supplied obstacles before a site is ranked.
 
-The repository includes a working **San Francisco mock simulation** and a separate production agent workflow designed for **Vultr Serverless Inference, gVisor sandboxes, and Vultr VPC**. The deployed controller and separate worker run on Vultr; generated results are checked against an isolated fixed GIS reference.
+The San Francisco demo combines **real Census population and mapped OpenStreetMap facilities with simulated land plots and obstructions**. The live application uses **Vultr Serverless Inference, gVisor sandboxes, and a Vultr VPC**. A separate local demo runs fixed-reference calculations without an LLM or cloud worker.
+
+## Current status
+
+The application is deployed at **[Geoscope](http://149.28.204.217/)**. The last verified application release is `8f8143c` (September 26, 2026 Pacific / September 27 UTC).
+
+- All four analysis workflows are enabled on the live controller. Population estimation accepts a drawn area without preloaded zone polygons.
+- The interface labels plot boundaries and selected sites, puts outcomes first, and includes street context, service markers, scale, and camera controls in the 3D view.
+- Proposal results report mapped facilities already inside the selected area and explicitly identify zero added population coverage.
+- Last recorded verification: **137 backend tests, 30 frontend tests, production build, and live population/scenario jobs passed**. Both final live jobs matched the fixed GIS reference on their first execution.
+- **Final visual browser testing is still outstanding.** Browser automation crashes during Windows sandbox initialization before opening the site. DOM/geometry tests and API checks do not establish rendered appearance.
+- The current public endpoint uses **HTTP through Nginx**. A domain and HTTPS are still deployment follow-up work.
+
+Start with the **[application handoff](docs/HANDOFF.md)** for deployment paths, verified results, known limitations, and the next work to do. The [verification log](VERIFICATION.md) also retains historical results.
 
 ## What you can do
 
@@ -38,9 +51,11 @@ On macOS/Linux, use `.venv/bin/python` instead of `.\.venv\Scripts\python.exe`. 
 
 With the default 24 × 18 m footprint and 3 m setback, **four of seven modeled plots qualify**. The other plots are building-blocked, restricted, or too small. A 100 × 100 m footprint fits none of them.
 
-### What the mock verifies
+The default selected area contains **12 mapped clinics, 1 library, 13 schools, and 7 community centers** in the downloaded inventory. At a 400 m threshold, the ranked clinic proposals add **zero estimated population coverage**. Geometric fit alone is not a reason to build; the interface reports that distinction.
 
-| Data or execution | SF mock |
+### Data provenance and local execution
+
+| Data or execution | Local SF demo |
 | --- | --- |
 | Population | 12 unchanged observed 2020 Census tracts from the bundled SF snapshot. |
 | Plots, buildings, restrictions | Explicitly simulated land features placed at SF coordinates. |
@@ -49,7 +64,7 @@ With the default 24 × 18 m footprint and 3 m setback, **four of seven modeled p
 | Analysis execution | Fixed trusted local calculations; no LLM, generated-code execution, cloud worker, or gVisor. |
 | Real-world availability or permits | Not established by the mock. |
 
-The map uses a blue dashed study boundary, purple candidate plots, a teal selected plot, orange checked building footprints, gray existing building records, and red restrictions. Map labels match the ranked site cards.
+The map uses a blue dashed study boundary, purple candidate plots, a teal selected plot, orange checked building footprints, gray supplied building records, and red restrictions. Map labels match the ranked site cards.
 
 The [downloaded SF facility GeoJSON](data/real-scenario/sf-osm-services.geojson) is **41,358 bytes (41.4 kB)**: 21 clinics, 4 libraries, 34 schools, and 16 community centres across the extract. The original response is **34,310 bytes**; one explicitly disused clinic was excluded. Counts within a selected rectangle will differ. The combined census + simulated land + mapped-service demo is **62,228 bytes**. See the [query, date, hashes, and ODbL attribution](data/real-scenario/sf-osm-services-manifest.json); this is a neighborhood extract, not all of San Francisco. Refresh deliberately with `python scripts/fetch_sf_osm_services.py`, then regenerate the scenario fixture.
 
@@ -133,11 +148,15 @@ The UI starts at a 400 m access threshold; the API default is 800 m. General upl
 
 Follow the **[six-step Vultr setup](docs/VULTR_SETUP.md)**. One preparation command per VM installs the required packages; the guide covers Vultr VPC, configuration, HTTPS, and live checks. Detailed installation steps and troubleshooting are in the [advanced reference](docs/VULTR_ADVANCED.md).
 
-The controller serves the built React frontend and FastAPI API behind Caddy. The separate worker listens only on its VPC address; generated code runs in disposable gVisor containers. Keep the worker dedicated because its Docker access grants control of that host. The guide includes both containment probes and a real agent run over HTTPS; deployment remains unverified until those checks pass on Vultr.
+The current controller serves the built React frontend and FastAPI API behind **Nginx**, with the container bound to `127.0.0.1:8000`. The setup guide describes a fresh domain/HTTPS installation with Caddy; it is not a description of the current HTTP proxy. Preserve the existing proxy when updating the deployed app. See the [handoff](docs/HANDOFF.md#deployment-and-operations) for current update and log commands.
+
+The separate worker listens on its VPC address and executes generated code in disposable gVisor containers. NetBird is no longer part of the application. Keep the worker dedicated because its Docker access grants control of that host. Live verified analysis and sandbox cleanup have been checked; HTTPS and the final visual acceptance pass remain outstanding.
 
 ## Verification and project status
 
-Latest recorded checks: **107 backend tests (Linux)**, **15 frontend tests**, the production build, Docker packaging, and HTTP-only mock/asset checks passed. Frontend tests use a simulated DOM; geometry tests construct Three.js geometry without a browser. GPU appearance and browser interaction have not been checked for this version. See [VERIFICATION.md](VERIFICATION.md) for evidence and limits.
+Latest recorded checks for `8f8143c`: **137 backend tests (Linux)**, **30 frontend tests**, the Vite production build, controller rebuild, public asset delivery, worker readiness, and two real Vultr agent workflows passed. Frontend tests use a simulated DOM; Three.js geometry and resource cleanup are tested with a mocked WebGL renderer. The final street-context view and revised UI still need a working-browser acceptance pass. See the [handoff evidence](docs/HANDOFF.md#verification-evidence) and [verification log](VERIFICATION.md).
+
+These counts record the last implementation checks, not tests rerun for a documentation-only update.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
@@ -149,4 +168,4 @@ $env:APP_DATA_DIR = ".\local-data"
 
 With the mock server already running on port 8765, `python verification/scenario_http_smoke.py` checks clinic/library runs, rejected oversized footprints, downloads, and guest isolation without opening a browser.
 
-The SF mock is implemented. **Live Vultr, gVisor, and Vultr VPC setup and acceptance checks remain pending.** Local tests do not establish cloud deployment or containment. The implementation plan is in [PLAN.md](PLAN.md); deployment files are in [deploy/](deploy/).
+The SF demo and live Vultr workflow are implemented and deployed. The highest-priority follow-ups are a visual browser pass, HTTPS, more precise population inputs, and observed parcel/obstruction data before making real land-availability claims. [HANDOFF.md](docs/HANDOFF.md) is the current status reference; [PLAN.md](PLAN.md) and older sections of [VERIFICATION.md](VERIFICATION.md) are historical context.

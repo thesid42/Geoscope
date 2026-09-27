@@ -1,5 +1,13 @@
 # Verification record
 
+## Current deployment snapshot (2026-09-26 Pacific / 2026-09-27 UTC)
+
+The latest application release, `8f8143c`, is deployed on Vultr. **137 backend tests, 30 frontend tests, the production build, and final live population/scenario analyses passed**; both live jobs were reference verified on their first execution. The dataset now includes 75 observed OSM facility records alongside real Census population and simulated land. Public assets and worker readiness were checked, and managed sandbox containers were cleaned up.
+
+**The revised UI and street-context 3D view still need visual browser acceptance.** Browser automation exits during Windows sandbox initialization before navigation. The public deployment currently uses HTTP through Nginx; domain/HTTPS is outstanding.
+
+See [the handoff](docs/HANDOFF.md#verification-evidence) for run IDs, commands, provenance, limits, and remaining work. Everything below is a **historical record** of earlier revisions; statements that deployment was pending, older test totals, and fully synthetic service fixtures describe those earlier checks.
+
 ## Private VPC deployment update (2026-09-26)
 
 - Removed the VPN integration scripts, installation steps, policy tests, and service dependency. The worker now uses `WORKER_BIND_IP` and a Python startup preflight that requires an assigned RFC1918 IPv4 address, Docker, gVisor, the sandbox image, and a worker token.
