@@ -37,13 +37,17 @@ def main(origin):
                 other.get("/api/config")
                 assert other.get(f"/api/runs/{run_id}").status_code == 404
             return state["result"]["metrics"]
-        for service in ("clinic", "library"):
+        for service in ("clinic", "library", "school", "community_center"):
             payload = {**request, "service_type": service}
             metrics = run(payload)
             assert metrics["eligible_sites"] == 4
             assert len(metrics["candidates"]) == 3
             assert sum(check["status"] == "excluded" for check in metrics["site_checks"]) == 3
-            report["checks"].append({"service_type":service, "plots_checked":metrics["sites_evaluated"], "eligible_plots":metrics["eligible_sites"], "preferred_site":metrics["candidates"][0]["id"], "nearest_existing_service_m":metrics["candidates"][0]["nearest_existing_service_m"], "plot_area_m2":metrics["candidates"][0]["plot_area_m2"]})
+            top = metrics["candidates"][0]
+            assert top["nearest_existing_service_m"] is not None and top["nearest_existing_service_m"] > 400
+            assert top["plot_area_m2"] > 1000
+            assert metrics["ranking_basis"].startswith("greatest distance to nearest existing matching service")
+            report["checks"].append({"service_type":service, "plots_checked":metrics["sites_evaluated"], "eligible_plots":metrics["eligible_sites"], "preferred_site":top["id"], "nearest_existing_service_m":top["nearest_existing_service_m"], "plot_area_m2":top["plot_area_m2"], "ranking_basis":metrics["ranking_basis"]})
         oversized = run({**request,"building":{**request["building"],"width_m":100,"depth_m":100}})
         assert oversized["eligible_sites"] == 0 and not oversized["candidates"]
         report["checks"].append({"large_footprint_rejected":True, "guest_isolation":True, "artifact_roundtrip":True, "origin_required":True})

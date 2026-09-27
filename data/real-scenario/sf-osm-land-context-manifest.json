@@ -1,8 +1,8 @@
 {
   "dataset_id": "sf-osm-land-context",
-  "downloaded_at_utc": "2026-09-27T03:36:49+00:00",
+  "downloaded_at_utc": "2026-09-27T06:35:25+00:00",
   "endpoint": "https://overpass.private.coffee/api/interpreter",
-  "query": "[out:json][timeout:60];(way[\"building\"](around:120,37.76358,-122.429477);way[\"highway\"](around:120,37.76358,-122.429477);way[\"building\"](around:120,37.760505,-122.42675);way[\"highway\"](around:120,37.760505,-122.42675);way[\"building\"](around:120,37.768916,-122.421864);way[\"highway\"](around:120,37.768916,-122.421864);way[\"building\"](around:120,37.758968,-122.422432);way[\"highway\"](around:120,37.758968,-122.422432);way[\"building\"](around:120,37.7687,-122.4252);way[\"highway\"](around:120,37.7687,-122.4252);way[\"building\"](around:120,37.765,-122.4192);way[\"highway\"](around:120,37.765,-122.4192);way[\"building\"](around:120,37.769608,-122.432017);way[\"highway\"](around:120,37.769608,-122.432017););out geom tags;",
+  "query": "[out:json][timeout:60];(way[\"building\"](around:120,37.758202,-122.428084);way[\"highway\"](around:120,37.758202,-122.428084);way[\"building\"](around:120,37.760505,-122.42675);way[\"highway\"](around:120,37.760505,-122.42675);way[\"building\"](around:120,37.768916,-122.421864);way[\"highway\"](around:120,37.768916,-122.421864);way[\"building\"](around:120,37.758968,-122.422432);way[\"highway\"](around:120,37.758968,-122.422432);way[\"building\"](around:120,37.7687,-122.4252);way[\"highway\"](around:120,37.7687,-122.4252);way[\"building\"](around:120,37.765,-122.4192);way[\"highway\"](around:120,37.765,-122.4192);way[\"building\"](around:120,37.769608,-122.432017);way[\"highway\"](around:120,37.769608,-122.432017););out geom tags;",
   "candidate_site_ids": [
     "sfmock-fit-01",
     "sfmock-fit-02",
@@ -13,25 +13,25 @@
     "sfmock-too-small"
   ],
   "query_radius_m": 120,
-  "osm_data_timestamp": "2026-07-15T15:22:01Z",
-  "attribution": "© OpenStreetMap contributors",
+  "osm_data_timestamp": "2026-05-31T22:37:44Z",
+  "attribution": "\u00a9 OpenStreetMap contributors",
   "attribution_url": "https://www.openstreetmap.org/copyright",
   "license": "Open Database License (ODbL) 1.0",
   "license_url": "https://opendatacommons.org/licenses/odbl/1-0/",
   "raw": {
     "file": "sf-osm-land-context-raw.json",
-    "bytes": 742422,
-    "sha256": "65e43b9f730b7f6c997cd6688cf488fd0d288b3bbebdc66feeb005fa9448920a"
+    "bytes": 676552,
+    "sha256": "c4af02208131ed804bf8bf12124790dba7ebe2cea5be3abca86cdda4ed49e705"
   },
   "normalized": {
     "file": "sf-osm-land-context.geojson",
-    "feature_count": 991,
+    "feature_count": 1153,
     "counts": {
-      "buildings": 556,
-      "road_corridors": 435
+      "buildings": 690,
+      "road_corridors": 463
     },
-    "bytes": 855259,
-    "sha256": "6c81277837827c76e51e3c61e88b7d7aaa89d39cecf9b2d6a3b55daecad2e2a9"
+    "bytes": 993935,
+    "sha256": "5fba1340e596a69d02bf870f4ce51fbab4532ce7612916a19dcfe846e2b28b67"
   },
   "road_width_defaults_m": {
     "motorway": 24,
@@ -52,6 +52,7 @@
   },
   "method": "Deduplicate OSM ways returned within 120 m of each simulated site. Preserve mapped building polygons. Convert mapped highway centerlines to polygonal restricted corridors using tagged width when usable, otherwise the documented class default.",
   "limitations": [
+    "Raw extract merges a prior neighborhood snapshot with a supplemental Overpass pull around the relocated southwest candidate so building/road coverage stays complete_for_candidate_sites.",
     "OpenStreetMap is community-mapped and may omit, simplify, or contain stale buildings and transport features.",
     "Buffered road corridors are planning-screen proxies, not surveyed curb or right-of-way boundaries.",
     "Candidate plots remain simulated and this context does not establish vacancy, ownership, permission, or constructibility."

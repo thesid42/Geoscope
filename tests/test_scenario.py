@@ -252,9 +252,9 @@ def test_bundled_sf_mock_has_expected_fit_and_exclusion_results():
     assert m["existing_service_counts"] == {"clinic": 12, "library": 1, "school": 13, "community_center": 7}
     assert m["service_inventory"]["as_of"] == "2026-05-06"
     assert set(m["service_inventory"]["completeness_by_type"].values()) == {"mapped_extract_not_complete"}
-    assert [c["id"] for c in m["candidates"]] == ["sfmock-fit-02", "sfmock-fit-01", "sfmock-fit-03"]
+    assert [c["id"] for c in m["candidates"]] == ["sfmock-fit-01", "sfmock-fit-02", "sfmock-fit-03"]
     assert m["ranking_basis"] == "greatest distance to nearest existing matching service, then largest plot area, then site ID"
-    assert [round(c["nearest_existing_service_m"], 1) for c in m["candidates"]] == [535.5, 316.7, 184.0]
+    assert [round(c["nearest_existing_service_m"], 1) for c in m["candidates"]] == [613.3, 535.5, 184.0]
     assert all(c["plot_area_m2"] > 1000 for c in m["candidates"])
     assert {c["id"] for c in m["site_checks"] if c["status"] == "excluded"} == {"sfmock-building-blocked", "sfmock-restricted", "sfmock-too-small"}
 
@@ -266,3 +266,41 @@ def test_bundled_sf_mock_has_expected_fit_and_exclusion_results():
         assert not sites[site_id].intersects(roads)
     assert sites["sfmock-building-blocked"].intersects(buildings)
     assert sites["sfmock-restricted"].intersects(roads)
+
+
+@pytest.mark.parametrize(
+    "service_type, preferred, nearest",
+    [
+        ("clinic", "sfmock-fit-01", 613.3),
+        ("library", "sfmock-fit-01", 730.7),
+        ("school", "sfmock-fit-01", 427.5),
+        ("community_center", "sfmock-fit-01", 594.5),
+    ],
+)
+def test_bundled_sf_mock_ranks_each_facility_type_by_service_gap(service_type, preferred, nearest):
+    """Each supported facility type has a non-degenerate gap-ranked demo on the SF mock."""
+    from pathlib import Path
+    req = json.loads((Path(__file__).resolve().parents[1] / "data/real-scenario/sf-mock.geojson").read_text())
+    req.update(
+        analysis_mode="scenario",
+        study_area=[-122.433, 37.758, -122.417, 37.776],
+        service_type=service_type,
+        threshold_m=400,
+        projected_crs="EPSG:32610",
+        building=BuildingSpec().model_dump(),
+    )
+    result = calculate(req)[0]
+    metrics = result["metrics"]
+    assert metrics["eligible_sites"] >= 1
+    assert metrics["ranking_basis"].startswith("greatest distance to nearest existing matching service")
+    assert "population" not in metrics["ranking_basis"].lower()
+    assert result["comparison"]["preferred_candidate"] == preferred
+    top = metrics["candidates"][0]
+    assert top["id"] == preferred
+    assert round(top["nearest_existing_service_m"], 1) == nearest
+    assert top["nearest_existing_service_m"] > 400
+    assert top["services_within_threshold"] == 0
+    assert top["plot_area_m2"] > 1000
+    assert metrics["service_features"] > 0
+    assert metrics["existing_services_in_area"] >= 1
+    assert metrics["inventory_status"] == "matching services supplied"

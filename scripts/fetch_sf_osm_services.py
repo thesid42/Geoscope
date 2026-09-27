@@ -10,7 +10,13 @@ from pathlib import Path
 import tempfile
 import urllib.error
 import urllib.parse
+import ssl
 import urllib.request
+
+try:
+    import certifi
+except ImportError:  # pragma: no cover
+    certifi = None
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "data" / "real-scenario"
@@ -48,7 +54,8 @@ def fetch(timeout: int) -> tuple[bytes, str]:
         url = endpoint + "?" + urllib.parse.urlencode({"data": QUERY})
         req = urllib.request.Request(url, headers={"User-Agent": "GeoScopeSFScenario/1.0 (OpenStreetMap Overpass extract)"})
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as response:
+            ssl_context = ssl.create_default_context(cafile=certifi.where()) if certifi else None
+            with urllib.request.urlopen(req, timeout=timeout, context=ssl_context) as response:
                 if response.status != 200:
                     raise RuntimeError(f"HTTP {response.status}")
                 raw = response.read()

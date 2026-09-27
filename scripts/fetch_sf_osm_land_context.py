@@ -10,7 +10,13 @@ import json
 from pathlib import Path
 import re
 import urllib.parse
+import ssl
 import urllib.request
+
+try:
+    import certifi
+except ImportError:  # pragma: no cover
+    certifi = None
 
 from pyproj import Transformer
 from shapely.geometry import LineString, Polygon, mapping
@@ -61,7 +67,8 @@ def fetch(timeout: int) -> tuple[bytes, str]:
             headers={"User-Agent": "GeoScopeSFLandContext/1.0 (OpenStreetMap Overpass extract)"},
         )
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            ssl_context = ssl.create_default_context(cafile=certifi.where()) if certifi else None
+            with urllib.request.urlopen(request, timeout=timeout, context=ssl_context) as response:
                 if response.status != 200:
                     raise RuntimeError(f"HTTP {response.status}")
                 raw = response.read()

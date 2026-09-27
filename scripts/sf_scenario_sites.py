@@ -6,10 +6,14 @@ STUDY_BOUNDS_WEST_SOUTH_EAST_NORTH = [-122.433, 37.758, -122.417, 37.776]
 # selected only after checking the bundled OSM building and transport snapshot, so
 # their map/3D footprints do not visibly sit on mapped buildings or roads. This is
 # not evidence of ownership, vacancy, zoning approval, or construction suitability.
+#
+# fit-01 is placed where clinic, library, school, and community-center mapped-service
+# gaps are all above the default 400 m threshold, so each facility type has a clear
+# gap→area→id ranking demo without restoring population-coverage ranking.
 SITES = [
     {
-        "id": "sfmock-fit-01", "name": "Mock candidate A · Dolores North",
-        "center": [-122.429477, 37.763580], "size_m": [40, 34], "expected_fit": "fit",
+        "id": "sfmock-fit-01", "name": "Mock candidate A · Dolores Southwest",
+        "center": [-122.428084, 37.758202], "size_m": [40, 34], "expected_fit": "fit",
     },
     {
         "id": "sfmock-fit-02", "name": "Mock candidate B · Dolores South",

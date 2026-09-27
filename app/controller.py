@@ -688,7 +688,7 @@ def _inspection_failure_message(detail: Any) -> str | None:
             "then run again. No model request was made."
         )
     if "no positive population weight" in text:
-        return "The selected area has no positive population weight to rank sites. Choose another area or supply population data with positive weights. No model request was made."
+        return "The selected area has no positive population weight for population-based analysis. Choose another area or supply population data with positive weights. No model request was made."
     return None
 
 

@@ -77,8 +77,8 @@
       "too_small": 1
     },
     "candidate_geometry_method": "Axis-aligned simulated rectangles created from nominal meter dimensions at the specified San Francisco lon/lat centers. Eligible rectangles were selected to avoid the bundled mapped building and buffered-road context.",
-    "buildings": "556 mapped OSM building footprints near the candidate sites.",
-    "restrictions": "435 mapped OSM highway centerlines buffered into conservative transport-corridor exclusions.",
+    "buildings": "690 mapped OSM building footprints near the candidate sites.",
+    "restrictions": "463 mapped OSM highway centerlines buffered into conservative transport-corridor exclusions.",
     "synthetic_service_points": 0,
     "candidate_land_features_simulated": true,
     "mapped_building_and_road_context_simulated": false,
@@ -87,16 +87,17 @@
   "land_context_source": {
     "dataset_id": "sf-osm-land-context",
     "raw_file": "sf-osm-land-context-raw.json",
-    "raw_sha256": "65e43b9f730b7f6c997cd6688cf488fd0d288b3bbebdc66feeb005fa9448920a",
+    "raw_sha256": "c4af02208131ed804bf8bf12124790dba7ebe2cea5be3abca86cdda4ed49e705",
     "normalized_file": "sf-osm-land-context.geojson",
-    "normalized_sha256": "6c81277837827c76e51e3c61e88b7d7aaa89d39cecf9b2d6a3b55daecad2e2a9",
-    "source_timestamp": "2026-07-15T15:22:01Z",
+    "normalized_sha256": "5fba1340e596a69d02bf870f4ce51fbab4532ce7612916a19dcfe846e2b28b67",
+    "source_timestamp": "2026-05-31T22:37:44Z",
     "counts": {
-      "buildings": 556,
-      "road_corridors": 435
+      "buildings": 690,
+      "road_corridors": 463
     },
     "method": "Deduplicate OSM ways returned within 120 m of each simulated site. Preserve mapped building polygons. Convert mapped highway centerlines to polygonal restricted corridors using tagged width when usable, otherwise the documented class default.",
     "limitations": [
+      "Raw extract merges a prior neighborhood snapshot with a supplemental Overpass pull around the relocated southwest candidate so building/road coverage stays complete_for_candidate_sites.",
       "OpenStreetMap is community-mapped and may omit, simplify, or contain stale buildings and transport features.",
       "Buffered road corridors are planning-screen proxies, not surveyed curb or right-of-way boundaries.",
       "Candidate plots remain simulated and this context does not establish vacancy, ownership, permission, or constructibility."
@@ -105,5 +106,5 @@
     "license": "Open Database License (ODbL) 1.0"
   },
   "output_file": "sf-mock.geojson",
-  "output_sha256": "ae3504d040e317e4ecbabda0832cef79fb0de94ea7491803f6408741f1d6d825"
+  "output_sha256": "2e631f88a7518da6d9127abff1b3fad47557c79643b27fe949c1d56f48b9b59c"
 }

@@ -11,13 +11,15 @@ Recorded September 26, 2026 (America/Los_Angeles), September 27 UTC. Last tested
 - The dataset mixes observed population/facility records with simulated land. Geometric fit is checked; actual land availability is not established.
 - Credentials belong in the existing server environment files or the operator's private credential store. No passwords, API keys, worker tokens, or app secrets belong in this document or Git.
 
-### Deployed land-context update
+### Facility-site ranking and multi-type demos
 
-Commit `55e8a63` moved the four eligible simulated plots off mapped OSM buildings and transport corridors. The deployed fixture includes 556 mapped building footprints and 435 buffered road/footpath corridors around all seven plots, enforced as sandbox obstructions. It has 1,085 features (915,961 bytes). The verified clinic ranking is `sfmock-fit-02`, `sfmock-fit-01`, `sfmock-fit-03`, with additional population weights `2,906`, `2,906`, and `0`. This is deployed and API-tested on both the controller and worker; deployed visual browser acceptance remains outstanding.
+Facility sites are ranked by **greatest straight-line distance to the nearest existing matching mapped service**, then largest plot area, then site ID. Population coverage is not used for scenario ranking. Supported scenario service types are clinic, library, school, and community center (not park).
 
-Commit `84ea118` adds a deterministic **Why Site N is ranked here** panel for the selected result. It explains verified footprint/setback fit, building/road/restriction clearance, estimated coverage contribution, and the exact coverage/distance/plot-ID tie-break. The explanation is derived from reference-verified result fields rather than unverified model prose.
+The SF mock fixture currently has **1,247 features (1,054,641 bytes)** with 690 mapped building footprints and 463 buffered road corridors. With the default study rectangle and 400 m threshold, `sfmock-fit-01` is preferred for clinic (~613 m), library (~731 m), school (~428 m), and community center (~594 m). Four of seven plots remain eligible; three are excluded for building conflict, road conflict, or undersized lot.
 
-Commit `a8e7ba4` converts an empty population-sample failure into a clear recovery message. A scenario rectangle must contain at least one supplied population representative point to produce a coverage ranking. When it does not, the trusted inspection stops before any model request and tells the user to enlarge the area or upload finer local population data; no sandbox traceback is shown in the result panel.
+Commit `84ea118` adds a deterministic **Why Site N is ranked here** panel. It explains verified footprint/setback fit, building/road/restriction clearance, mapped-service gap, and the gap/area/plot-ID tie-break from reference-verified fields.
+
+East Harlem official lots (`nycland`) also return ≥1 eligible ranked site for each of the four facility types. Park proximity remains an access/compare workflow on the parks+census snapshots.
 
 ## Implemented behavior
 
@@ -43,30 +45,30 @@ The default SF study rectangle is `[-122.433, 37.758, -122.417, 37.776]` in west
 | [SF population and parks](../data/real/sf-parks-census.geojson) | 1,837,936 bytes (~1.84 MB); 244 population tracts and 226 selected park features. See its [manifest](../data/real/manifest.json). |
 | [Raw facility download](../data/real-scenario/sf-osm-services-raw.json) | 34,310 bytes; 76 OSM elements in the query response. |
 | [Normalized facilities](../data/real-scenario/sf-osm-services.geojson) | 41,358 bytes (~41.4 kB); 75 records after excluding one explicitly disused clinic: 21 clinics, 4 libraries, 34 schools, 16 community centers. |
-| [Combined SF demo](../data/real-scenario/sf-mock.geojson) | 915,961 bytes; 1,085 features: 12 unchanged Census tracts, 75 mapped facilities, 7 simulated plots, 556 mapped building footprints, and 435 buffered road/footpath corridors. |
+| [Combined SF demo](../data/real-scenario/sf-mock.geojson) | 1,054,641 bytes; 1,247 features: 12 unchanged Census tracts, 75 mapped facilities, 7 simulated plots, 690 mapped building footprints, and 463 buffered road/footpath corridors. |
 
 The facility query covers a neighborhood extract, **not the whole city**. Its source timestamp is **2026-05-06T03:25:00Z**, even though it was downloaded in September. OSM coverage and operating status may be incomplete or stale. Counts are mapped feature records, not a certified directory or a count of distinct architectural structures. Ways and relations use the center returned by Overpass; separate OSM elements may describe the same real facility. Attribution and ODbL terms are recorded in the [facility manifest](../data/real-scenario/sf-osm-services-manifest.json).
 
-Observed default results:
+Observed default facility-site results (gap → plot area → site ID):
 
 | Metric | Verified value |
 | --- | --- |
-| Population weight across all 12 input tracts | 40,776 |
-| Population weight assigned inside the rectangle | 37,351 across 11 representative points |
-| Population weight outside the rectangle | 3,425 |
+| Population weight across all 12 input tracts | 40,776 (context only; not used to rank sites) |
 | Mapped facilities inside the rectangle | 12 clinics; 1 library; 13 schools; 7 community centers |
 | Plot fit | 4 eligible out of 7; top 3 displayed |
-| Ranked clinic plot IDs | `sfmock-fit-02`, `sfmock-fit-01`, `sfmock-fit-03` |
-| Baseline clinic coverage within 400 m | 34,445 population weight; 2,906 outside |
-| Additional coverage for the ranked clinic proposals | **2,906; 2,906; 0**, in rank order |
+| Ranking basis | Greatest distance to nearest matching mapped service, then plot area, then site ID |
+| Preferred clinic / library / school / community center | `sfmock-fit-01` (~613 / ~731 / ~428 / ~594 m) |
+| Ranked clinic plot IDs | `sfmock-fit-01`, `sfmock-fit-02`, `sfmock-fit-03` |
 
-The first two alternatives add the same estimated population weight and are ordered by weighted mean distance; the third adds zero. A plot fitting the supplied constraints does not by itself establish a need for another clinic. Do not change data or verification just to produce a positive recommendation.
+A plot fitting the supplied constraints does not by itself establish a need for another facility. Distances are straight-line proxies to mapped records.
 
 `existing_services_in_area` counts the selected facility type. `existing_service_counts` contains all four type counts. A service is counted when its projected geometry representative point is covered by the selected area, including boundary points. `service_features` remains the global matching-type inventory count used for baseline distances, including records outside the rectangle. `service_inventory` carries source/date/completeness. Missing records are not evidence of absence.
 
 ## Verification evidence
 
-Last implementation checks, completed before this documentation update:
+Local recheck after multi-type gap-ranking fixture refresh (not yet redeployed): **151** backend tests passed with `APP_DATA_DIR` set to a writable temp directory; **33** frontend Vitest tests passed; `verification/scenario_reference_smoke.py` passed for all four facility types.
+
+Earlier implementation checks, completed before this documentation update:
 
 | Check | Recorded outcome |
 | --- | --- |

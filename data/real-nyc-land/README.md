@@ -22,3 +22,16 @@ Or rebuild from `raw/` without network:
 ```
 python data/real-nyc-land/prepare_snapshot.py
 ```
+
+## Default facility demos
+
+Study area `[-73.955, 40.790, -73.930, 40.812]`, building 24 × 18 × 12 m, setback 3 m, threshold 400 m. Ranking is service gap → plot area → site ID (not population).
+
+| Facility type | Expectation |
+| --- | --- |
+| Clinic | ≥1 eligible lot; preferred lot often has a large mapped-clinic gap (~750 m+) |
+| Library | ≥1 eligible lot; libraries are sparse, so gaps are typically large |
+| School | ≥1 eligible lot; FacDB schools are dense, so nearest distances are shorter |
+| Community center | ≥1 eligible lot; gaps are moderate |
+
+Park is not a scenario service type here; parks in this extract remain available for access/compare workflows via the citywide NYC snapshot.
