@@ -88,7 +88,9 @@ class FakeResponse:
             raise RuntimeError(f"HTTP {self.status_code}")
 
 
-def test_multistep_agent_uses_vultr_and_repairs_bounded_failure(tmp_path, monkeypatch):
+@pytest.mark.parametrize("mode", ["access", "scenario"])
+@pytest.mark.parametrize("summary_failure", [False, True])
+def test_multistep_agent_uses_vultr_and_repairs_bounded_failure(tmp_path, monkeypatch, mode, summary_failure):
     settings = replace(controller.settings, data_dir=tmp_path, vultr_api_key="test-vultr-secret", vultr_model_id="catalog-id", worker_url="http://private-worker", worker_token="private-token", worker_timeout_seconds=3)
     monkeypatch.setattr(controller, "settings", settings)
     population_features = [f for f in DEMO["features"] if f["properties"]["layer"] == "population"]
@@ -98,7 +100,7 @@ def test_multistep_agent_uses_vultr_and_repairs_bounded_failure(tmp_path, monkey
         copy["properties"]["nearest_m"] = 10.0
         copy["properties"]["underserved"] = False
         mapped["features"].append(copy)
-    result = {"mode": "access", "metrics": {"analysis_crs": "EPSG:32610", "threshold_m": 400, "population_total": 6850, "population_features": 6, "service_features": 2, "baseline": {"served_population": 6850, "underserved_population": 0, "weighted_mean_nearest_m": 10.0}}, "reference_verified": True}
+    result = {"mode": mode, "metrics": {"analysis_crs": "EPSG:32610", "threshold_m": 400, "population_total": 6850, "population_features": 6, "service_features": 2, "baseline": {"served_population": 6850, "underserved_population": 0, "weighted_mean_nearest_m": 10.0}}, "reference_verified": True}
     artifacts = {"result.json": base64.b64encode(json.dumps(result).encode()).decode(), "result.geojson": base64.b64encode(json.dumps(mapped).encode()).decode()}
 
     class FakeClient:
@@ -133,21 +135,31 @@ def test_multistep_agent_uses_vultr_and_repairs_bounded_failure(tmp_path, monkey
             elif system.startswith("Write only"):
                 content = "print('broken first attempt')"
             elif system.startswith("Repair"):
+                assert controller._script_instructions(mode) in system
+                repair = json.loads(kwargs["json"]["messages"][1]["content"])
+                assert repair["analysis_mode"] == mode
+                assert repair["analysis_inputs"]["projected_crs"] == "EPSG:32610"
                 content = "print('geoscope-analysis-ok')"
             else:
+                assert run["status"] == "running", "Polling must not stop before the summary is available"
+                if summary_failure:
+                    return FakeResponse(503, {})
                 content = "Six population areas are within the selected threshold in this demonstration."
             return FakeResponse(200, {"choices": [{"message": {"content": content}}]})
 
     monkeypatch.setattr(controller.httpx, "AsyncClient", FakeClient)
     run = {
         "id": "a" * 32, "status": "queued", "question": "Which areas are closest to a service?", "dataset_name": "Unit fixture",
-        "synthetic": False, "threshold_m": 400, "analysis_mode": "access", "projected_crs": "EPSG:32610", "candidate_a": None,
+        "synthetic": False, "threshold_m": 400, "analysis_mode": mode, "projected_crs": "EPSG:32610", "candidate_a": None,
         "candidate_b": None, "logs": [], "created_at": "2026-09-26T00:00:00Z", "updated_at": None,
         "result": None, "artifacts": {}, "error": None, "attempts": [],
     }
+    if mode == "scenario":
+        run.update(study_area=[-122.34,47.60,-122.31,47.62],service_type="clinic",building={"width_m":24,"depth_m":18,"height_m":12,"setback_m":3})
     assert controller.ACTIVE_RUNS.acquire(blocking=False)
     asyncio.run(controller._run_agent(run, DEMO, None, None, 400, "EPSG:32610"))
     assert run["status"] == "completed", run.get("error")
+    assert ("optional natural-language summary was unavailable" in run["summary"]) == summary_failure
     assert len(run["attempts"]) == 2
     assert [attempt["status"] for attempt in run["attempts"]] == ["failed", "completed"]
     assert run["attempts"][1]["stdout"] == "geoscope-analysis-ok\n"

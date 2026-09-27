@@ -300,11 +300,14 @@ def _exec_extractor(container_id: str) -> dict[str, bytes]:
 
 def _verify_result(actual: Any, expected: Any) -> None:
     if not isinstance(actual, dict) or actual.get("mode") != expected.get("mode"):
-        raise SandboxFailure("Generated result mode did not match the requested analysis.")
+        got_mode = actual.get("mode") if isinstance(actual, dict) else None
+        raise SandboxFailure(f"Generated result mode did not match the requested analysis. result.json must have top-level mode={expected.get('mode')!r}; received {str(got_mode)[:80]!r}.")
     if not isinstance(actual.get("metrics"), dict):
         raise SandboxFailure("Generated metrics were missing.")
     if set(actual["metrics"]) != set(expected["metrics"]):
-        raise SandboxFailure("Generated metric fields did not match the verified schema.")
+        missing = sorted(set(expected["metrics"]) - set(actual["metrics"]))[:20]
+        extra = [key[:80] for key in sorted(set(actual["metrics"]) - set(expected["metrics"]))[:20]]
+        raise SandboxFailure(f"Generated metric fields did not match the verified schema. Missing: {missing}; unexpected: {extra}.")
 
     def compare(got: Any, want: Any, path: str) -> None:
         if isinstance(want, dict):
