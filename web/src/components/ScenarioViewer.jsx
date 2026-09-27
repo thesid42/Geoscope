@@ -42,7 +42,8 @@ function disposeObject(object) {
   for (const material of Array.isArray(object.material) ? object.material : [object.material]) material?.dispose?.();
 }
 
-export default function ScenarioViewer({ area, candidate, building, serviceType, dataset }) {
+export default function ScenarioViewer({ area, candidate, building: buildingInput, serviceType, dataset, scenarioView = 'after', agentic = false }) {
+  const building = candidate?.building ?? buildingInput ?? { width_m: 24, depth_m: 18, height_m: 12, setback_m: 3 };
   const hostRef = useRef(null); const resetViewRef = useRef(null);
   const [view, setView] = useState('closeup'); const [error, setError] = useState(''); const [tiles, setTiles] = useState({ loaded: 0, failed: 0, total: 9 });
   const model = useMemo(() => makeScenarioSceneData({ area, candidate, building, dataset }), [area, candidate, building, dataset]);
@@ -89,9 +90,19 @@ export default function ScenarioViewer({ area, candidate, building, serviceType,
         }
       }
       for (const rings of model.plotRings) flatPolygon(scene, rings, '#087f8c', 0.1);
-      if (model.buildingFootprint.length >= 4 && model.buildingHeight > 0) extrude(scene, [model.buildingFootprint], model.buildingHeight, '#dc7b36');
       const labelHeight = view === 'neighborhood' ? 20 : 5;
-      label(scene, textures, `Proposed ${serviceType.replaceAll('_', ' ')}`, 0, model.buildingHeight + labelHeight * 2, 0, labelHeight);
+      const showProposal = !agentic || scenarioView === 'after';
+      if (showProposal) {
+        for (const rings of model.openSpaceRings ?? []) flatPolygon(scene, rings, '#43834d', 0.28);
+        if (model.buildingFootprint.length >= 4 && model.buildingHeight > 0) {
+          extrude(scene, [model.buildingFootprint], model.buildingHeight, '#dc7b36');
+          const floors = Math.max(0, Math.min(20, Number(model.buildingFloors) || 0));
+          for (let floor = 1; floor < floors; floor++) line(scene, model.buildingFootprint, '#fff3d3', Math.min(model.buildingHeight * floor / floors, model.buildingHeight - 0.1));
+        }
+        label(scene, textures, `Proposed ${serviceType.replaceAll('_', ' ')}`, 0, model.buildingHeight + labelHeight * 2, 0, labelHeight);
+      } else {
+        label(scene, textures, 'Current site', 0, labelHeight, 0, labelHeight);
+      }
       for (const service of model.services) {
         const marker = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 8, 10), new THREE.MeshLambertMaterial({ color: COLORS.service })); marker.position.set(service.point.x, 4, service.point.z); scene.add(marker);
         label(scene, textures, `${service.simulated ? 'Simulated' : 'Supplied'} ${service.serviceType}: ${service.name}`, service.point.x, 13, service.point.z, labelHeight);
@@ -117,11 +128,11 @@ export default function ScenarioViewer({ area, candidate, building, serviceType,
       dead = true; resetViewRef.current = null; if (frame) cancelAnimationFrame(frame); observer?.disconnect(); controls?.dispose();
       scene.traverse(disposeObject); for (const texture of textures) texture?.dispose(); renderer?.dispose(); renderer?.forceContextLoss?.(); renderer?.domElement?.remove();
     };
-  }, [model, building, candidate.id, serviceType, view]);
+  }, [model, building, candidate.id, serviceType, view, scenarioView, agentic]);
   const tileStatus = tiles.loaded + tiles.failed < tiles.total ? 'Loading street map…' : tiles.loaded === 0 ? 'Street map unavailable; supplied geometry remains visible.' : tiles.failed ? 'Some street tiles unavailable; supplied geometry remains visible.' : 'OpenStreetMap street context · independent of supplied land records';
   const name = ({ clinic: 'clinic', library: 'library', school: 'school', community_center: 'community centre' })[serviceType] || String(serviceType || 'facility').replaceAll('_', ' ');
-  return <section className="scenario-viewer" aria-label="Verified 3D footprint preview">
-    <div className="scenario-viewer-head"><div><b>3D FOOTPRINT</b><span>{name} · {dimensions}</span></div><span className="scenario-viewer-help">Drag to orbit · scroll to zoom</span></div>
+  return <section className="scenario-viewer" aria-label={agentic ? 'Facility design and reserved open space in 3D' : 'Verified 3D footprint preview'}>
+    <div className="scenario-viewer-head"><div><b>{agentic ? 'SITE DESIGN' : '3D FOOTPRINT'}</b><span>{scenarioView === 'before' && agentic ? 'Before · existing site context' : `${name} · ${dimensions}`}</span></div><span className="scenario-viewer-help">Drag to orbit · scroll to zoom</span></div>
     <div className="scenario-viewer-body">
       <div className="scenario-view-controls" role="group" aria-label="3D camera view">
         <button type="button" className="download-link" aria-pressed={view === 'closeup'} onClick={() => setView('closeup')}>Close-up</button>
@@ -136,7 +147,7 @@ export default function ScenarioViewer({ area, candidate, building, serviceType,
       {!error && <div className="scenario-tile-status" role="status">{tileStatus}</div>}
       <details className="scenario-extras">
         <summary>Legend &amp; notes</summary>
-        <div className="scenario-context-key" aria-label="3D scene legend"><span>Orange: proposal</span><span>Teal: selected plot</span><span>Purple: other plots</span><span>Blue: study area</span><span>Red: restrictions</span><span>Green: services</span><span>Gray: buildings</span></div>
+        <div className="scenario-context-key" aria-label="3D scene legend">{agentic && <><span>Orange: proposed building</span><span>Green: reserved open space</span></>}<span>Teal: selected plot</span><span>Purple: other plots</span><span>Blue: study area</span><span>Red: restrictions</span><span>Green: services</span><span>Gray: buildings</span></div>
         <p className="scenario-viewer-note">Street imagery is context only, not land availability. {model.simulated ? 'Candidate land records are simulated. ' : 'Land records come from the supplied dataset. '}{model.services.some((service) => service.simulated) ? 'Simulated service markers are mock records; others come from the inventory. ' : 'Service markers come from the supplied inventory. '}Buildings rise only where height_m is supplied. Flat ground · approximate metre scale · no ownership or feasibility claim.</p>
         <p className="scenario-parcel-inline">Parcel {candidate.id}</p>
       </details>

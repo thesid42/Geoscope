@@ -108,6 +108,9 @@ with open('/output/result.geojson','w',encoding='utf-8') as f:
 
 
 def reference_code(data):
+    if data.get("analysis_mode") == "scenario" and data.get("design"):
+        from app.simulation_runtime import reference_script
+        return reference_script(data)
     if data.get("analysis_mode") == "scenario":
         from app.scenario_reference import SCENARIO_REFERENCE_CODE
         return SCENARIO_REFERENCE_CODE

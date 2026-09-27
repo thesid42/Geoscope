@@ -1,0 +1,61 @@
+{
+  "area": "sf",
+  "study_area_bounds": [
+    -122.433,
+    37.758,
+    -122.417,
+    37.776
+  ],
+  "network_bounds": [
+    -122.443,
+    37.75,
+    -122.407,
+    37.784
+  ],
+  "buffer_approx_m": 850,
+  "source_endpoint": "https://overpass.private.coffee/api/interpreter",
+  "query": "[out:json][timeout:180][maxsize:268435456];way[\"highway\"](37.75,-122.443,37.784,-122.407);out body;>;out skel qt;",
+  "osm_data_timestamp": "2026-05-06T03:25:00Z",
+  "prepared_at": "2026-09-27T15:50:33Z",
+  "counts": {
+    "ways_returned": 9269,
+    "pedestrian_ways": 8597,
+    "node_elements": 23992,
+    "nodes_used": 20834,
+    "edge_segments": 25969
+  },
+  "filter": {
+    "excluded_highway": [
+      "abandoned",
+      "bridleway",
+      "construction",
+      "motorway",
+      "motorway_link",
+      "platform",
+      "proposed",
+      "raceway",
+      "trunk",
+      "trunk_link"
+    ],
+    "excluded_access_values": [
+      "no",
+      "private",
+      "use_sidepath"
+    ],
+    "excluded_explicit_oneway_foot": true,
+    "graph_directionality": "undirected; explicit oneway:foot ways omitted"
+  },
+  "sha256_snapshot": "610eab3887511f5fb773e6bbcbf8cb5ac0bd08205a637d9fde72201b0cce46df",
+  "sha256_overpass_response": "2117d843ab69e4a1ddcb509b59a68ffde1e321b95326844cff1821afd563dc91",
+  "snapshot_file": "sf.json",
+  "license": "ODbL 1.0",
+  "license_url": "https://opendatacommons.org/licenses/odbl/1-0/",
+  "attribution": "© OpenStreetMap contributors",
+  "copyright_url": "https://www.openstreetmap.org/copyright",
+  "limitations": [
+    "OSM pedestrian tags and connectivity are not a guarantee of safe/current walkability.",
+    "Motor-vehicle one-way tagging is not used as a pedestrian restriction; explicitly one-way foot ways are excluded.",
+    "This extract does not encode verified building entrances, crossing delay, slope, closures, signals, or step-free accessibility.",
+    "Bounds include an approximately 850 m rectangular buffer around the named demo extent; routing beyond its edge is not represented."
+  ]
+}

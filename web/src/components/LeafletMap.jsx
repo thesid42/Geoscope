@@ -79,7 +79,7 @@ function applyMapBounds(map, bounds, options = { padding: [35, 35], maxZoom: 16 
   map.fitBounds(bounds, { animate: false, ...options });
 }
 
-export default function LeafletMap({ data, datasetId, resultData, mode, candidateA, candidateB, onCandidateChange, scenarioArea, scenarioCandidates, selectedCandidateId, onScenarioAreaSelected, areaSelectionActive, onSelectScenarioCandidate, scenarioSiteChecks, interactionsLocked = false }) {
+export default function LeafletMap({ data, datasetId, resultData, mode, candidateA, candidateB, onCandidateChange, scenarioArea, scenarioCandidates, selectedCandidateId, onScenarioAreaSelected, areaSelectionActive, onSelectScenarioCandidate, scenarioSiteChecks, interactionsLocked = false, scenarioView = 'after' }) {
   const elementRef = useRef(null); const mapRef = useRef(null);
   const sourceLayerRef = useRef(null); const resultLayerRef = useRef(null); const candidateLayersRef = useRef([]);
   const scenarioLayersRef = useRef([]); const areaLayerRef = useRef(null); const clicksRef = useRef([]);
@@ -203,12 +203,42 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
         marker.bindTooltip(tooltip);
         marker.on('click', () => { if (!areaSelectionActive) onSelectScenarioCandidate?.(item); });
         scenarioLayersRef.current.push(marker);
-        if (item.footprint) {
+        if (item.footprint && (!item.design || (scenarioView === 'after' && selected))) {
           const footprint = L.geoJSON({ type: 'Feature', properties: {}, geometry: item.footprint }, { style: { color: '#b85318', weight: selected ? 3 : 1.5, fillColor: '#f39b48', fillOpacity: selected ? 0.8 : 0.4 } }).addTo(map);
           const node = document.createElement('span'); node.textContent = `Site ${item.rank} · proposed building footprint`;
           footprint.bindTooltip(node);
           footprint.on('click', () => { if (!areaSelectionActive) onSelectScenarioCandidate?.(item); });
           scenarioLayersRef.current.push(footprint);
+        }
+        if (item.open_space && item.design && scenarioView === 'after' && selected) {
+          const reserve = L.geoJSON({ type: 'Feature', properties: {}, geometry: item.open_space }, { style: { color: '#397548', weight: selected ? 2.5 : 1.5, fillColor: '#78ae70', fillOpacity: 0.52 } }).addTo(map);
+          reserve.bindTooltip(`Site ${item.rank} · reserved open space`);
+          reserve.on('click', () => { if (!areaSelectionActive) onSelectScenarioCandidate?.(item); });
+          scenarioLayersRef.current.push(reserve);
+        }
+      }
+      const selected = candidates.find((item) => String(item.id) === String(selectedCandidateId));
+      const access = selected?.access;
+      if (access && selected.design) {
+        const limit = Number(access.minutes);
+        for (const sample of access.samples ?? []) {
+          const longitude = Number(sample.longitude); const latitude = Number(sample.latitude);
+          if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) continue;
+          const minutes = sample[scenarioView === 'before' ? 'before_minutes' : 'after_minutes'];
+          const known = minutes != null && Number.isFinite(Number(minutes)) && !(scenarioView === 'before' && access.baseline_known === false);
+          const served = known && Number(minutes) <= limit;
+          const color = !known ? '#737c81' : served ? '#25834b' : '#c8614c';
+          const population = sample.population == null ? 'Population weight unavailable' : `Estimated population weight: ${Number(sample.population).toLocaleString()}`;
+          const outcome = !known ? `${scenarioView === 'before' ? 'Before' : 'After'} access unknown` : served ? `${scenarioView === 'before' ? 'Before' : 'After'}: ${Number(minutes).toFixed(1)} min walk` : `${scenarioView === 'before' ? 'Before' : 'After'}: beyond ${limit} min`;
+          const marker = L.circleMarker([latitude, longitude], { radius: 6, color: '#fff', weight: 1.5, fillColor: color, fillOpacity: 0.92 }).addTo(map);
+          marker.bindTooltip(`${population} · ${outcome}`);
+          scenarioLayersRef.current.push(marker);
+        }
+        const routes = (access.routes ?? []).filter((route) => { const phase = route?.properties?.phase; return !phase || phase === scenarioView; });
+        if (routes.length) {
+          const routeLayer = L.geoJSON({ type: 'FeatureCollection', features: routes }, { style: (feature) => ({ color: feature.properties?.phase === 'before' ? '#39788a' : '#188456', weight: 3.5, opacity: 0.9 }) }).addTo(map);
+          routeLayer.eachLayer((layer) => layer.bindTooltip(layer.feature?.properties?.phase === 'before' ? 'Estimated walking route before' : 'Estimated walking route after'));
+          scenarioLayersRef.current.push(routeLayer);
         }
       }
     }
@@ -221,7 +251,7 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
       areaLayerRef.current.bindTooltip(label, { permanent: true, direction: 'top', className: 'study-area-label' });
     }
     return undefined;
-  }, [data, mode, scenarioArea, scenarioCandidates, selectedCandidateId, scenarioSiteChecks, areaSelectionActive, onSelectScenarioCandidate]);
+  }, [data, mode, scenarioArea, scenarioCandidates, selectedCandidateId, scenarioSiteChecks, areaSelectionActive, onSelectScenarioCandidate, scenarioView]);
 
   // When the study area changes for an already-fitted dataset (draw/edit), follow it without requiring a dataset reload.
   useEffect(() => {
@@ -254,9 +284,10 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
   useEffect(() => {
     const map = mapRef.current; if (!map) return undefined;
     if (resultLayerRef.current) map.removeLayer(resultLayerRef.current); resultLayerRef.current = null;
-    if (resultData?.features) resultLayerRef.current = L.geoJSON(resultData, { style: (feature) => ({ color: '#477f92', weight: 0.7, interactive: false, fillColor: feature.properties?.inside_zone || feature.properties?.underserved ? '#dfaa86' : '#77a879', fillOpacity: 0.16 }), interactive: false, pointToLayer: (_feature, latlng) => L.circleMarker(latlng, { radius: 5, color: '#477f92', fillOpacity: 0.7 }) }).addTo(map);
+    const designRun = mode === 'scenario' && scenarioCandidates?.some((item) => item.design);
+    if (!designRun && resultData?.features) resultLayerRef.current = L.geoJSON(resultData, { style: (feature) => ({ color: '#477f92', weight: 0.7, interactive: false, fillColor: feature.properties?.inside_zone || feature.properties?.underserved ? '#dfaa86' : '#77a879', fillOpacity: 0.16 }), interactive: false, pointToLayer: (_feature, latlng) => L.circleMarker(latlng, { radius: 5, color: '#477f92', fillOpacity: 0.7 }) }).addTo(map);
     return undefined;
-  }, [resultData]);
+  }, [resultData, mode, scenarioCandidates]);
 
   return <div className="map-wrapper map-frame">
     <div id="map" ref={elementRef} aria-label="Map of population areas, places, selected area, and candidate sites" />
@@ -267,8 +298,8 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
     <div className="map-key" aria-label="Map legend">
       <strong className="map-key-title">Legend</strong>
       {['scenario', 'exposure'].includes(mode) && <span className="map-key-item"><i className="key-area" />{mode === 'exposure' ? 'Count boundary' : 'Study boundary'}</span>}
-      {mode === 'scenario' ? <><span className="map-key-item"><i className="key-plot" />Candidate plot</span><span className="map-key-item"><i className="key-selected" />Selected plot</span><span className="map-key-item"><i className="key-building" />Proposed building</span><span className="map-key-item"><i className="key-blocker" />Building record</span><span className="map-key-item"><i className="key-restricted" />Restricted area</span><span className="map-key-item"><i className="key-service" />Mapped service</span></> : <><span className="map-key-item"><i className="key-population" />Population areas</span><span className="map-key-item"><i className="key-service" />{mode === 'access' || mode === 'compare' ? 'Services / parks' : 'Services'}</span></>}
-      {resultData?.features?.length > 0 && <><span className="map-key-item"><i className="key-result-orange" />{mode === 'exposure' ? 'Inside count boundary' : 'Outside current service range'}</span><span className="map-key-item"><i className="key-result-green" />{mode === 'exposure' ? 'Outside count boundary' : 'Within current service range'}</span></>}
+      {mode === 'scenario' ? <><span className="map-key-item"><i className="key-plot" />Candidate plot</span><span className="map-key-item"><i className="key-selected" />Selected plot</span>{scenarioCandidates?.some((item) => item.design) ? scenarioView === 'after' && <><span className="map-key-item"><i className="key-building" />Proposed building</span><span className="map-key-item"><i className="key-open-space" />Reserved open space</span></> : <span className="map-key-item"><i className="key-building" />Proposed building</span>}<span className="map-key-item"><i className="key-blocker" />Building record</span><span className="map-key-item"><i className="key-restricted" />Restricted area</span><span className="map-key-item"><i className="key-service" />Mapped service</span>{scenarioCandidates?.some((item) => item.design) && <><span className="map-key-item"><i className="key-access-reachable" />Within walking limit</span><span className="map-key-item"><i className="key-access-beyond" />Beyond walking limit</span><span className="map-key-item"><i className="key-access-unknown" />Unknown access</span><span className="map-key-item"><i className="key-access-before" />Before route</span><span className="map-key-item"><i className="key-access-after" />After route</span></>}</> : <><span className="map-key-item"><i className="key-population" />Population areas</span><span className="map-key-item"><i className="key-service" />{mode === 'access' || mode === 'compare' ? 'Services / parks' : 'Services'}</span></>}
+      {resultData?.features?.length > 0 && !(mode === 'scenario' && scenarioCandidates?.some((item) => item.design)) && <><span className="map-key-item"><i className="key-result-orange" />{mode === 'exposure' ? 'Inside count boundary' : 'Outside current service range'}</span><span className="map-key-item"><i className="key-result-green" />{mode === 'exposure' ? 'Outside count boundary' : 'Within current service range'}</span></>}
     </div>
     {areaSelectionActive && <div className="map-draw-hint" role="status">Click one corner, then the opposite corner to choose your area.</div>}
   </div>;

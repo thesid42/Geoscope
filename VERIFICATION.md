@@ -1,6 +1,13 @@
 # Verification record
 
-## Current deployment snapshot (2026-09-26 Pacific / 2026-09-27 UTC)
+## Agent layout and walking release checks (2026-09-27)
+
+- Full backend regression: **194 passed** with Python 3.12 and GIS dependencies. This includes bounded design search, connected open-space checks, same-cohort walking comparisons, insufficient network-buffer rejection, unknown-baseline handling, proposal admission, independent recomputation, tampering rejection and controller artifact plumbing.
+- Frontend: **50 tests passed**, and the production Vite build passed. The lazy Three.js chunk retains the existing bundle-size advisory. Tests cover design requests, stale results, Before/After state, outcomes and scene geometry; they do not establish rendered appearance.
+- Both final city snapshots passed `verification/design_sandbox_smoke.py` on the Vultr worker in real gVisor containers, including independent submitted-design recomputation and cleanup: SF 4.39 seconds; NYC 9.39 seconds. Every displayed library alternative retained at least 40% connected reserved open space. This is an explicitly fixed-script integration check, not evidence that a model selected a strategy. Live inference acceptance is recorded separately after deployment.
+- Browser automation failed during Windows sandbox startup before opening a page. Visual browser acceptance remains outstanding.
+
+## Previous deployment snapshot (2026-09-26 Pacific / 2026-09-27 UTC)
 
 The latest application release, `a8e7ba4`, is deployed on Vultr. **139 backend tests, 31 frontend tests, the production build, and live population/scenario analyses passed**. The release adds deterministic selected-site explanations derived from reference-verified land-fit, obstruction, coverage, and ranking fields, plus user-facing empty-population-area recovery. Live preflight run `03ba51011fcf4bbdafee66977e70cc4f` stopped before the model catalog or inference call and returned larger-area/finer-data guidance without exposing a traceback. Live scenario run `813e604c322449d79f6e9b686f6c1840` was reference verified on its third bounded execution attempt after two generated-script repairs. The 1,085-feature scenario dataset includes 75 observed OSM facility records, 556 mapped building footprints, 435 buffered road/footpath corridors, real Census population, and simulated candidate land. Public assets and worker readiness were checked, installed worker module hashes matched the repository, and managed sandbox containers were cleaned up.
 

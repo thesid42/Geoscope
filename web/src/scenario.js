@@ -27,6 +27,41 @@ export function validateBuilding(building) {
   return null;
 }
 
+export const DEFAULT_DESIGN = { target_floor_area_m2: 900, max_floors: 3, min_open_space_pct: 40, setback_m: 3 };
+export const DEFAULT_WALK = { minutes: 10, speed_mps: 1.2, max_snap_m: 100 };
+
+export function validateDesign(design) {
+  for (const [key, min, max, label] of [
+    ['target_floor_area_m2', 100, 5000, 'Target floor area'],
+    ['max_floors', 1, 6, 'Maximum floors'],
+    ['min_open_space_pct', 10, 85, 'Minimum open space'],
+    ['setback_m', 0, 20, 'Setback'],
+  ]) {
+    const value = Number(design?.[key]);
+    if (!Number.isFinite(value) || value < min || value > max || (key === 'max_floors' && !Number.isInteger(value))) return `${label} must be between ${min} and ${max}${key === 'max_floors' ? ' whole floors' : ''}.`;
+  }
+  return null;
+}
+
+export function validateWalk(walk) {
+  for (const [key, min, max, label] of [['minutes', 3, 20, 'Walking time'], ['speed_mps', 0.5, 2, 'Walking speed'], ['max_snap_m', 10, 200, 'Maximum network snap']]) {
+    const value = Number(walk?.[key]);
+    if (!Number.isFinite(value) || value < min || value > max || (key === 'minutes' && !Number.isInteger(value))) return `${label} must be between ${min} and ${max}${key === 'minutes' ? ' whole minutes' : ''}.`;
+  }
+  return null;
+}
+
+export function makeScenarioRequest({ datasetId, question, studyArea, serviceType, designMode, design, walk, building }) {
+  const request = { dataset_id: datasetId, analysis_mode: 'scenario', question, study_area: studyArea.map(Number), service_type: serviceType };
+  if (designMode) {
+    request.design = { ...design, target_floor_area_m2: Number(design.target_floor_area_m2), max_floors: Number(design.max_floors), min_open_space_pct: Number(design.min_open_space_pct), setback_m: Number(design.setback_m) };
+    request.walk = { ...walk, minutes: Number(walk.minutes), speed_mps: Number(walk.speed_mps), max_snap_m: Number(walk.max_snap_m) };
+  } else {
+    request.building = { width_m: Number(building.width_m), depth_m: Number(building.depth_m), height_m: Number(building.height_m), setback_m: Number(building.setback_m) };
+  }
+  return request;
+}
+
 const readableNumber = (value, digits = 0) => Number.isFinite(Number(value))
   ? Number(value).toLocaleString(undefined, { maximumFractionDigits: digits })
   : 'N/A';
@@ -141,11 +176,12 @@ export function makeScenarioSceneData({ area, candidate, building, dataset }) {
     } else if (kind === 'population') context.push({ kind, point, name });
   }
   const buildingFootprint = (polygonComponents(candidate.footprint)[0]?.[0] ?? []).filter(finitePosition).map(toLocal);
+  const openSpaceRings = convert(candidate.open_space);
   return {
     center: { longitude: centerLon, latitude: centerLat }, toLocal,
     width: se.x - nw.x, depth: se.z - nw.z, areaBounds: { west: nw.x, north: nw.z, east: se.x, south: se.z },
-    context, services, omitted, buildingFootprint, plotRings: selectedPlot ? convert(selectedPlot.geometry) : [],
-    buildingHeight: Number(building.height_m), simulated: dataset?.scenario_status === 'MOCK_SIMULATION' || selectedPlot?.properties?.scenario_only === true,
+    context, services, omitted, buildingFootprint, openSpaceRings, plotRings: selectedPlot ? convert(selectedPlot.geometry) : [],
+    buildingHeight: Number(building.height_m), buildingFloors: Number(candidate.building?.floors ?? candidate.design?.floors ?? 0), simulated: dataset?.scenario_status === 'MOCK_SIMULATION' || selectedPlot?.properties?.scenario_only === true,
     serviceInventory: dataset?.service_inventory ?? null,
   };
 }

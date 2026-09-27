@@ -2,6 +2,14 @@
 
 Recorded September 26, 2026 (America/Los_Angeles), September 27 UTC. Last tested and deployed **application** commit: `a8e7ba4` on `main`. Documentation commits may be newer. This is a status snapshot, not a claim that all future deployments have been tested.
 
+## September 27 addition: agent design and walking
+
+The working tree adds [agent-designed layouts and walking comparison](DESIGN_SIMULATION.md). The frontend defaults to agent design; legacy fixed-footprint requests remain compatible. Structured goals drive a bounded placement/massing search, with connected open-space measurements and a before/after scene. The agent's submitted placement parameters are recomputed in a fresh gVisor container; source data and constraints remain controller-bound.
+
+New backend modules: `app/simulation_program.py`, `app/simulation_runtime.py`, and `app/walking.py`. Walking snapshots live in `data/walk` and are included in the controller image. **Update the worker code as well as the controller image.** Existing sandbox GIS dependencies are sufficient. The local mock uses the same calculations without an LLM or cloud-containment claim.
+
+Earlier release/test figures below are historical; see the latest verification entry for this addition's checks and deployment status.
+
 ## Start here
 
 - Public application: [http://149.28.204.217/](http://149.28.204.217/).
@@ -19,7 +27,7 @@ The SF mock fixture currently has **1,247 features (1,054,640 bytes)** with 690 
 
 Commit `84ea118` adds a deterministic **Why Site N is ranked here** panel. It explains verified footprint/setback fit, building/road/restriction clearance, mapped-service gap, and the gap/area/plot-ID tie-break from reference-verified fields.
 
-East Harlem official lots (`nycland`) also return ≥1 eligible ranked site for each of the four facility types. Park proximity remains an access/compare workflow on the parks+census snapshots.
+East Harlem official lots (`nycland`) also return Ã¢â€°Â¥1 eligible ranked site for each of the four facility types. Park proximity remains an access/compare workflow on the parks+census snapshots.
 
 ## Implemented behavior
 
@@ -38,7 +46,7 @@ The 3D view provides building close-up and neighborhood views, nine current-view
 
 ## Data and expected default results
 
-The default SF study rectangle is `[-122.433, 37.758, -122.417, 37.776]` in west/south/east/north order. The building defaults to **24 × 18 × 12 m**, setback **3 m**, service distance **400 m**, and type **clinic**.
+The default SF study rectangle is `[-122.433, 37.758, -122.417, 37.776]` in west/south/east/north order. The building defaults to **24 Ãƒâ€” 18 Ãƒâ€” 12 m**, setback **3 m**, service distance **400 m**, and type **clinic**.
 
 | Data | Scope, size, and provenance |
 | --- | --- |
@@ -49,7 +57,7 @@ The default SF study rectangle is `[-122.433, 37.758, -122.417, 37.776]` in west
 
 The facility query covers a neighborhood extract, **not the whole city**. Its source timestamp is **2026-05-06T03:25:00Z**, even though it was downloaded in September. OSM coverage and operating status may be incomplete or stale. Counts are mapped feature records, not a certified directory or a count of distinct architectural structures. Ways and relations use the center returned by Overpass; separate OSM elements may describe the same real facility. Attribution and ODbL terms are recorded in the [facility manifest](../data/real-scenario/sf-osm-services-manifest.json).
 
-Observed default facility-site results (gap → plot area → site ID):
+Observed default facility-site results (gap Ã¢â€ â€™ plot area Ã¢â€ â€™ site ID):
 
 | Metric | Verified value |
 | --- | --- |
@@ -144,7 +152,7 @@ If the trusted sandbox **image build** again fails with PyPI name-resolution err
 
 ## Development and verification commands
 
-From the repository root, the [README](../README.md#quick-start-sf-mock-demo) contains the local fixed-reference demo commands. For separate development processes after configuring `.env`:
+From the repository root, the [README](../README.md#quick-start-local-scenario-preview) contains the local fixed-reference demo commands. For separate development processes after configuring `.env`:
 
 ```powershell
 # Terminal 1: configured FastAPI controller
@@ -194,7 +202,7 @@ Review source dates, hashes, counts, and expected scenario results before commit
 | `app/access.py`, `app/datasets.py` | Signed guest ownership/origin checks and input/dataset validation. |
 | `scripts/`, `deploy/`, `tests/` | Snapshot generation, installers/preflight, deployment examples, regression checks. |
 
-Recent resolved failures: empty/truncated inference output, DeepSeek reasoning consuming the code budget, generated scripts assuming the wrong request wrapper or obstruction-layer name, missing sandbox `re` import, unhelpful worker errors, stale readiness/coordinate defaults, population mode requiring preloaded zones, and placement-grid ambiguity. The last placement failure used bbox edges instead of 5×5 **cell centers**. Generation and repair now specify `(col + 0.5) / 5` and `(row + 0.5) / 5`; the corrected live scenario passed without a repair.
+Recent resolved failures: empty/truncated inference output, DeepSeek reasoning consuming the code budget, generated scripts assuming the wrong request wrapper or obstruction-layer name, missing sandbox `re` import, unhelpful worker errors, stale readiness/coordinate defaults, population mode requiring preloaded zones, and placement-grid ambiguity. The last placement failure used bbox edges instead of 5Ãƒâ€”5 **cell centers**. Generation and repair now specify `(col + 0.5) / 5` and `(row + 0.5) / 5`; the corrected live scenario passed without a repair.
 
 The worker compares generated metrics and geometry to an independent fixed calculation. Keep generation/repair instructions synchronized with the reference schema; never loosen verification merely to pass incorrect generated output. A natural-language summary is model text and does not receive the same numerical/geometry guarantee.
 

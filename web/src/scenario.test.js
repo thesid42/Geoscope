@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { explainScenarioCandidate, makeScenarioSceneData, validateStudyArea, validateBuilding } from './scenario.js';
+import { DEFAULT_DESIGN, DEFAULT_WALK, explainScenarioCandidate, makeScenarioRequest, makeScenarioSceneData, validateDesign, validateStudyArea, validateBuilding, validateWalk } from './scenario.js';
 
 const area = [-122.433, 37.758, -122.417, 37.776];
 const ring = [[-122.4252,37.7669],[-122.4248,37.7669],[-122.4248,37.7671],[-122.4252,37.7671],[-122.4252,37.7669]];
@@ -32,6 +32,28 @@ describe('scenario geometry and bounds', () => {
     const source = {features:[...dataset.features,{id:'blocked',properties:{layer:'building'},geometry:{type:'Polygon',coordinates:[ring]}},{id:'restriction',properties:{layer:'restricted'},geometry:{type:'Polygon',coordinates:[ring]}}]};
     const model = makeScenarioSceneData({area,candidate,building,dataset:source});
     expect(model.context.map(item=>item.kind)).toEqual(['plot','building','restricted']);
+  });
+  it('validates and serializes agentic design and walking goals without a fixed building', () => {
+    expect(validateDesign(DEFAULT_DESIGN)).toBeNull();
+    expect(validateDesign({ ...DEFAULT_DESIGN, target_floor_area_m2: 5001 })).toMatch(/100 and 5000/);
+    expect(validateDesign({ ...DEFAULT_DESIGN, max_floors: 2.5 })).toMatch(/whole floors/);
+    expect(validateWalk(DEFAULT_WALK)).toBeNull();
+    expect(validateWalk({ ...DEFAULT_WALK, minutes: 2 })).toMatch(/3 and 20/);
+    const request = makeScenarioRequest({ datasetId: 'nycland', question: 'Keep a courtyard', studyArea: area, serviceType: 'library', designMode: true, design: DEFAULT_DESIGN, walk: DEFAULT_WALK, building });
+    expect(request).toMatchObject({ dataset_id: 'nycland', analysis_mode: 'scenario', study_area: area, service_type: 'library', design: DEFAULT_DESIGN, walk: DEFAULT_WALK });
+    expect(request).not.toHaveProperty('building');
+    const fixed = makeScenarioRequest({ datasetId: 'nycland', question: '', studyArea: area, serviceType: 'library', designMode: false, design: DEFAULT_DESIGN, walk: DEFAULT_WALK, building });
+    expect(fixed.building).toEqual(building);
+    expect(fixed).not.toHaveProperty('design');
+  });
+  it('uses each design candidate’s supplied building and reserved-space geometry', () => {
+    const openSpace = { type: 'Polygon', coordinates: [ring] };
+    const chosen = { ...candidate, building: { width_m: 16, depth_m: 11, height_m: 18, floors: 5 }, open_space: openSpace, design: { floors: 5 } };
+    const model = makeScenarioSceneData({ area, candidate: chosen, building: chosen.building, dataset });
+    expect(model.buildingHeight).toBe(18);
+    expect(model.buildingFloors).toBe(5);
+    expect(model.openSpaceRings).toHaveLength(1);
+    expect(model.openSpaceRings[0][0]).toHaveLength(5);
   });
   it('rejects reversed, nonfinite, tiny and excessively broad study areas', () => {
     expect(validateStudyArea(area)).toBeNull();

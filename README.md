@@ -1,8 +1,16 @@
 # Geoscope
 
-Geoscope is a geospatial analysis app built with **React, FastAPI, Leaflet, and Three.js**. Select a local area, propose a clinic or library, compare candidate plots, and inspect the proposed building in 3D. Land checks cover the whole building footprint, setbacks, plot boundaries, and supplied obstacles before a site is ranked.
+Geoscope is a geospatial analysis app built with **React, FastAPI, Leaflet, and Three.js**. Select a local area, let the agent design a clinic or library while preserving usable open space, and compare walking access before and after construction in the map and 3D view. Land checks cover the whole building footprint, setbacks, plot boundaries, and supplied obstacles before a site is ranked.
 
 The San Francisco demo combines **real Census population and mapped OpenStreetMap facilities, building footprints, and road corridors with simulated candidate plots**. The live application uses **Vultr Serverless Inference, gVisor sandboxes, and a Vultr VPC**. A separate local demo runs fixed-reference calculations without an LLM or cloud worker.
+
+## Agent design and walking simulation
+
+**Design & compare** is the default facility workflow. Set a floor-area goal and open-space target; the agent chooses the footprint, rotation, placement and floors, then a separate sandbox recomputes the submitted design's land checks, reserved open area and pedestrian-network outcomes. Switch between Before and After to inspect the change. Fixed-footprint checks remain available.
+
+The default brief is **900 m² gross floor area, up to 3 floors, at least 40% connected usable open space, and a 3 m setback**. Walking comparison uses a **10-minute budget at 1.2 m/s**. Missing or disconnected inputs are explicitly unknown; Census weights are coarse estimates. Open space is a geometric reservation, not a carbon, energy or planning certification.
+
+See the [simulation guide](docs/DESIGN_SIMULATION.md) for constraints, agent decisions, walking assumptions, verification and the API contract.
 
 ## Current status
 
@@ -21,7 +29,7 @@ Start with the **[application handoff](docs/HANDOFF.md)** for deployment paths, 
 
 | Workflow | Result |
 | --- | --- |
-| Facility scenario | Select an area, choose a clinic, library, school, or community centre, and rank up to three eligible plots with a 3D building preview and a verified explanation of each site's land fit, coverage, and ranking. |
+| Design & compare | Choose an area and facility, let the agent design a building that meets floor-area and open-space goals, then compare before/after walking outcomes and inspect the checked layout in 3D. |
 | Service access | Estimate population proximity to supplied facilities. |
 | Candidate comparison | Compare two proposed locations against an existing service network. |
 | Population in an area | Draw a rectangle and estimate population inside it; programmatic requests can also use supplied zone polygons. |
@@ -30,7 +38,7 @@ Results include metrics, GeoJSON, the input request, analysis code, and a run tr
 
 Official city samples are selectable in the dataset list: San Francisco parks + 2020 Census; a five-borough New York City snapshot with parks and FacDB facilities; and an East Harlem land extract of official MapPLUTO vacant lots, building footprints, and streets for facility-site checks. See [data/real-nyc](data/real-nyc/README.md) and [data/real-nyc-land](data/real-nyc-land/README.md).
 
-## Quick start: SF mock demo
+## Quick start: local scenario preview
 
 Requirements: **Node.js 24**, **Python 3.12 or newer**, and a WebGL-capable browser for the 3D view. Run these commands from the repository root in PowerShell:
 
@@ -44,20 +52,20 @@ npm --prefix web run build
 
 On macOS/Linux, use `.venv/bin/python` instead of `.\.venv\Scripts\python.exe`. Open **http://127.0.0.1:8765**; use that exact host because the mock checks the request origin. FastAPI serves both the API and the built React frontend, so this demo needs only one server process.
 
-1. Keep the SF mock dataset selected and choose a facility type.
+1. Choose East Harlem (official vacant-classified lots) or San Francisco (simulated plots), then choose a facility type.
 2. Use **Draw area on map** to mark two opposite corners, or edit the coordinate bounds.
-3. Choose a facility type, optionally adjust building size and clearance, then run the analysis.
+3. Keep agent design enabled, optionally adjust the floor-area and open-space goals, then select **Design & compare**. Local preview uses the fixed toolkit; production uses the agent and isolated worker.
 4. Select **Site 1**, **Site 2**, or **Site 3** in the results or on the map. Use **Zoom to selected site** for its plot and checked footprint.
 5. Switch the 3D view between **Building close-up** and **Neighborhood context** to see the proposal against street imagery, a north arrow, approximate metric scale, and supplied nearby services.
 6. Inspect rejected plots and download the calculation artifacts. Changing scenario inputs clears the old result and requires another run.
 
-With the default 24 × 18 m footprint and 3 m setback, **four of seven modeled plots qualify**. The other plots conflict with a mapped building, conflict with a buffered mapped road corridor, or are too small. A 100 × 100 m footprint fits none of them.
+With the optional fixed 24 Ã— 18 m footprint and 3 m setback, **four of seven modeled plots qualify**. The other plots conflict with a mapped building, conflict with a buffered mapped road corridor, or are too small. A 100 Ã— 100 m footprint fits none of them.
 
-The default selected area contains **12 mapped clinics, 1 library, 13 schools, and 7 community centers** in the downloaded inventory. Eligible plots are ranked by **greatest straight-line distance to the nearest matching mapped facility**, then largest plot area, then site ID — not by census population coverage.
+The default selected area contains **12 mapped clinics, 1 library, 13 schools, and 7 community centers** in the downloaded inventory. Designs are ranked by **greatest straight-line distance to the nearest matching mapped facility**, then usable open-space percentage and site ID. Fixed-footprint checks use plot area for the second criterion â€” not by census population coverage.
 
-### Default facility demos (SF mock, 400 m threshold)
+### Fixed-footprint facility demos (SF mock, 400 m threshold)
 
-Keep dataset **San Francisco · simulated scenario parcels**, study area `[-122.433, 37.758, -122.417, 37.776]`, building **24 × 18 × 12 m**, setback **3 m**. Choose the facility type and run:
+Keep dataset **San Francisco Â· simulated scenario parcels**, study area `[-122.433, 37.758, -122.417, 37.776]`, building **24 Ã— 18 Ã— 12 m**, setback **3 m**. Choose the facility type and run:
 
 | Facility type | Preferred site | Nearest mapped service | Notes |
 | --- | --- | --- | --- |
@@ -66,7 +74,7 @@ Keep dataset **San Francisco · simulated scenario parcels**, study area `[-122.
 | School | `sfmock-fit-01` | ~384 m | Top three: fit-01, fit-02, fit-04 |
 | Community center | `sfmock-fit-01` | ~520 m | Top three: fit-01, fit-03, fit-02 |
 
-For an official-land demo, switch to **East Harlem · official vacant lots** with study area `[-73.955, 40.790, -73.930, 40.812]`. Clinic and library show large service gaps; school and community-center inventories are denser, so nearest distances are shorter, but each type still returns ≥1 eligible ranked lot. **Park** is not a facility-site service type; use access/compare on the SF parks or NYC parks+facilities snapshots for park proximity workflows.
+For an official-land demo, switch to **East Harlem Â· official vacant lots** with study area `[-73.955, 40.790, -73.930, 40.812]`. Clinic and library show large service gaps; school and community-center inventories are denser, so nearest distances are shorter, but each type still returns â‰¥1 eligible ranked lot. **Park** is not a facility-site service type; use access/compare on the SF parks or NYC parks+facilities snapshots for park proximity workflows.
 
 Distances are straight-line proxies to mapped records, not walking routes or proof of need.
 
@@ -98,7 +106,7 @@ docker compose --file deploy/controller.compose.yaml down
 
 ## Production architecture
 
-The live workflow is: **React → FastAPI controller on Vultr → Vultr Serverless Inference → private worker over Vultr VPC → disposable gVisor container → verified results**.
+The live workflow is: **React â†’ FastAPI controller on Vultr â†’ Vultr Serverless Inference â†’ private worker over Vultr VPC â†’ disposable gVisor container â†’ verified results**.
 
 The controller plans, generates analysis code, and makes bounded repair attempts. The separate worker executes generated code and a fixed GIS reference in isolated containers, compares their metrics and geometry, and returns checked artifacts. Sandboxes have no outbound network, read-only input, resource limits, bounded output, and verified cleanup. The worker refuses execution without the required `runsc` runtime; the private VPC connects the trusted hosts and does not replace sandbox isolation. Provider keys and access tokens never enter analysis containers.
 
@@ -152,13 +160,13 @@ Uploads are GeoJSON FeatureCollections in EPSG:4326 longitude/latitude. If prese
 
 Scenario datasets also require top-level `land_inventory` with a `source`, ISO `as_of` date, and `building_coverage`, `road_coverage`, and `restriction_coverage` set to `complete_for_candidate_sites`. These are supplied declarations, not independent certification of ownership or permission. Missing obstruction coverage is not assumed clear. The [SF fixture](data/real-scenario/sf-mock.geojson) provides a complete worked input; regenerate it with `python scripts/generate_sf_mock_scenario.py`.
 
-Scenarios accept at most 5,000 features and 100 candidate plots. Each selected-area side must be 20 m–10 km. The search tries up to 81 deterministic anchors per plot at 0°/90°, checking the entire footprint plus setback against the plot, selected area, buildings, mapped road corridors, and other restrictions. It ranks one placement per eligible plot by added population proximity, then weighted mean distance, then site ID. Alternatives are independent proposals. No fit found by this bounded search does not mean that every possible placement is impossible.
+Scenarios accept at most 5,000 features and 100 candidate plots. Each selected-area side must be 20 mâ€“10 km. The search tries up to 81 deterministic anchors per plot at 0Â°/90Â°, checking the entire footprint plus setback against the plot, selected area, buildings, mapped road corridors, and other restrictions. In fixed-footprint mode it ranks one placement per eligible plot by mapped-service gap, then plot area, then site ID. Alternatives are independent proposals. No fit found by this bounded search does not mean that every possible placement is impossible.
 
 The result also reports **Already in this area**: counts of supplied clinic, library, school, and community-center records whose projected geometry representative point falls inside the selected boundary (boundary points count). `existing_services_in_area` is the selected type's count; `existing_service_counts` provides the breakdown. `service_inventory` records source, date, and completeness. Missing metadata is unknown coverage, and zero mapped records never proves that no real facility exists. These are facility records, not a count of distinct architectural structures.
 
 Population analysis accepts `study_area` without pre-existing zones. That rectangle replaces any dataset zones for that run, is saved in the request artifact, and goes through the same isolated agent and fixed-reference verification. The source dataset stays unchanged. Whole population weights are assigned by projected representative point, so estimates are coarse at small scales.
 
-Only matching typed services count toward a scenario baseline, including services outside the selected area. Missing matching inventory means unknown existing access, not verified absence. Distances are straight-line metres in a local projected CRS; routes, terrain, capacity, and travel barriers are not modeled. Whole-tract population allocation is coarse for hyperlocal analysis and is not an exact count of nearby residents.
+Only matching typed services count toward a scenario baseline, including services outside the selected area. Missing matching inventory means unknown existing access, not verified absence. Legacy proximity distances are straight-line metres in a local projected CRS. Agent design additionally compares walking along a staged network; terrain, capacity and verified accessibility are not modeled. Whole-tract population allocation is coarse for hyperlocal analysis and is not an exact count of nearby residents.
 
 The UI starts at a 400 m access threshold; the API default is 800 m. General uploads use the configured size/feature limits (20 MiB by default). Bundled data endpoints are `/api/datasets/demo`, `/api/datasets/real`, and `/api/datasets/localdemo`. The original SF parks/Census snapshot remains separate; see [its provenance](data/real/README.md).
 

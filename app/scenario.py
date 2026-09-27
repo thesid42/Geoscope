@@ -52,3 +52,19 @@ def validate_land_dataset(dataset):
     except ValueError as exc:
         raise ValueError("Land inventory as_of must be an ISO date (YYYY-MM-DD).") from exc
     return sites
+
+
+class DesignSpec(BaseModel):
+    """User goals; the agent selects placement, footprint and floors."""
+    model_config = {"extra": "forbid"}
+    target_floor_area_m2: float = Field(default=900, ge=100, le=5000, allow_inf_nan=False, strict=True)
+    max_floors: int = Field(default=3, ge=1, le=6, strict=True)
+    min_open_space_pct: float = Field(default=40, ge=10, le=85, allow_inf_nan=False, strict=True)
+    setback_m: float = Field(default=3, ge=0, le=20, allow_inf_nan=False, strict=True)
+
+
+class WalkSpec(BaseModel):
+    model_config = {"extra": "forbid"}
+    minutes: int = Field(default=10, ge=3, le=20, strict=True)
+    speed_mps: float = Field(default=1.2, ge=0.5, le=2, allow_inf_nan=False, strict=True)
+    max_snap_m: float = Field(default=100, ge=10, le=200, allow_inf_nan=False, strict=True)

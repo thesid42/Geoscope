@@ -1253,3 +1253,6 @@ body {
   }
   .rank-pop small { max-width: none; margin-top: 0 !important; }
 }
+
+.design-mode-toggle{display:flex!important;align-items:center;gap:8px;margin-top:14px!important;color:var(--green)}.design-mode-toggle input{accent-color:var(--green)}.design-inputs{margin:7px 0 4px;padding:0 0 5px}.design-inputs .building-grid{margin-top:8px}.design-inputs .scenario-input-note{margin:7px 0}.design-inputs .unit-input{margin-top:6px}.walking-assumptions{margin-top:10px}.comparison-switch{display:flex;gap:6px;margin:12px 0}.comparison-switch button{border:1px solid #c8d8ca;background:#fff;color:#2e5540;padding:7px 14px;font:600 11px 'DM Sans';cursor:pointer}.comparison-switch button[aria-pressed=true]{background:#235c4a;color:#fff}.access-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.access-metrics .metric{padding:9px}.access-metrics .metric .value{font-size:17px}.key-open-space{background:#78ae70!important}.key-access-before{background:#39788a!important}.key-access-after{background:#188456!important}.key-access-unknown{background:#737c81!important}
+.key-access-reachable{background:#25834b!important}.key-access-beyond{background:#c8614c!important}

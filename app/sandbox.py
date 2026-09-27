@@ -108,6 +108,22 @@ class _BoundedPipe:
 def execute(code: str, data: dict[str, Any], *, timeout_seconds: int = 90) -> dict[str, Any]:
     from app.reference import reference_code
 
+    if data.get("analysis_mode") == "scenario" and data.get("design"):
+        from app.simulation_runtime import bind_proposals
+        actual = _execute_once(code, data, timeout_seconds=timeout_seconds)
+        try:
+            verification_input = bind_proposals(data, actual["result"])
+        except (ValueError, TypeError, KeyError) as exc:
+            raise SandboxFailure("Invalid submitted design: " + str(exc)) from exc
+        reference = _execute_once(reference_code(verification_input), verification_input, timeout_seconds=timeout_seconds)
+        _verify_result(actual["result"], reference["result"])
+        _verify_map(actual["artifacts"].get("result.geojson"), reference["artifacts"].get("result.geojson"), data)
+        clean = {**reference["result"], "reference_verified": True, "verification_kind": "submitted_design_recomputed"}
+        actual["result"] = clean
+        actual["artifacts"] = dict(reference["artifacts"])
+        actual["artifacts"]["result.json"] = json.dumps(clean,allow_nan=False,separators=(",",":")).encode()
+        actual["verified_against_reference"] = True
+        return actual
     try:
         reference = _execute_once(reference_code(data), data, timeout_seconds=timeout_seconds)
     except SandboxFailure as exc:
@@ -160,6 +176,11 @@ def _execute_once(code: str, data: dict[str, Any], *, timeout_seconds: int = 90)
         os.chmod(incoming, 0o755)
         os.chmod(incoming / "analysis.py", 0o444)
         os.chmod(incoming / "request.json", 0o444)
+        if data.get("analysis_mode") == "scenario" and data.get("design"):
+            from app.simulation_runtime import TOOLKIT_FILES
+            for name in TOOLKIT_FILES:
+                (incoming / name).write_bytes(Path(__file__).with_name(name).read_bytes())
+                os.chmod(incoming / name, 0o444)
         # Output lives only in an inode- and byte-bounded tmpfs inside the container.
         # Keep an idle container alive while the trusted worker copies two allowlisted files.
         command = [
@@ -327,7 +348,7 @@ def _verify_result(actual: Any, expected: Any) -> None:
         elif isinstance(want, (int, float)):
             if isinstance(got, bool) or not isinstance(got, (int, float)) or not math.isfinite(got):
                 raise SandboxFailure(f"Generated metric {path} was not a finite number.")
-            coordinate = path.endswith((".longitude", ".latitude")) or path.startswith("metrics.study_area[") or ".footprint.coordinates[" in path or path.startswith("metrics.building.")
+            coordinate = path.endswith((".longitude", ".latitude")) or path.startswith("metrics.study_area[") or ".coordinates[" in path or path.startswith("metrics.building.")
             tolerance = 0 if isinstance(want, int) else (1e-7 if coordinate else 0.05)
             if abs(got - want) > tolerance:
                 raise SandboxFailure(f"Generated metric {path} differed from the trusted reference. Expected {want!r}, received {got!r}. Recompute from the input features using the required methodology.")

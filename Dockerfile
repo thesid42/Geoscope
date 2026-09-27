@@ -16,6 +16,7 @@ COPY data/real ./data/real
 COPY data/real-nyc ./data/real-nyc
 COPY data/real-nyc-land ./data/real-nyc-land
 COPY data/real-scenario ./data/real-scenario
+COPY data/walk ./data/walk
 RUN useradd --uid 10001 --create-home app \
     && mkdir -p /data \
     && chown -R app:app /app /data
