@@ -233,7 +233,7 @@ describe('GeoScope React workflows', () => {
     render(<App />);
     await ready();
     const file = new File([JSON.stringify(demoData)], 'fixture.geojson', { type: 'application/geo+json' });
-    await user.click(screen.getByText('Use your own data'));
+    await user.click(screen.getByText('Upload GeoJSON'));
     await user.upload(screen.getByLabelText(/Choose a GeoJSON file/i), file);
     await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => url === '/api/datasets' && init?.method === 'POST')).toBe(true));
     await screen.findByText('fixture.geojson');
@@ -284,7 +284,7 @@ describe('GeoScope React workflows', () => {
     await user.click(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ }));
     expect(screen.getByLabelText('Dataset')).toBeDisabled();
     expect(screen.getByLabelText('Analysis')).toBeDisabled();
-    await user.click(screen.getByText('Use your own data'));
+    await user.click(screen.getByText('Upload GeoJSON'));
     expect(screen.getByLabelText(/Choose a GeoJSON file/i)).toBeDisabled();
     const post = fetchMock.mock.calls.find(([url, init]) => url === '/api/runs' && init?.method === 'POST');
     expect(JSON.parse(post[1].body).dataset_id).toBe('sf2020');
@@ -381,13 +381,44 @@ describe('GeoScope React workflows', () => {
     expect(mapStage).toContainElement(screen.getByTestId('map-view'));
   });
 
+
+  it('keeps facility type on the primary path and hides secondary modes behind Other analyses', async () => {
+    const user = userEvent.setup();
+    const scenarioData = {
+      type: 'FeatureCollection',
+      features: [
+        population(),
+        service,
+        { type: 'Feature', id: 'plot-1', properties: { layer: 'candidate_site' }, geometry: { type: 'Polygon', coordinates: [[[-122.43, 37.77], [-122.429, 37.77], [-122.429, 37.771], [-122.43, 37.771], [-122.43, 37.77]]] } },
+      ],
+    };
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (url === '/api/config') return geojsonResponse({ ...config, scenario_demo: { id: 'localdemo', name: 'SF mock' }, supported_modes: ['scenario', 'access', 'compare', 'exposure'] });
+      if (url === '/api/worker-status') return geojsonResponse({ ok: true });
+      if (url === '/api/datasets/localdemo') return geojsonResponse(scenarioData);
+      return response(404, {});
+    }));
+    render(<App />);
+    await ready();
+    expect(screen.getByRole('heading', { name: 'Facility' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Facility')).toHaveValue('clinic');
+    expect(screen.getByText('Other analyses')).toBeInTheDocument();
+    expect(screen.getByText('Advanced')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Width (m)')).not.toBeVisible();
+    await user.click(screen.getByText('Other analyses'));
+    await user.selectOptions(screen.getByLabelText('Analysis'), 'access');
+    expect(screen.getByRole('heading', { name: 'Task' })).toBeInTheDocument();
+    expect(screen.getByText(/Park proximity is available/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back to facility sites' })).toBeInTheDocument();
+  });
+
   it('orders the workflow as task, dataset, study area, then run, and shows an empty results state', async () => {
     render(<App />);
     await ready();
-    expect(screen.getByRole('heading', { name: 'Choose a task' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Choose a dataset' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Review settings' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Run analysis' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Task' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Dataset' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Options' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Run' })).toBeInTheDocument();
     expect(screen.getByText('No results yet')).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Check facility sites \(needs candidate plots\)/ })).toBeDisabled();
     const modes = screen.getByLabelText('Analysis');
@@ -498,7 +529,8 @@ it('submits the SF mock scenario without a token, shows checked proposals, and i
   const post=mock.mock.calls.find(([url,init])=>url==='/api/runs' && init.method==='POST');
   expect(JSON.parse(post[1].body)).toMatchObject({analysis_mode:'scenario',study_area:area,service_type:'clinic',building:{width_m:24,depth_m:18,height_m:12,setback_m:3}});
   expect(post[1].headers.Authorization).toBeUndefined();
-  await user.click(screen.getByText(/Adjust building size/));
+  await user.click(screen.getByText('Advanced'));
+  await user.click(screen.getByText(/Building ·/));
   await user.clear(screen.getByLabelText('Width (m)'));
   await user.type(screen.getByLabelText('Width (m)'), '30');
   expect(screen.queryByTestId('scenario-3d')).not.toBeInTheDocument();

@@ -864,3 +864,58 @@ body {
   }
   .workspace { grid-template-columns: minmax(260px, 300px) minmax(0, 1fr); min-height: 0; }
 }
+
+
+/* ===== Simplified left panel ===== */
+.controls .primary-step .section-heading h2 { font-size: 1rem; }
+.controls .more-modes,
+.controls .advanced-bundle {
+  margin-top: 0.45rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #dfe4e0;
+  border-radius: 8px;
+  background: #fafcfb;
+}
+.controls .more-modes > summary,
+.controls .advanced-bundle > summary {
+  cursor: pointer;
+  font-weight: 650;
+  font-size: 0.78rem;
+  color: #34483d;
+}
+.controls .advanced-block {
+  margin: 0.55rem 0 0.25rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid #e6ece7;
+}
+.controls .advanced-block:first-of-type { border-top: 0; padding-top: 0; }
+.controls .text-link-button {
+  display: inline-block;
+  margin-top: 0.4rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  font: 600 0.78rem 'DM Sans', sans-serif;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.controls .text-link-button:hover { color: #184634; }
+.controls .study-area-controls {
+  margin: 0.25rem 0 0.4rem;
+  padding: 0.5rem 0.55rem;
+}
+.controls .study-area-controls h3 { display: none; }
+.controls .distance-type {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+}
+.controls .building-settings { margin: 0.35rem 0; }
+.controls .scenario-input-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+.controls .upload-settings summary { font-size: 0.78rem; }
+.controls-scroll .workflow-step:last-child { margin-bottom: 0.25rem; }
+.run-step .section-heading h2 { font-size: 0.95rem; }
