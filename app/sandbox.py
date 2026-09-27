@@ -368,7 +368,7 @@ def _verify_map(actual_bytes: bytes | None, expected_bytes: bytes | None, reques
                         raise ValueError("unknown baseline distance")
                 elif isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or abs(value-wp[metric_key]) > 0.05:
                     raise ValueError("distance")
-                if gp.get("underserved") is not wp.get("underserved"):
+                if gp.get("underserved") != wp.get("underserved"):
                     raise ValueError("threshold flag")
                 for key in wp.keys() - {"nearest_m", "underserved"}:
                     if gp[key] != wp[key]:

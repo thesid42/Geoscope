@@ -221,6 +221,13 @@ def test_verified_output_rejects_moved_footprint_and_changed_evidence():
     changed_map["features"][0]["properties"]["nearest_m"] = 0
     with pytest.raises(SandboxFailure, match="distance"):
         _verify_map(json.dumps(changed_map).encode(), json.dumps(mapped).encode(), req)
+    int_flag = copy.deepcopy(mapped)
+    int_flag["features"][0]["properties"]["underserved"] = int(bool(mapped["features"][0]["properties"]["underserved"]))
+    _verify_map(json.dumps(int_flag).encode(), json.dumps(mapped).encode(), req)
+    flipped = copy.deepcopy(mapped)
+    flipped["features"][0]["properties"]["underserved"] = not mapped["features"][0]["properties"]["underserved"]
+    with pytest.raises(SandboxFailure, match="threshold flag"):
+        _verify_map(json.dumps(flipped).encode(), json.dumps(mapped).encode(), req)
 
 
 def test_narrow_plot_uses_ninety_degree_rotation():
