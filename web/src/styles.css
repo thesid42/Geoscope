@@ -129,3 +129,12 @@ body { font-size: 15px; }
 .map-key .key-result-green { background: #77a879; }
 .map-key .key-service { background: #559365; }
 .map-key .key-population { background: #a7c8bf; }
+
+/* The landing workspace has one clear task, so keep its visual rhythm quiet. */
+.intro { display: block; padding: 10px 0 28px; }
+.intro h1 { max-width: 680px; }
+.controls { padding: 25px 27px; }
+.section-heading { margin-bottom: 16px; }
+.map-head { padding: 19px 22px 13px; border-bottom: 1px solid var(--line); }
+.map-head h2 { margin: 0; }
+footer { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }

@@ -79,14 +79,14 @@ describe('GeoScope React workflows', () => {
     const run = screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ });
     expect(run).toBeDisabled();
     expect(screen.getByRole('option', { name: 'Estimate population in an area' })).toBeDisabled();
-    await user.selectOptions(screen.getByLabelText('Population + places or zones'), 'demo');
+    await user.selectOptions(screen.getByLabelText('Dataset'), 'demo');
     await screen.findByRole('heading', { name: 'Harborview · synthetic fixture' });
     expect(screen.getByRole('option', { name: 'Estimate population in an area' })).not.toBeDisabled();
     await waitFor(() => expect(run).toBeEnabled());
     oldRequest.resolve(geojsonResponse(sfData));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.getByRole('heading', { name: 'Harborview · synthetic fixture' })).toBeInTheDocument();
-    expect(screen.getByText(/1 population areas · 1 services · 1 zones · 0 candidate plots/)).toBeInTheDocument();
+    expect(screen.getByText('Fabricated features for demonstration and testing. They do not describe a real neighborhood.')).toBeInTheDocument();
   });
 
   it('uses San Francisco comparison defaults for the local mock dataset', async () => {
@@ -102,7 +102,7 @@ describe('GeoScope React workflows', () => {
     render(<App />);
     await screen.findByRole('heading', { name: 'San Francisco · simulated scenario land' });
     await ready();
-    await user.selectOptions(screen.getByLabelText('What do you want to find out?'), 'compare');
+    await user.selectOptions(screen.getByLabelText('Analysis'), 'compare');
     expect(screen.getByLabelText('Candidate A longitude')).toHaveValue(-122.43);
     expect(screen.getByLabelText('Candidate A latitude')).toHaveValue(37.77);
     expect(screen.getByLabelText('Candidate B longitude')).toHaveValue(-122.42);
@@ -128,9 +128,9 @@ describe('GeoScope React workflows', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<App />);
     await ready(user);
-    await user.selectOptions(screen.getByLabelText('Population + places or zones'), 'demo');
+    await user.selectOptions(screen.getByLabelText('Dataset'), 'demo');
     await screen.findByRole('heading', { name: 'Harborview · synthetic fixture' });
-    await user.selectOptions(screen.getByLabelText('What do you want to find out?'), 'exposure');
+    await user.selectOptions(screen.getByLabelText('Analysis'), 'exposure');
     await user.click(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ }));
     await screen.findByText('Zero-population test result.');
     const exposurePost = fetchMock.mock.calls.find(([url, init]) => url === '/api/runs' && init?.method === 'POST');
@@ -139,7 +139,7 @@ describe('GeoScope React workflows', () => {
     expect(screen.getAllByText('N/A').length).toBeGreaterThan(0);
     expect(screen.getByText('share of total population')).toBeInTheDocument();
     // A new run starts from a clean result view even if the next poll cannot be read.
-    await user.selectOptions(screen.getByLabelText('What do you want to find out?'), 'access');
+    await user.selectOptions(screen.getByLabelText('Analysis'), 'access');
     await user.click(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ }));
     expect(await screen.findByText(/Could not retrieve run status: worker unavailable/)).toBeInTheDocument();
     expect(screen.queryByText('Zero-population test result.')).not.toBeInTheDocument();
@@ -162,7 +162,7 @@ describe('GeoScope React workflows', () => {
     render(<App />);
     await screen.findByRole('heading', { name: 'San Francisco · 2020 Census + selected parks' });
     await ready();
-    await user.selectOptions(screen.getByLabelText('What do you want to find out?'), 'exposure');
+    await user.selectOptions(screen.getByLabelText('Analysis'), 'exposure');
     expect(screen.getByRole('button', { name: 'Draw area on map' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Estimate population/ })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: /Estimate population/ }));
@@ -219,8 +219,8 @@ describe('GeoScope React workflows', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<App />);
     await screen.findByRole('heading', { name: 'San Francisco · 2020 Census + selected parks' });
-    await screen.findByText(/1 population areas/);
-    expect(screen.getByText('WORKER UNAVAILABLE')).toBeInTheDocument();
+    await screen.findByText(/2020 Census TIGERweb POP100/);
+    expect(screen.getByText('SERVICE UNAVAILABLE')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ })).toBeDisabled();
     expect(screen.getByRole('option', { name: 'Estimate population in an area' })).not.toBeDisabled();
   });
@@ -243,8 +243,8 @@ describe('GeoScope React workflows', () => {
     render(<App />);
     await ready(user);
     await user.click(screen.getByRole('button', { name: /Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/ }));
-    expect(screen.getByLabelText('Population + places or zones')).toBeDisabled();
-    expect(screen.getByLabelText('What do you want to find out?')).toBeDisabled();
+    expect(screen.getByLabelText('Dataset')).toBeDisabled();
+    expect(screen.getByLabelText('Analysis')).toBeDisabled();
     await user.click(screen.getByText('Use your own data'));
     expect(screen.getByLabelText(/Choose a GeoJSON file/i)).toBeDisabled();
     const post = fetchMock.mock.calls.find(([url, init]) => url === '/api/runs' && init?.method === 'POST');
@@ -266,11 +266,11 @@ describe('GeoScope React workflows', () => {
     render(<App />);
     await screen.findByRole('heading', { name: 'San Francisco · 2020 Census + selected parks' });
     expect(await screen.findByText('worker still starting')).toBeInTheDocument();
-    expect(screen.getByText('WORKER UNAVAILABLE')).toBeInTheDocument();
+    expect(screen.getByText('SERVICE UNAVAILABLE')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry check' })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: 'Retry check' }));
-    await waitFor(() => expect(screen.getByText('WORKER READY')).toBeInTheDocument());
-    expect(screen.getByText('runsc verified')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('ANALYSIS READY')).toBeInTheDocument());
+    expect(screen.getByTitle('runsc verified')).toBeInTheDocument();
     expect(datasetRequests).toBe(1);
   });
 
@@ -351,7 +351,7 @@ it('submits the SF mock scenario without a token, shows checked proposals, and i
     return response(404,{});
   });
   vi.stubGlobal('fetch',mock); render(<App/>); await ready();
-  expect(screen.getByLabelText('What do you want to find out?')).toHaveValue('scenario');
+  expect(screen.getByLabelText('Analysis')).toHaveValue('scenario');
   expect(screen.queryByLabelText('Analysis access key')).not.toBeInTheDocument();
   await user.click(screen.getByRole('button',{name:/Find nearby services|Compare locations|Estimate population|Check facility sites|Run the analysis/}));
   await user.click(await screen.findByText('Technical details and files'));
