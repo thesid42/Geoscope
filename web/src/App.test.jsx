@@ -600,7 +600,7 @@ it('submits default agentic design and walking settings, shows unknown baseline 
   await user.click(within(results).getByText('Technical details and files'));
   await user.click(within(results).getByText('Analysis method'));
   expect(within(results).getByText(/Walking times are estimated on the supplied street network/)).toBeInTheDocument();
-  expect(within(results).getByText(/Submitted designs rank by service gap, then usable open-space share, then plot ID/)).toBeInTheDocument();
+  expect(within(results).getByText(/Submitted designs rank by verified land and walking outcomes/)).toBeInTheDocument();
   expect(within(results).getByText('40%',{selector:'.rank-pop'})).toBeInTheDocument();
   expect(await within(results).findByTestId('scenario-3d')).toHaveTextContent('plot-a');
   const post=mock.mock.calls.find(([url,init])=>url==='/api/runs' && init.method==='POST');

@@ -51,7 +51,9 @@ def test_proposal_improves_network_access_and_returns_capped_route_geojson():
     assert first["before_served_population"] == 0
     assert first["after_served_population"] == 100
     assert first["newly_served_population"] == 100
+    assert first["newly_served_pct"] == 100
     assert first["before_mean_minutes"] > first["after_mean_minutes"]
+    assert first["mean_walk_reduction_minutes"] == pytest.approx(first["before_mean_minutes"] - first["after_mean_minutes"])
     assert first["routes"] and first["routes"][0]["geometry"]["type"] == "LineString"
     assert {r["properties"]["phase"] for r in first["routes"]} == {"before", "after"}
     assert second["newly_served_population"] == 0

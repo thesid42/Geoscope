@@ -228,13 +228,28 @@ def evaluate_proposals(request, proposals, strategy="balanced"):
     access=_walking(request,candidates)
     for candidate,comparison in zip(candidates,access):
         candidate["access"]=comparison
-    # Walking benefits remain outcomes, not an invented precise demand objective.
-    candidates.sort(key=lambda c:(-(c["nearest_existing_service_m"] or 0),-c["design"]["usable_open_space_pct"],c["id"]))
+    # When a connected network and baseline inventory exist, rank designs by the
+    # benefit they actually produce. Fall back to the land-gap ranking when the
+    # access comparison is unavailable or its baseline is unknown.
+    access_ranked = any(c.get("access", {}).get("status") == "available" and c.get("access", {}).get("baseline_known") is True for c in candidates)
+    if access_ranked:
+        def access_key(c):
+            a = c.get("access", {})
+            newly = a.get("newly_served_population")
+            reduction = a.get("mean_walk_reduction_minutes")
+            return (-(float(newly) if isinstance(newly, (int, float)) else 0.0),
+                    -(float(reduction) if isinstance(reduction, (int, float)) else 0.0),
+                    -c["design"]["usable_open_space_pct"],
+                    -(c["nearest_existing_service_m"] or 0), c["id"])
+        candidates.sort(key=access_key)
+        basis="greatest newly served population, then mean walking-time reduction, then connected usable open-space percentage, then mapped-service gap and plot ID"
+    else:
+        candidates.sort(key=lambda c:(-(c["nearest_existing_service_m"] or 0),-c["design"]["usable_open_space_pct"],c["id"]))
+        basis="best among submitted layouts: greatest mapped-service gap, then connected usable open-space percentage, then plot ID"
     selected={c["id"] for c in candidates}
     checks=[{"id":f["id"],"status":"eligible" if f["id"] in selected else "not_proposed",
         "reason":"Submitted layout passed floor-area, open-space and land checks." if f["id"] in selected else "No layout submitted for this plot; this is not proof that no design can fit.",
         "source":f["properties"].get("source","")} for f,g in ctx["sites"]]
-    basis="best among submitted layouts: greatest mapped-service gap, then connected usable open-space percentage, then plot ID"
     metrics={"analysis_crs":request["projected_crs"],"threshold_m":request["threshold_m"],"service_type":request["service_type"],
         "study_area":request["study_area"],"service_features":len(ctx["services"]),"sites_evaluated":len(proposals),
         "sites_available":len(ctx["sites"]),"eligible_sites":len(candidates),"site_checks":checks,"land_inventory":request["land_inventory"],

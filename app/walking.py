@@ -288,6 +288,8 @@ def compare_walk_access(request:dict,candidates:list[dict])->list[dict]:
             "after_served_population":(count(after_served) if compared else None) if baseline_known else count(prop_served),
             "newly_served_population":count(new) if baseline_known and compared else None,
             "before_mean_minutes":bsum/bw if baseline_known and bw else None,"after_mean_minutes":asum/aw if baseline_known and aw else None,
+            "mean_walk_reduction_minutes":(bsum/bw-asum/aw) if baseline_known and bw and aw else None,
+            "newly_served_pct":(new/compared*100) if baseline_known and compared else None,
             "sample_count":len(pops),"samples_truncated":len(pops)>MAX_SAMPLES,"snap_limit_m":snapmax,
             "assumptions":"Projected shared-node segment distances plus bounded straight-line connectors from representative points and the proposed footprint boundary. Entrances, crossings, signals, closures, grade, and actual walkability are not verified.",
             "samples":samples,"routes":routes})
