@@ -43,12 +43,15 @@ With the default 24 × 18 m footprint and 3 m setback, **four of seven modeled p
 | Data or execution | SF mock |
 | --- | --- |
 | Population | 12 unchanged observed 2020 Census tracts from the bundled SF snapshot. |
-| Plots, buildings, restrictions, services | Explicitly simulated features placed at SF coordinates. |
+| Plots, buildings, restrictions | Explicitly simulated land features placed at SF coordinates. |
+| Existing facilities | 75 mapped OpenStreetMap records in a local SF extract; source snapshot dated 2026-05-06. Coverage and operating status are not certified. |
 | Land checks | Computed containment, setbacks, declared permitted uses, and collisions against the modeled land inventory. |
 | Analysis execution | Fixed trusted local calculations; no LLM, generated-code execution, cloud worker, or gVisor. |
 | Real-world availability or permits | Not established by the mock. |
 
 The map uses a blue dashed study boundary, purple candidate plots, a teal selected plot, orange checked building footprints, gray existing building records, and red restrictions. Map labels match the ranked site cards.
+
+The [downloaded SF facility GeoJSON](data/real-scenario/sf-osm-services.geojson) is **41,358 bytes (41.4 kB)**: 21 clinics, 4 libraries, 34 schools, and 16 community centres across the extract. The original response is **34,310 bytes**; one explicitly disused clinic was excluded. Counts within a selected rectangle will differ. The combined census + simulated land + mapped-service demo is **62,228 bytes**. See the [query, date, hashes, and ODbL attribution](data/real-scenario/sf-osm-services-manifest.json); this is a neighborhood extract, not all of San Francisco. Refresh deliberately with `python scripts/fetch_sf_osm_services.py`, then regenerate the scenario fixture.
 
 The 3D scene uses the checked footprint on flat ground. It loads only nine public OpenStreetMap tiles for the current view, with attribution and normal browser caching. Street imagery is visual context independent of the supplied land evidence; it does not verify availability. Unknown building heights stay flat and street tile failure preserves the supplied geometry. Height affects its appearance; width, depth, and setback affect site eligibility and placement. See [SF mock provenance](data/real-scenario/README.md) and its [manifest](data/real-scenario/manifest.json).
 

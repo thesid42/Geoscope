@@ -210,9 +210,10 @@ def test_bundled_sf_mock_has_expected_fit_and_exclusion_results():
     m = calculate(req)[0]["metrics"]
     assert req["scenario_status"] == "MOCK_SIMULATION"
     assert m["sites_evaluated"] == 7 and m["eligible_sites"] == 4
-    assert m["existing_services_in_area"] == 1
-    assert m["existing_service_counts"] == {"clinic": 1, "library": 1, "school": 0, "community_center": 0}
-    assert m["service_inventory"]["completeness_by_type"]["school"] == "unknown"
-    assert [c["id"] for c in m["candidates"]] == ["sfmock-fit-04", "sfmock-fit-01", "sfmock-fit-03"]
-    assert [c["newly_served_population"] for c in m["candidates"]] == [6224,4282,3841]
+    assert m["existing_services_in_area"] == 12
+    assert m["existing_service_counts"] == {"clinic": 12, "library": 1, "school": 13, "community_center": 7}
+    assert m["service_inventory"]["as_of"] == "2026-05-06"
+    assert set(m["service_inventory"]["completeness_by_type"].values()) == {"mapped_extract_not_complete"}
+    assert [c["id"] for c in m["candidates"]] == ["sfmock-fit-04", "sfmock-fit-01", "sfmock-fit-02"]
+    assert [c["newly_served_population"] for c in m["candidates"]] == [0, 0, 0]
     assert {c["id"] for c in m["site_checks"] if c["status"] == "excluded"} == {"sfmock-building-blocked", "sfmock-restricted", "sfmock-too-small"}

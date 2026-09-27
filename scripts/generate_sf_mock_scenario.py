@@ -12,6 +12,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "data" / "real" / "sf-parks-census.geojson"
 SOURCE_MANIFEST = ROOT / "data" / "real" / "manifest.json"
+SERVICE_SNAPSHOT = ROOT / "data" / "real-scenario" / "sf-osm-services.geojson"
+SERVICE_MANIFEST = ROOT / "data" / "real-scenario" / "sf-osm-services-manifest.json"
 OUT_DIR = ROOT / "data" / "real-scenario"
 OUT_FILE = OUT_DIR / "sf-mock.geojson"
 MANIFEST_FILE = OUT_DIR / "manifest.json"
@@ -68,6 +70,11 @@ def sha256(path: Path) -> str:
 def build() -> tuple[dict[str, Any], dict[str, Any]]:
     source = json.loads(SOURCE.read_text(encoding="utf-8"))
     source_manifest = json.loads(SOURCE_MANIFEST.read_text(encoding="utf-8"))
+    service_snapshot = json.loads(SERVICE_SNAPSHOT.read_text(encoding="utf-8"))
+    service_manifest = json.loads(SERVICE_MANIFEST.read_text(encoding="utf-8"))
+    service_features = service_snapshot.get("features", [])
+    if not isinstance(service_features, list) or any(f.get("properties", {}).get("layer") != "service" for f in service_features):
+        raise SystemExit("OSM service snapshot must contain only layer=service features")
     by_geoid = {str(f.get("properties", {}).get("geoid")): f for f in source["features"] if f.get("properties", {}).get("layer") == "population"}
     missing = POPULATION_GEOIDS - by_geoid.keys()
     if missing:
@@ -103,21 +110,23 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
                 "scenario_only": True,
             }, rectangle(site["center"], 60, 50)))
 
-    features.extend([
-        feature("sfmock-clinic-01", {
-            "layer": "service", "service_type": "clinic", "name": "Mock neighborhood clinic",
-            "source": "Synthetic service point for SF mock demo", "scenario_only": True,
-        }, {"type": "Point", "coordinates": [-122.4279, 37.7672]}),
-        feature("sfmock-library-01", {
-            "layer": "service", "service_type": "library", "name": "Mock neighborhood library",
-            "source": "Synthetic service point for SF mock demo", "scenario_only": True,
-        }, {"type": "Point", "coordinates": [-122.4218, 37.7710]}),
-    ])
+    # Observed source records are copied verbatim from a compact, attributed OSM extract.
+    features.extend(json.loads(json.dumps(service_features)))
+    all_coords: list[list[float]] = []
+    def collect_coords(value: Any) -> None:
+        if isinstance(value, list) and len(value) >= 2 and all(isinstance(x, (int, float)) for x in value[:2]):
+            all_coords.append(value[:2])
+        elif isinstance(value, list):
+            for item in value:
+                collect_coords(item)
+    for item in features:
+        collect_coords(item["geometry"]["coordinates"])
+    scenario_bounds = [min(x for x, _ in all_coords), min(y for _, y in all_coords), max(x for x, _ in all_coords), max(y for _, y in all_coords)]
 
     geojson = {
         "type": "FeatureCollection",
         "name": "San Francisco land-fit scenario (mock)",
-        "bbox": BOUNDS,
+        "bbox": scenario_bounds,
         "scenario_status": "MOCK_SIMULATION",
         "observed_population": {
             "source_dataset": "San Francisco parks + 2020 Census official snapshot",
@@ -127,15 +136,7 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
             "population_year": 2020,
             "synthetic": False,
         },
-        "service_inventory": {
-            "source": "Simulated SF mock clinic/library points; no real service inventory used",
-            "as_of": SCENARIO_AS_OF,
-            "record_counts_scope": "supplied simulated point features only; not actual citywide facility counts",
-            "completeness_by_type": {
-                "clinic": "synthetic_example_only", "library": "synthetic_example_only",
-                "school": "unknown", "community_center": "unknown",
-            },
-        },
+        "service_inventory": service_snapshot["service_inventory"],
         "land_inventory": {
             "source": "SF mock-simulation rectangles, obstructions, and restrictions; no parcel/availability records used",
             "as_of": SCENARIO_AS_OF,
@@ -155,7 +156,7 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         "scenario_status": "MOCK_SIMULATION",
         "generated_by": "scripts/generate_sf_mock_scenario.py",
         "generated_on": date.today().isoformat(),
-        "bounds_wsen": BOUNDS,
+        "bounds_wsen": scenario_bounds,
         "simulated_fixture_bounds_wsen": SIMULATED_BOUNDS,
         "population_source": {
             "dataset_id": "sf-parks-census",
@@ -169,18 +170,28 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
             "selected_geoids": sorted(POPULATION_GEOIDS),
             "method": "Copy the 12 listed official population tract features verbatim from the bundled normalized snapshot; no simulated population values are added.",
         },
+        "service_source": {
+            "dataset_id": "sf-osm-services",
+            "raw_file": "data/real-scenario/sf-osm-services-raw.json",
+            "raw_bytes": (OUT_DIR / "sf-osm-services-raw.json").stat().st_size,
+            "raw_sha256": sha256(OUT_DIR / "sf-osm-services-raw.json"),
+            "normalized_file": "data/real-scenario/sf-osm-services.geojson",
+            "normalized_sha256": sha256(SERVICE_SNAPSHOT),
+            "source_manifest": "data/real-scenario/sf-osm-services-manifest.json",
+            "source_timestamp": service_manifest["osm_data_timestamp"],
+            "counts_by_service_type": service_manifest["normalized"]["counts_by_service_type"],
+            "completeness_by_type": service_snapshot["service_inventory"]["completeness_by_type"],
+            "attribution": service_manifest["attribution"],
+            "license": service_manifest["license"],
+        },
         "simulated_features": {
             "candidate_sites": len(SITES),
             "expected_fit_cases": {x["expected_fit"]: sum(y["expected_fit"] == x["expected_fit"] for y in SITES) for x in SITES},
             "candidate_geometry_method": "Axis-aligned rectangles created from nominal meter dimensions at the specified San Francisco lon/lat centers using local degree approximations.",
             "buildings": "One simulated 56m x 46m footprint overlaps the building-blocked lot; no actual footprint source is represented.",
             "restrictions": "One simulated restriction covers the restricted test lot; no legal/environmental restriction is represented.",
-            "service_points": ["clinic", "library"],
-            "service_inventory_completeness": {
-                "clinic": "synthetic_example_only", "library": "synthetic_example_only",
-                "school": "unknown", "community_center": "unknown",
-            },
-            "all_simulated_records": True,
+            "synthetic_service_points": 0,
+            "all_land_features_simulated": True,
             "availability_claim": "None. Candidate land_status is fixture logic only; city ownership and availability are unknown.",
         },
         "output_file": OUT_FILE.name,
@@ -196,7 +207,7 @@ def main() -> None:
     manifest["output_sha256"] = sha256(OUT_FILE)
     MANIFEST_FILE.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {OUT_FILE.relative_to(ROOT)} ({len(data['features'])} features; {manifest['population_source']['selected_population_sum_2020']:,} observed 2020 population).")
-    print("All candidate parcels/buildings/restrictions/services are simulated; no real land availability is claimed.")
+    print("Candidate land, buildings, and restrictions are simulated; service features are mapped OSM records. No real land availability is claimed.")
 
 
 if __name__ == "__main__":

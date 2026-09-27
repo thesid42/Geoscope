@@ -1,0 +1,45 @@
+{
+  "dataset_id": "sf-osm-services",
+  "downloaded_at_utc": "2026-09-27T02:38:56+00:00",
+  "endpoint": "https://overpass.private.coffee/api/interpreter",
+  "query": "[out:json][timeout:45];(nwr[\"amenity\"~\"^(clinic|library|school|community_centre)$\"](37.753,-122.44,37.781,-122.409);nwr[\"healthcare\"=\"clinic\"](37.753,-122.44,37.781,-122.409););out center tags;",
+  "query_bbox_wsen": [
+    -122.44,
+    37.753,
+    -122.409,
+    37.781
+  ],
+  "osm_data_timestamp": "2026-05-06T03:25:00Z",
+  "attribution": "© OpenStreetMap contributors",
+  "attribution_url": "https://www.openstreetmap.org/copyright",
+  "license": "Open Database License (ODbL) 1.0",
+  "license_url": "https://opendatacommons.org/licenses/odbl/1-0/",
+  "raw": {
+    "file": "sf-osm-services-raw.json",
+    "bytes": 34310,
+    "sha256": "55c0f3ef86cb9a77e398a285fedddae304faf4b9740729bc71b4b3074af852a1"
+  },
+  "normalized": {
+    "file": "sf-osm-services.geojson",
+    "feature_count": 75,
+    "counts_by_service_type": {
+      "clinic": 21,
+      "community_center": 16,
+      "library": 4,
+      "school": 34
+    },
+    "excluded_records": {
+      "lifecycle_tagged": 1
+    },
+    "bytes": 41358,
+    "sha256": "d8f41a7d50ab19b589c649bc387e1087a10679fcf88e08ded43284f9923ee47c"
+  },
+  "method": "One feature per unique OSM node/way/relation. Point nodes retain their coordinates; ways and relations use the center returned by Overpass. Amenity clinic/library/school/community_centre and healthcare=clinic are mapped to GeoScope service types. Explicit lifecycle-tagged facilities are excluded.",
+  "limitations": [
+    "OpenStreetMap is community-mapped, not an official or exhaustive directory; zero records never establishes absence.",
+    "Way and relation locations use Overpass center, not exact entrances or surveyed service points.",
+    "A tagged facility may have stale operating status unless explicitly lifecycle-tagged; verify before real-world decisions.",
+    "OSM school and community centre tags identify mapped facility features, not building counts."
+  ],
+  "raw_sha256": "55c0f3ef86cb9a77e398a285fedddae304faf4b9740729bc71b4b3074af852a1"
+}

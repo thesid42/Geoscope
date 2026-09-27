@@ -1,0 +1,1434 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-05-06T03:25:00Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "node",
+  "id": 358769656,
+  "lat": 37.7749296,
+  "lon": -122.4341379,
+  "tags": {
+    "amenity": "school",
+    "ele": "79",
+    "gnis:feature_id": "227497",
+    "name": "Lombard School"
+  }
+},
+{
+  "type": "node",
+  "id": 358803243,
+  "lat": 37.7546523,
+  "lon": -122.4199709,
+  "tags": {
+    "amenity": "school",
+    "ele": "23",
+    "gnis:feature_id": "1655360",
+    "name": "Collegio De La Mission",
+    "wheelchair": "yes"
+  }
+},
+{
+  "type": "node",
+  "id": 358805275,
+  "lat": 37.7749950,
+  "lon": -122.4338305,
+  "tags": {
+    "amenity": "school",
+    "check_date": "2025-04-12",
+    "education": "school",
+    "ele": "79",
+    "gnis:feature_id": "1657114",
+    "name": "Ida B Wells High School",
+    "wikidata": "Q30645917"
+  }
+},
+{
+  "type": "node",
+  "id": 368168766,
+  "lat": 37.7671519,
+  "lon": -122.4149710,
+  "tags": {
+    "addr:state": "CA",
+    "amenity": "library",
+    "ele": "7",
+    "gnis:feature_id": "1655376",
+    "name": "Far West Library for Educational Research and Development",
+    "source": "USGS Geonames"
+  }
+},
+{
+  "type": "node",
+  "id": 586728486,
+  "lat": 37.7647518,
+  "lon": -122.4327705,
+  "tags": {
+    "addr:housenumber": "2288",
+    "addr:street": "Market Street",
+    "amenity": "clinic",
+    "brand": "GoHealth Urgent Care",
+    "brand:wikidata": "Q110282081",
+    "healthcare": "clinic",
+    "healthcare:speciality": "urgent",
+    "name": "GoHealth Urgent Care",
+    "operator": "Dignity Health"
+  }
+},
+{
+  "type": "node",
+  "id": 1126948230,
+  "lat": 37.7677677,
+  "lon": -122.4303586,
+  "tags": {
+    "addr:housenumber": "754 #2",
+    "addr:street": "14th Street",
+    "amenity": "school",
+    "name": "Mission Child Care"
+  }
+},
+{
+  "type": "node",
+  "id": 1609600152,
+  "lat": 37.7595612,
+  "lon": -122.4215560,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "826",
+    "addr:postcode": "94110",
+    "addr:state": "CA",
+    "addr:street": "Valencia Street",
+    "amenity": "community_centre",
+    "name": "826 Valencia / The Writing Center",
+    "opening_hours": "Mo-Su,PH 12:00-18:00",
+    "phone": "+1 415-642-5905",
+    "website": "https://826valencia.org/",
+    "wikidata": "Q4644616",
+    "wikipedia": "en:826 Valencia"
+  }
+},
+{
+  "type": "node",
+  "id": 2321383066,
+  "lat": 37.7609461,
+  "lon": -122.4356406,
+  "tags": {
+    "addr:housenumber": "4122",
+    "addr:postcode": "94114",
+    "addr:street": "18th Street",
+    "amenity": "clinic",
+    "healthcare": "clinic",
+    "name": "Magnet",
+    "phone": "+1-415-581-1600",
+    "website": "http://www.magnetsf.org",
+    "wheelchair": "limited"
+  }
+},
+{
+  "type": "node",
+  "id": 3184077146,
+  "lat": 37.7531416,
+  "lon": -122.4209460,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "1234",
+    "addr:street": "Valencia Street",
+    "amenity": "library",
+    "check_date": "2025-10-30",
+    "check_date:opening_hours": "2025-10-30",
+    "description": "Temporary branch during \"approximately two-year\"  renovation of Bartlett St branch (2022-2024, projection as of June 2022).",
+    "email": "mismgr@sfpl.org",
+    "internet_access": "wlan",
+    "internet_access:fee": "no",
+    "name": "Mission Temporary Branch, San Francisco Public Library",
+    "name:es": "Sitio temporal de la Biblioteca de la Misión",
+    "opening_hours": "Mo,Sa 10:00-18:00; Tu-Th 10:00-20:00; Fr 13:00-18:00; Su 13:00-17:00",
+    "operator": "San Francisco Public Library",
+    "operator:short": "SFPL",
+    "operator:type": "public",
+    "operator:wikidata": "Q2901530",
+    "phone": "+1 415-355-2800",
+    "website": "https://sfpl.org/locations/mission",
+    "wheelchair": "yes"
+  }
+},
+{
+  "type": "node",
+  "id": 3740701650,
+  "lat": 37.7567169,
+  "lon": -122.4212798,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "1010",
+    "addr:postcode": "94110",
+    "addr:state": "CA",
+    "addr:street": "Valencia Street",
+    "amenity": "school",
+    "education": "school",
+    "name": "Eureka Valley Arts",
+    "website": "https://eurekavalleyarts.com/"
+  }
+},
+{
+  "type": "node",
+  "id": 5080508290,
+  "lat": 37.7698200,
+  "lon": -122.4263728,
+  "tags": {
+    "addr:housenumber": "1998",
+    "addr:street": "Market Street",
+    "amenity": "clinic",
+    "brand": "Carbon Health",
+    "brand:wikidata": "Q110076263",
+    "check_date": "2025-11-26",
+    "healthcare": "clinic",
+    "name": "Carbon Health",
+    "opening_hours": "Mo-Su 09:00-18:00",
+    "operator": "Carbon Health",
+    "operator:type": "private",
+    "operator:wikidata": "Q110076263",
+    "phone": "+1 415-792-6040",
+    "website": "https://carbonhealth.com/locations/sf-castro"
+  }
+},
+{
+  "type": "node",
+  "id": 6163717802,
+  "lat": 37.7589677,
+  "lon": -122.4118915,
+  "tags": {
+    "amenity": "school",
+    "name": "Gurdjieff Foundation"
+  }
+},
+{
+  "type": "node",
+  "id": 6441756875,
+  "lat": 37.7694610,
+  "lon": -122.4198208,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:country": "US",
+    "addr:housenumber": "1735",
+    "addr:postcode": "94103",
+    "addr:state": "CA",
+    "addr:street": "Mission Street",
+    "healthcare": "clinic",
+    "name": "Lee Woodward Counseling Center for Women",
+    "phone": "+1-415-776-1001",
+    "website": "https://www.healthright360.org/program/lee-woodward-counseling-center-women-lwcc"
+  }
+},
+{
+  "type": "node",
+  "id": 6441756876,
+  "lat": 37.7693179,
+  "lon": -122.4198370,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:country": "US",
+    "addr:housenumber": "1735",
+    "addr:postcode": "94103",
+    "addr:state": "CA",
+    "addr:street": "Mission Street",
+    "healthcare": "clinic",
+    "name": "Lyon-Martin Health Services",
+    "phone": "+1-415-565-7667",
+    "website": "https://lyon-martin.org/"
+  }
+},
+{
+  "type": "node",
+  "id": 6441756877,
+  "lat": 37.7696041,
+  "lon": -122.4198034,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:country": "US",
+    "addr:housenumber": "1735",
+    "addr:postcode": "94103",
+    "addr:state": "CA",
+    "addr:street": "Mission Street",
+    "healthcare": "clinic",
+    "name": "Women's Community Clinic",
+    "phone": "+1-415-379-7800",
+    "website": "https://womenscommunityclinic.org/"
+  }
+},
+{
+  "type": "node",
+  "id": 6604085465,
+  "lat": 37.7790025,
+  "lon": -122.4159638,
+  "tags": {
+    "amenity": "community_centre",
+    "check_date": "2023-04-29",
+    "community_centre:for": "juvenile",
+    "description": "For 13-18 year olds",
+    "indoor": "room",
+    "level": "2",
+    "name": "The Mix",
+    "opening_hours": "Mo,Fr 13:00-18:00; Tu-Th 13:00-20:00; Sa-Su 12:00-18:00; PH off",
+    "website": "https://themixatsfpl.org/"
+  }
+},
+{
+  "type": "node",
+  "id": 6698447685,
+  "lat": 37.7664048,
+  "lon": -122.4299950,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "2175",
+    "addr:postcode": "94114",
+    "addr:state": "CA",
+    "addr:street": "Market Street",
+    "amenity": "clinic",
+    "brand": "One Medical",
+    "check_date": "2023-02-06",
+    "healthcare": "clinic",
+    "healthcare:speciality": "general",
+    "name": "One Medical",
+    "opening_hours": "Mo 08:00-20:00; Tu 08:30-16:30,17:30-20:30; We-Sa 08:00-20:30; Su 08:00-17:00",
+    "operator": "1Life Healthcare",
+    "operator:wikidata": "Q85727717",
+    "phone": "+1 415-593-3080"
+  }
+},
+{
+  "type": "node",
+  "id": 6821738162,
+  "lat": 37.7636717,
+  "lon": -122.4219789,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "580",
+    "addr:postcode": "94110",
+    "addr:state": "CA",
+    "addr:street": "Valencia Street",
+    "amenity": "clinic",
+    "changing_table": "no",
+    "check_date:opening_hours": "2023-09-25",
+    "healthcare": "clinic",
+    "healthcare:speciality": "general",
+    "name": "One Medical",
+    "opening_hours:signed": "no",
+    "operator": "1Life Healthcare",
+    "operator:type": "private",
+    "operator:wikidata": "Q85727717"
+  }
+},
+{
+  "type": "node",
+  "id": 9656568091,
+  "lat": 37.7740031,
+  "lon": -122.4222650,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "98",
+    "addr:postcode": "94102",
+    "addr:state": "CA",
+    "addr:street": "Gough Street",
+    "amenity": "clinic",
+    "healthcare": "clinic",
+    "name": "One Medical",
+    "opening_hours": "Mo-Fr 08:00-12:00,13:00-17:00; PH off",
+    "operator": "1Life Healthcare",
+    "operator:type": "private",
+    "operator:wikidata": "Q85727717",
+    "website": "https://www.onemedical.com/locations/sf/hayesvalley/"
+  }
+},
+{
+  "type": "node",
+  "id": 9657843869,
+  "lat": 37.7744725,
+  "lon": -122.4216129,
+  "tags": {
+    "addr:housenumber": "44",
+    "addr:street": "Page Street",
+    "amenity": "community_centre",
+    "name": "Kanbar Performing Arts Center",
+    "operator": "San Francisco Girls Chorus"
+  }
+},
+{
+  "type": "node",
+  "id": 9712745890,
+  "lat": 37.7613604,
+  "lon": -122.4352360,
+  "tags": {
+    "addr:housenumber": "470",
+    "addr:street": "Castro Street",
+    "amenity": "clinic",
+    "healthcare": "clinic",
+    "name": "Strut",
+    "opening_hours": "Tu-Sa 10:00-20:00",
+    "operator": "San Francisco AIDS Foundation",
+    "phone": "+1 415-581-1600",
+    "website": "https://www.sfaf.org/locations/strut/"
+  }
+},
+{
+  "type": "node",
+  "id": 9994033955,
+  "lat": 37.7777942,
+  "lon": -122.4247280,
+  "tags": {
+    "addr:housenumber": "600",
+    "addr:street": "Octavia Street",
+    "addr:unit": "A",
+    "amenity": "community_centre",
+    "check_date": "2025-06-13",
+    "community_centre": "youth_centre",
+    "description": "Camps, classes, and maker studio",
+    "name": "Stem & Art"
+  }
+},
+{
+  "type": "node",
+  "id": 10065566475,
+  "lat": 37.7768690,
+  "lon": -122.4175521,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "1390",
+    "addr:postcode": "94102",
+    "addr:state": "CA",
+    "addr:street": "Market Street",
+    "addr:unit": "109",
+    "amenity": "clinic",
+    "brand": "Carbon Health",
+    "brand:wikidata": "Q110076263",
+    "check_date": "2025-12-02",
+    "healthcare": "clinic",
+    "level": "0",
+    "name": "Carbon Health",
+    "opening_hours": "Mo-Su 09:00-19:00",
+    "operator": "Carbon Health",
+    "operator:type": "private",
+    "operator:wikidata": "Q110076263",
+    "phone": "+1 415-918-5766",
+    "website": "https://carbonhealth.com/locations/san-francisco-ca-civic-center",
+    "wheelchair": "yes"
+  }
+},
+{
+  "type": "node",
+  "id": 10945332647,
+  "lat": 37.7586382,
+  "lon": -122.4211436,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "899",
+    "addr:postcode": "94110",
+    "addr:state": "CA",
+    "addr:street": "Valencia Street",
+    "brand": "Sutter Health",
+    "fax": "+1-415-369-1244",
+    "healthcare": "clinic",
+    "healthcare:speciality": "general;paediatrics",
+    "name": "Sutter 899 Valencia Street Care Center",
+    "opening_hours": "Mo-Fr 08:00-17:00",
+    "operator": "Sutter Health",
+    "operator:website": "https://www.sutterhealth.org/",
+    "operator:wikidata": "Q7650154",
+    "operator:wikipedia": "en:Sutter Health",
+    "phone": "+1-415-600-6960",
+    "website": "https://www.sutterhealth.org/find-location/facility/899-valencia-street-care-center-1043247413"
+  }
+},
+{
+  "type": "node",
+  "id": 11198865804,
+  "lat": 37.7783066,
+  "lon": -122.4185695,
+  "tags": {
+    "addr:housenumber": "101",
+    "addr:street": "Grove Street",
+    "amenity": "clinic",
+    "check_date": "2023-09-17",
+    "healthcare": "clinic",
+    "name": "Adult Immunization & Travel Clinic",
+    "operator:type": "public"
+  }
+},
+{
+  "type": "node",
+  "id": 11663320631,
+  "lat": 37.7630500,
+  "lon": -122.4342714,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "2355",
+    "addr:postcode": "94114",
+    "addr:state": "CA",
+    "addr:street": "Market Street",
+    "amenity": "clinic",
+    "fixme": "position_estimated",
+    "healthcare": "clinic",
+    "name": "One Medical",
+    "operator": "1Life Healthcare",
+    "operator:type": "private",
+    "operator:wikidata": "Q85727717"
+  }
+},
+{
+  "type": "node",
+  "id": 11777394318,
+  "lat": 37.7726824,
+  "lon": -122.4147199,
+  "tags": {
+    "addr:housenumber": "245",
+    "addr:street": "11th Street",
+    "amenity": "clinic",
+    "check_date": "2025-01-10",
+    "check_date:opening_hours": "2025-01-10",
+    "healthcare": "clinic",
+    "name": "Westside Community Services",
+    "opening_hours": "Mo-Fr 07:30-12:00,12:30-16:00"
+  }
+},
+{
+  "type": "node",
+  "id": 12121537102,
+  "lat": 37.7761417,
+  "lon": -122.4260697,
+  "tags": {
+    "addr:housenumber": "550;540",
+    "addr:postcode": "94102",
+    "amenity": "community_centre",
+    "community_centre": "community_hall",
+    "level": "0",
+    "name": "The Commons",
+    "website": "https://thesfcommons.com"
+  }
+},
+{
+  "type": "node",
+  "id": 12583335242,
+  "lat": 37.7556412,
+  "lon": -122.4208466,
+  "tags": {
+    "addr:housenumber": "1085",
+    "addr:street": "Valencia Street",
+    "amenity": "disused:clinic",
+    "brand": "GoHealth Urgent Care",
+    "brand:wikidata": "Q110282081",
+    "check_date": "2025-02-11",
+    "healthcare": "clinic",
+    "healthcare:speciality": "urgent",
+    "name": "GoHealth Urgent Care",
+    "opening_hours": "Mo-Fr 08:00-20:00; Sa-Su 09:00-17:00",
+    "operator": "Dignity Health",
+    "operator:type": "private",
+    "operator:wikidata": "Q5276334"
+  }
+},
+{
+  "type": "node",
+  "id": 12637114274,
+  "lat": 37.7703567,
+  "lon": -122.4256835,
+  "tags": {
+    "addr:housenumber": "1930",
+    "addr:street": "Market Street",
+    "amenity": "clinic",
+    "check_date": "2025-11-26",
+    "healthcare": "clinic",
+    "level": "0",
+    "name": "Ucsf Alliance Health Project Services Center",
+    "wheelchair": "yes"
+  }
+},
+{
+  "type": "node",
+  "id": 12863374039,
+  "lat": 37.7585233,
+  "lon": -122.4192162,
+  "tags": {
+    "amenity": "clinic",
+    "check_date": "2025-05-25",
+    "healthcare": "clinic",
+    "level": "0",
+    "name": "Milagros de Mexico"
+  }
+},
+{
+  "type": "node",
+  "id": 12954274101,
+  "lat": 37.7653881,
+  "lon": -122.4224369,
+  "tags": {
+    "addr:housenumber": "474 Suite 100",
+    "addr:street": "Valencia Street",
+    "amenity": "community_centre",
+    "name": "La Raza Community Resource Center",
+    "website": "https://www.larazacrc.org/"
+  }
+},
+{
+  "type": "node",
+  "id": 13207146235,
+  "lat": 37.7753379,
+  "lon": -122.4092033,
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "1175",
+    "addr:postcode": "94103",
+    "addr:state": "CA",
+    "addr:street": "Folsom Street",
+    "amenity": "community_centre",
+    "email": "hello@decentered.org",
+    "name": "Decentered Arts Studio",
+    "website": "https://decentered.org"
+  }
+},
+{
+  "type": "node",
+  "id": 13639606766,
+  "lat": 37.7790289,
+  "lon": -122.4387811,
+  "tags": {
+    "amenity": "clinic",
+    "check_date": "2026-03-11",
+    "healthcare": "clinic",
+    "level": "0",
+    "name": "Effin Relax",
+    "wheelchair": "no"
+  }
+},
+{
+  "type": "node",
+  "id": 13738256045,
+  "lat": 37.7605064,
+  "lon": -122.4351539,
+  "tags": {
+    "addr:housenumber": "518A",
+    "addr:street": "Castro Street",
+    "amenity": "clinic",
+    "check_date": "2026-04-17",
+    "fixme": "confirm type",
+    "healthcare": "clinic",
+    "name": "AHF Healthcare Center"
+  }
+},
+{
+  "type": "way",
+  "id": 24446086,
+  "center": {
+    "lat": 37.7791272,
+    "lon": -122.4157709
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:country": "US",
+    "addr:housenumber": "100",
+    "addr:postcode": "94102",
+    "addr:state": "CA",
+    "addr:street": "Larkin Street",
+    "amenity": "library",
+    "building": "civic",
+    "building:levels": "5",
+    "check_date": "2025-04-10",
+    "contact:facebook": "sfpl.org",
+    "contact:instagram": "sfpubliclibrary",
+    "contact:twitter": "SFPublicLibrary",
+    "contact:youtube": "https://www.youtube.com/user/SanFranciscoLibrary",
+    "ele": "18",
+    "email": "info@sfpl.org",
+    "gnis:feature_id": "1655502",
+    "height": "46",
+    "internet_access": "wlan",
+    "name": "San Francisco Public Library - Main Library",
+    "opening_hours": "Su 12:00-18:00; Mo 09:00-18:00; Tu-Th 09:00-20:00; Fr 12:00-18:00; Sa 10:00-18:00; PH off",
+    "operator": "San Francisco Public Library",
+    "operator:short": "SFPL",
+    "operator:type": "public",
+    "operator:wikidata": "Q2901530",
+    "phone": "+1 415-557-4400",
+    "source": "USGS Geonames",
+    "start_date": "1996",
+    "website": "https://sfpl.org/locations/main-library",
+    "wheelchair": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 24524033,
+  "center": {
+    "lat": 37.7620041,
+    "lon": -122.4272969
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "3750",
+    "addr:postcode": "94114",
+    "addr:state": "CA",
+    "addr:street": "18th Street",
+    "amenity": "school",
+    "name": "Mission High School",
+    "operator": "San Francisco Unified School District",
+    "operator:short": "SFUSD",
+    "operator:type": "public",
+    "operator:wikidata": "Q2215009",
+    "phone": "+1-415-241-6240",
+    "wikidata": "Q3859226"
+  }
+},
+{
+  "type": "way",
+  "id": 112073353,
+  "center": {
+    "lat": 37.7695449,
+    "lon": -122.4345718
+  },
+  "tags": {
+    "addr:housenumber": "50",
+    "addr:street": "Scott Street",
+    "amenity": "community_centre",
+    "building": "yes",
+    "check_date": "2026-01-24",
+    "community_centre": "cultural_centre",
+    "height": "9",
+    "name": "Harvey Milk Recreational Arts Center",
+    "opening_hours": "Mo,Su off; Tu-Th 10:00-21:00; Fr 10:00-18:00; Sa 10:00-17:00",
+    "phone": "+1-415-554-8742",
+    "toilets": "yes",
+    "website": "https://sfrecpark.org/destination/duboce-park/harvey-milk-recreational-arts-center/",
+    "wheelchair": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 116553824,
+  "center": {
+    "lat": 37.7668843,
+    "lon": -122.4363015
+  },
+  "tags": {
+    "amenity": "school",
+    "ele": "73",
+    "gnis:feature_id": "228405",
+    "name": "McKinley Elementary School"
+  }
+},
+{
+  "type": "way",
+  "id": 138882589,
+  "center": {
+    "lat": 37.7642417,
+    "lon": -122.4250031
+  },
+  "tags": {
+    "addr:housenumber": "333",
+    "addr:street": "Dolores Street",
+    "amenity": "school",
+    "building": "yes",
+    "education": "school",
+    "height": "14",
+    "name": "Children's Day School"
+  }
+},
+{
+  "type": "way",
+  "id": 167176657,
+  "center": {
+    "lat": 37.7681533,
+    "lon": -122.4276421
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "2051",
+    "addr:postcode": "94114",
+    "addr:street": "Market Street",
+    "alt_name": "Art Fuse",
+    "amenity": "community_centre",
+    "building": "yes",
+    "check_date": "2023-10-14",
+    "contact:instagram": "https://www.instagram.com/2051thirdspace",
+    "height": "9",
+    "name": "Third Space",
+    "was:name": "Eros"
+  }
+},
+{
+  "type": "way",
+  "id": 179496056,
+  "center": {
+    "lat": 37.7717181,
+    "lon": -122.4241225
+  },
+  "tags": {
+    "addr:housenumber": "1800",
+    "addr:postcode": "94102",
+    "addr:street": "Market Street",
+    "amenity": "community_centre",
+    "building": "yes",
+    "building:levels": "3",
+    "check_date": "2025-07-28",
+    "name": "SF LGBT Center",
+    "phone": "+1-415-865-5555",
+    "website": "https://www.sfcenter.org/",
+    "wheelchair": "yes",
+    "wikidata": "Q7414058"
+  }
+},
+{
+  "type": "way",
+  "id": 192119078,
+  "center": {
+    "lat": 37.7544649,
+    "lon": -122.4260732
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "3531",
+    "addr:postcode": "94114",
+    "addr:state": "CA",
+    "addr:street": "22nd Street",
+    "amenity": "school",
+    "ele": "43",
+    "gnis:feature_id": "222984",
+    "name": "Thomas Edison Charter Academy",
+    "operator": "San Francisco Unified School District",
+    "phone": "+1-415-970-3330",
+    "website": "https://www.teca-sf.org/"
+  }
+},
+{
+  "type": "way",
+  "id": 192123449,
+  "center": {
+    "lat": 37.7538629,
+    "lon": -122.4244858
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "180",
+    "addr:postcode": "94110",
+    "addr:state": "CA",
+    "addr:street": "Fair Oaks Street",
+    "amenity": "school",
+    "name": "Adda Clevenger School",
+    "phone": "+1 415-824-2240",
+    "website": "https://www.addaclevenger.org/"
+  }
+},
+{
+  "type": "way",
+  "id": 197050441,
+  "center": {
+    "lat": 37.7664743,
+    "lon": -122.4190415
+  },
+  "tags": {
+    "amenity": "school",
+    "building": "yes",
+    "education": "school",
+    "ele": "8",
+    "gnis:feature_id": "228151",
+    "height": "8",
+    "name": "Marshall Elementary School"
+  }
+},
+{
+  "type": "way",
+  "id": 243466311,
+  "center": {
+    "lat": 37.7729040,
+    "lon": -122.4139081
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "260",
+    "addr:postcode": "94103",
+    "addr:state": "CA",
+    "addr:street": "Folsom Street",
+    "amenity": "school",
+    "building": "yes",
+    "check_date": "2024-03-31",
+    "ele": "10",
+    "gnis:feature_id": "1656865",
+    "name": "Presidio Knolls School",
+    "old_name": "Saint Joseph's School"
+  }
+},
+{
+  "type": "way",
+  "id": 252221783,
+  "center": {
+    "lat": 37.7710246,
+    "lon": -122.4264563
+  },
+  "tags": {
+    "amenity": "school",
+    "building": "yes",
+    "height": "11"
+  }
+},
+{
+  "type": "way",
+  "id": 255958566,
+  "center": {
+    "lat": 37.7755658,
+    "lon": -122.4204002
+  },
+  "tags": {
+    "addr:housenumber": "50",
+    "addr:street": "Oak Street",
+    "amenity": "school",
+    "building": "civic",
+    "name": "San Francisco Conservatory of Music",
+    "website": "https://sfcm.edu/",
+    "wikidata": "Q2034815"
+  }
+},
+{
+  "type": "way",
+  "id": 256447055,
+  "center": {
+    "lat": 37.7640473,
+    "lon": -122.4319056
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "1",
+    "addr:postcode": "94114",
+    "addr:state": "CA",
+    "addr:street": "José Sarria Court",
+    "amenity": "library",
+    "building": "yes",
+    "check_date": "2025-01-16",
+    "contact:facebook": "EurekaValleyBranch",
+    "ele": "39",
+    "email": "evamgr@sfpl.org",
+    "gnis:feature_id": "1657101",
+    "height": "5",
+    "internet_access": "wlan",
+    "name": "Eureka Valley / Harvey Milk Memorial Branch Library",
+    "opening_hours": "Mo,Sa 10:00-18:00; Tu-Th 10:00-20:00; Fr 13:00-18:00; Su 13:00-17:00",
+    "operator": "San Francisco Public Library",
+    "operator:short": "SFPL",
+    "operator:type": "public",
+    "operator:wikidata": "Q2901530",
+    "phone": "+1 415 3555616",
+    "source": "USGS Geonames",
+    "website": "https://sfpl.org/locations/eureka-valley",
+    "wheelchair": "yes",
+    "wikidata": "Q66362948"
+  }
+},
+{
+  "type": "way",
+  "id": 256584828,
+  "center": {
+    "lat": 37.7792903,
+    "lon": -122.4293042
+  },
+  "tags": {
+    "amenity": "community_centre",
+    "building": "yes",
+    "check_date": "2026-02-23",
+    "height": "5",
+    "name": "Ella Hill Hutch Community Center",
+    "wheelchair": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 256785980,
+  "center": {
+    "lat": 37.7602103,
+    "lon": -122.4364224
+  },
+  "tags": {
+    "amenity": "community_centre",
+    "building": "yes",
+    "community_centre": "community_hall",
+    "name": "Eureka Valley Recreation Center",
+    "operator": "San Francisco Parks Alliance",
+    "phone": "+1 415-831-6810",
+    "website": "https://www.sfparksalliance.org/our-parks/parks/eureka-valley-playground-rec-center",
+    "wheelchair": "limited"
+  }
+},
+{
+  "type": "way",
+  "id": 260194175,
+  "center": {
+    "lat": 37.7614205,
+    "lon": -122.4226132
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "3543",
+    "addr:postcode": "94110",
+    "addr:state": "CA",
+    "addr:street": "18th Street",
+    "amenity": "community_centre",
+    "building": "yes",
+    "check_date": "2025-05-25",
+    "height": "17",
+    "name": "The Women's Building",
+    "opening_hours": "Mo-We,Fr 09:00-16:00",
+    "website": "https://womensbuilding.org/",
+    "wheelchair": "yes",
+    "wikidata": "Q16903643"
+  }
+},
+{
+  "type": "way",
+  "id": 260345927,
+  "center": {
+    "lat": 37.7809379,
+    "lon": -122.4091840
+  },
+  "tags": {
+    "amenity": "community_centre",
+    "building": "yes",
+    "height": "17",
+    "name": "Bayanihan Community Center",
+    "website": "https://www.bayanihancc.org/"
+  }
+},
+{
+  "type": "way",
+  "id": 260946369,
+  "center": {
+    "lat": 37.7602701,
+    "lon": -122.4113497
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "2929",
+    "addr:postcode": "94110",
+    "addr:state": "CA",
+    "addr:street": "19th Street",
+    "amenity": "community_centre",
+    "building": "yes",
+    "emergency": "assembly_point",
+    "name": "Centro Social Obrero"
+  }
+},
+{
+  "type": "way",
+  "id": 261102266,
+  "center": {
+    "lat": 37.7645982,
+    "lon": -122.4165538
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "240",
+    "addr:postcode": "94110",
+    "addr:state": "CA",
+    "addr:street": "Shotwell Street",
+    "amenity": "clinic",
+    "building": "civic",
+    "ele": "7",
+    "gnis:feature_id": "2107383",
+    "healthcare": "clinic",
+    "height": "7",
+    "name": "Mission Neighborhood Health Center"
+  }
+},
+{
+  "type": "way",
+  "id": 261264906,
+  "center": {
+    "lat": 37.7685790,
+    "lon": -122.4304271
+  },
+  "tags": {
+    "addr:housenumber": "50",
+    "addr:street": "Belcher Street",
+    "amenity": "school",
+    "building": "yes",
+    "check_date": "2026-01-24",
+    "name": "child care center- Lutheran Church"
+  }
+},
+{
+  "type": "way",
+  "id": 266762279,
+  "center": {
+    "lat": 37.7623071,
+    "lon": -122.4165093
+  },
+  "tags": {
+    "addr:housenumber": "3250",
+    "addr:street": "18th Street",
+    "amenity": "school",
+    "check_date": "2023-01-27",
+    "education": "school",
+    "ele": "8",
+    "gnis:feature_id": "1655515",
+    "name": "La Scuola International School",
+    "old_name": "Saint Charles School"
+  }
+},
+{
+  "type": "way",
+  "id": 274157929,
+  "center": {
+    "lat": 37.7793364,
+    "lon": -122.4360126
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "1512",
+    "addr:postcode": "94115",
+    "addr:street": "Golden Gate Avenue",
+    "amenity": "school",
+    "name": "Gateway Middle School"
+  }
+},
+{
+  "type": "way",
+  "id": 274158850,
+  "center": {
+    "lat": 37.7797150,
+    "lon": -122.4359868
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "1601",
+    "addr:postcode": "94115",
+    "addr:street": "Turk Boulevard",
+    "amenity": "school",
+    "name": "Creative Arts Charter School"
+  }
+},
+{
+  "type": "way",
+  "id": 300732286,
+  "center": {
+    "lat": 37.7634624,
+    "lon": -122.4303809
+  },
+  "tags": {
+    "amenity": "school",
+    "ele": "30",
+    "gnis:feature_id": "232486",
+    "name": "Sanchez Elementary School",
+    "operator": "San Francisco Unified School District",
+    "operator:short": "SFUSD",
+    "operator:type": "public",
+    "operator:wikidata": "Q2215009"
+  }
+},
+{
+  "type": "way",
+  "id": 300732288,
+  "center": {
+    "lat": 37.7636429,
+    "lon": -122.4294106
+  },
+  "tags": {
+    "amenity": "school",
+    "name": "Everett Middle School",
+    "operator": "San Francisco Unified School District",
+    "operator:short": "SFUSD",
+    "operator:type": "public",
+    "operator:wikidata": "Q2215009"
+  }
+},
+{
+  "type": "way",
+  "id": 344661026,
+  "center": {
+    "lat": 37.7530189,
+    "lon": -122.4201791
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "3351",
+    "addr:postcode": "94110",
+    "addr:state": "CA",
+    "addr:street": "23rd Street",
+    "amenity": "school",
+    "check_date": "2025-02-11",
+    "name": "Buena Vista Horace Mann",
+    "operator": "San Francisco Unified School District",
+    "operator:short": "SFUSD",
+    "operator:type": "public",
+    "operator:wikidata": "Q2215009",
+    "phone": "+1-415-282-7869",
+    "source": "SFUSD website",
+    "website": "http://bvhm-sfusd-ca.schoolloop.com/"
+  }
+},
+{
+  "type": "way",
+  "id": 344667149,
+  "center": {
+    "lat": 37.7737726,
+    "lon": -122.4286616
+  },
+  "tags": {
+    "amenity": "school",
+    "courts": "4",
+    "name": "John Muir Elementary School",
+    "operator": "San Francisco Unified School District",
+    "operator:short": "SFUSD",
+    "operator:type": "public",
+    "operator:wikidata": "Q2215009"
+  }
+},
+{
+  "type": "way",
+  "id": 545423056,
+  "center": {
+    "lat": 37.7813543,
+    "lon": -122.4367600
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "1835",
+    "addr:postcode": "94115",
+    "addr:state": "CA",
+    "addr:street": "Ellis Street",
+    "amenity": "school",
+    "name": "Jewish Community High School of the Bay",
+    "website": "https://www.jchsofthebay.org/",
+    "wikidata": "Q6189784"
+  }
+},
+{
+  "type": "way",
+  "id": 578689959,
+  "center": {
+    "lat": 37.7549278,
+    "lon": -122.4148898
+  },
+  "tags": {
+    "amenity": "school",
+    "gnis:feature_id": "225041",
+    "height": "10",
+    "name": "Cesar Chavez Elementary School",
+    "operator": "San Francisco Unified School District",
+    "operator:short": "SFUSD",
+    "operator:type": "public",
+    "operator:wikidata": "Q2215009",
+    "operator:wikipedia": "en:San Francisco Unified School District",
+    "website": "https://cces-sfusd-ca.schoolloop.com/"
+  }
+},
+{
+  "type": "way",
+  "id": 587670476,
+  "center": {
+    "lat": 37.7694331,
+    "lon": -122.4196653
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:country": "US",
+    "addr:housenumber": "1735",
+    "addr:postcode": "94103",
+    "addr:state": "CA",
+    "addr:street": "Mission Street",
+    "building": "yes",
+    "healthcare": "clinic",
+    "name": "Health Right 360",
+    "note": "Formerly known as Haight-Ashbury Free Clinic",
+    "wikidata": "Q30283747"
+  }
+},
+{
+  "type": "way",
+  "id": 690979551,
+  "center": {
+    "lat": 37.7602332,
+    "lon": -122.4368265
+  },
+  "tags": {
+    "amenity": "school",
+    "ele": "47",
+    "gnis:feature_id": "1655684",
+    "name": "German International School of Silicon Valley San Francisco",
+    "website": "https://www.gissv.org/gissv-home-english/locations/san-francisco"
+  }
+},
+{
+  "type": "way",
+  "id": 690982861,
+  "center": {
+    "lat": 37.7589327,
+    "lon": -122.4364879
+  },
+  "tags": {
+    "amenity": "school",
+    "ele": "49",
+    "gnis:feature_id": "222561",
+    "name": "Harvey Milk Civil Rights Academy"
+  }
+},
+{
+  "type": "way",
+  "id": 838847568,
+  "center": {
+    "lat": 37.7537128,
+    "lon": -122.4381831
+  },
+  "tags": {
+    "amenity": "school",
+    "elevation": "94",
+    "gnis:feature_id": "218202",
+    "name": "Alvarado Elementary School",
+    "operator": "San Francisco Unified School District",
+    "operator:type": "public"
+  }
+},
+{
+  "type": "way",
+  "id": 960975186,
+  "center": {
+    "lat": 37.7624340,
+    "lon": -122.4186589
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "272",
+    "addr:postcode": "94110",
+    "addr:state": "CA",
+    "addr:street": "Capp Street",
+    "amenity": "community_centre",
+    "building": "industrial",
+    "community_centre": "hackerspace",
+    "hackerspace": "yes",
+    "leisure": "hackerspace",
+    "name": "Noisebridge",
+    "note": "one of the earliest hackspaces in the US",
+    "operator": "Hackerz",
+    "was:addr:housenumber": "2261",
+    "was:addr:street": "Mission Street",
+    "was:addr:unit": "235-A",
+    "website": "https://noisebridge.net/wiki/272",
+    "wikidata": "Q7047734"
+  }
+},
+{
+  "type": "way",
+  "id": 1090739372,
+  "center": {
+    "lat": 37.7689877,
+    "lon": -122.4229198
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "250",
+    "addr:postcode": "94103",
+    "addr:state": "CA",
+    "addr:street": "Valencia Street",
+    "amenity": "school",
+    "check_date": "2025-09-03",
+    "name": "San Francisco Friends School",
+    "religion": "christian",
+    "website": "https://www.sffriendsschool.org/",
+    "wikidata": "Q7414038"
+  }
+},
+{
+  "type": "way",
+  "id": 1411600841,
+  "center": {
+    "lat": 37.7551478,
+    "lon": -122.4088791
+  },
+  "tags": {
+    "amenity": "school",
+    "name": "The Mission Preparatory School",
+    "website": "https://missionpreparatory.com/"
+  }
+},
+{
+  "type": "way",
+  "id": 1411601878,
+  "center": {
+    "lat": 37.7567416,
+    "lon": -122.4126627
+  },
+  "tags": {
+    "addr:housenumber": "2576",
+    "addr:street": "Harrison Street",
+    "alt_name": "George R. Moscone Elementary School",
+    "amenity": "school",
+    "check_date": "2023-02-18",
+    "ele": "12",
+    "gnis:feature_id": "229822",
+    "grades": "0-5",
+    "name": "George Moscone Elementary",
+    "operator": "San Francisco Unified School District",
+    "operator:short": "SFUSD",
+    "operator:type": "public",
+    "operator:wikidata": "Q2215009",
+    "religion": "no",
+    "website": "https://www.sfusd.edu/school/george-r-moscone-elementary-school"
+  }
+},
+{
+  "type": "way",
+  "id": 1411602880,
+  "center": {
+    "lat": 37.7595360,
+    "lon": -122.4136764
+  },
+  "tags": {
+    "amenity": "school",
+    "name": "John O'Connell High School",
+    "website": "https://www.sfusd.edu/school/john-oconnell-high-school"
+  }
+},
+{
+  "type": "way",
+  "id": 1411604286,
+  "center": {
+    "lat": 37.7640576,
+    "lon": -122.4278718
+  },
+  "tags": {
+    "addr:housenumber": "3371",
+    "addr:street": "16th Street",
+    "amenity": "school",
+    "denomination": "catholic",
+    "education": "school",
+    "ele": "26",
+    "gnis:feature_id": "1655704",
+    "height": "10",
+    "name": "Mission Dolores Academy",
+    "old_name": "Mission Dolores School",
+    "religion": "christian",
+    "website": "https://www.mdasf.org/#"
+  }
+},
+{
+  "type": "relation",
+  "id": 7394142,
+  "center": {
+    "lat": 37.7751619,
+    "lon": -122.4218473
+  },
+  "tags": {
+    "addr:city": "San Francisco",
+    "addr:housenumber": "50",
+    "addr:postcode": "94102",
+    "addr:state": "CA",
+    "addr:street": "Oak Street",
+    "alt_name": "French American International School / Chinese American International School / International High School",
+    "amenity": "school",
+    "name": "International High School",
+    "operator": "National Center for International Schools",
+    "type": "multipolygon",
+    "website": "https://www.internationalsf.org",
+    "wikidata": "Q6050920",
+    "wikipedia": "en:International High School of San Francisco"
+  }
+}
+
+  ]
+}

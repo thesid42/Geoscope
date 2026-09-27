@@ -6,25 +6,25 @@ const mocks = vi.hoisted(() => {
   const bounds = { isValid: () => true, pad: () => bounds };
   const map = {
     setView: vi.fn(function () { return this; }),
-    fitBounds: vi.fn(), removeLayer: vi.fn(), remove: vi.fn(), on: vi.fn(), off: vi.fn(),
+    fitBounds: vi.fn(), invalidateSize: vi.fn(), removeLayer: vi.fn(), remove: vi.fn(), on: vi.fn(), off: vi.fn(),
   };
   const popups = [];
   const markers = [];
-  const addedLayer = () => ({ addTo: vi.fn(function () { return this; }) });
+  const addedLayer = () => ({ addTo: vi.fn(function () { return this; }), bindTooltip: vi.fn(function () { return this; }), bindPopup: vi.fn(function () { return this; }), on: vi.fn(function () { return this; }) });
   return { map, bounds, popups, markers, addedLayer };
 });
 
 vi.mock('leaflet', () => ({
   default: {
     map: vi.fn(() => mocks.map),
-    control: { zoom: vi.fn(() => mocks.addedLayer()) },
+    control: { zoom: vi.fn(() => mocks.addedLayer()), scale: vi.fn(() => mocks.addedLayer()) },
     tileLayer: vi.fn(() => mocks.addedLayer()),
     divIcon: vi.fn((options) => options),
     rectangle: vi.fn(() => mocks.addedLayer()),
     circleMarker: vi.fn(() => mocks.addedLayer()),
     geoJSON: vi.fn((data, options) => {
-      for (const feature of data.features) {
-        options.onEachFeature?.(feature, { bindPopup: (node) => mocks.popups.push(node) });
+      for (const feature of data.features ?? [data]) {
+        options.onEachFeature?.(feature, { bindPopup: (node) => mocks.popups.push(node), on: vi.fn() });
       }
       return { ...mocks.addedLayer(), getBounds: () => mocks.bounds };
     }),
@@ -95,4 +95,31 @@ it('shows supplied parcel IDs as text in scenario marker tooltips', () => {
   const tooltip = mocks.markers[0].bindTooltip.mock.calls[0][0];
   expect(tooltip.textContent).toContain(id);
   expect(tooltip.querySelector('img')).toBeNull();
+});
+
+
+it('selects the same ranked site from its map marker and labels the study boundary', () => {
+  const candidate = { id: 'plot-1', rank: 2, longitude: -122.4, latitude: 37.7 };
+  const onSelect = vi.fn();
+  const props = { ...makeProps(), mode: 'scenario', scenarioCandidates: [candidate], selectedCandidateId: candidate.id, onSelectScenarioCandidate: onSelect, scenarioArea: [-122.41,37.69,-122.39,37.71] };
+  const view = render(<LeafletMap {...props} />);
+  mocks.markers[0].handlers.click();
+  expect(onSelect).toHaveBeenCalledWith(candidate);
+  expect(view.getByLabelText('Map legend').textContent).toContain('Selected plot');
+  expect(view.getByLabelText('Map legend').textContent).toContain('Proposed building');
+  expect(view.getByRole('button', { name: 'Zoom to selected site' })).toBeTruthy();
+});
+
+it('keeps drawing clicks from changing the selected site', () => {
+  const onSelect = vi.fn();
+  render(<LeafletMap {...makeProps()} mode="scenario" scenarioCandidates={[{ id: 'plot-1', rank: 1, longitude: -122.4, latitude: 37.7 }]} onSelectScenarioCandidate={onSelect} areaSelectionActive />);
+  mocks.markers[0].handlers.click();
+  expect(onSelect).not.toHaveBeenCalled();
+});
+
+
+it('prevents dragging compare pins while a run owns their coordinates', () => {
+  const props = makeProps(); render(<LeafletMap {...props} interactionsLocked />);
+  mocks.markers[0].handlers.dragend({ target: { getLatLng: () => ({ lng: 1, lat: 2 }) } });
+  expect(props.onCandidateChange).not.toHaveBeenCalled();
 });

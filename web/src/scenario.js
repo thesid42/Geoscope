@@ -27,42 +27,81 @@ export function validateBuilding(building) {
   return null;
 }
 
+const MERCATOR_RADIUS = 6_378_137;
+const MERCATOR_LIMIT = 85.05112878;
+const MAX_CONTEXT_FEATURES = 160;
+const MAX_CONTEXT_POSITIONS = 20_000;
+const mercatorY = (latitude) => MERCATOR_RADIUS * Math.log(Math.tan(Math.PI / 4 + radians(Math.max(-MERCATOR_LIMIT, Math.min(MERCATOR_LIMIT, latitude))) / 2));
 function polygonComponents(geometry) {
-  if (!geometry) return [];
-  if (geometry.type === 'Polygon') return [geometry.coordinates ?? []];
-  if (geometry.type === 'MultiPolygon') return geometry.coordinates ?? [];
+  if (geometry?.type === 'Polygon') return [geometry.coordinates ?? []];
+  if (geometry?.type === 'MultiPolygon') return geometry.coordinates ?? [];
   return [];
 }
+const finitePosition = (point) => Array.isArray(point) && point.length >= 2 && Number.isFinite(point[0]) && Number.isFinite(point[1]);
 
+// All geometry and tiles share this local, uniformly scaled Web Mercator frame.
+// GIS calculations remain in the independently checked analysis CRS.
 export function makeScenarioSceneData({ area, candidate, building, dataset }) {
   const [west, south, east, north] = area;
-  const centerLat = (south + north) / 2; const centerLon = (west + east) / 2;
-  const xScale = 111_320 * Math.cos(centerLat * Math.PI / 180); const yScale = 110_574;
-  const toLocal = ([lon, lat]) => ({ x: (lon - centerLon) * xScale, z: -(lat - centerLat) * yScale });
-  const width = (east - west) * xScale; const depth = (north - south) * yScale;
+  const centerLon = Number(candidate.longitude); const centerLat = Number(candidate.latitude);
+  const scale = Math.cos(radians(centerLat)); const originY = mercatorY(centerLat);
+  const toLocal = ([lon, lat]) => ({ x: MERCATOR_RADIUS * radians(lon - centerLon) * scale, z: -(mercatorY(lat) - originY) * scale });
+  const nw = toLocal([west, north]); const se = toLocal([east, south]);
   const allFeatures = dataset?.features ?? [];
-  const selectedPlot = allFeatures.find((feature) => feature?.properties?.layer === 'candidate_site' && String(feature.id ?? feature.properties?.id) === String(candidate.id)) ?? null;
-  const context = [];
-  for (const feature of allFeatures.slice(0, 500)) {
-    const role = feature?.properties?.layer;
-    const kind = role === 'population' ? 'population' : role === 'candidate_site' ? 'plot' : ['building', 'restricted'].includes(role) ? role : null;
-    if (!kind || !feature.geometry) continue;
-    if (feature.geometry.type === 'Point' && kind === 'population') {
-      const [lon, lat] = feature.geometry.coordinates ?? [];
-      if (lon >= west && lon <= east && lat >= south && lat <= north) context.push({ kind, point: toLocal([lon, lat]) });
-    } else if (['Polygon', 'MultiPolygon'].includes(feature.geometry.type)) {
-      const components = polygonComponents(feature.geometry).map((component) => component.map((ring) => ring.filter((p) => Array.isArray(p) && p.length >= 2 && Number.isFinite(p[0]) && Number.isFinite(p[1])).map(toLocal)).filter((ring) => ring.length >= 4)).filter((component) => component.length > 0);
-      for (const rings of components) context.push({ kind, rings });
+  const selectedPlot = allFeatures.find((f) => f?.properties?.layer === 'candidate_site' && String(f.id) === String(candidate.id));
+  const convert = (geometry) => polygonComponents(geometry).map((component) => component.map((ring) => ring.filter(finitePosition).map(toLocal)).filter((ring) => ring.length >= 4)).filter((component) => component.length > 0);
+  const context = []; const services = []; let positionCount = 0; let featureCount = 0; let omitted = 0;
+  for (const feature of allFeatures) {
+    const props = feature?.properties ?? {}; const role = props.layer;
+    const kind = role === 'candidate_site' ? 'plot' : role === 'park' ? 'service' : role;
+    if (!['population', 'service', 'plot', 'building', 'restricted'].includes(kind) || !feature.geometry) continue;
+    const components = polygonComponents(feature.geometry);
+    const first = feature.geometry.type === 'Point' ? feature.geometry.coordinates : components[0]?.[0]?.[0];
+    if (!finitePosition(first)) continue;
+    const point = toLocal(first);
+    const positions = components.reduce((total, component) => total + component.reduce((count, ring) => count + ring.length, 0), 0);
+    // Only nearby source features are rendered. The selected parcel is retained separately.
+    const near = Math.abs(point.x) <= 1500 && Math.abs(point.z) <= 1500;
+    if (!near) continue;
+    const name = String(props.name || feature.id || props.service_type || kind).slice(0, 80);
+    const simulated = props.scenario_only === true || (typeof props.source === 'string' && /\b(simulated|mock|synthetic)\b/i.test(props.source));
+    if (kind === 'service' && services.length < 12) services.push({ point, name, simulated, serviceType: props.service_type || (role === 'park' ? 'park' : 'service') });
+    // Large population fills would obscure the street map; their counts stay in the analysis panel.
+    if (kind === 'population' && components.length) continue;
+    if (featureCount >= MAX_CONTEXT_FEATURES || positionCount + positions > MAX_CONTEXT_POSITIONS) { omitted++; continue; }
+    featureCount++; positionCount += positions;
+    const sourceHeight = typeof props.height_m === 'number' && Number.isFinite(props.height_m) && props.height_m > 0 && props.height_m <= 150 && typeof props.source === 'string' && props.source.trim() ? props.height_m : null;
+    if (components.length) {
+      for (const rings of convert(feature.geometry)) context.push({ kind, rings, name, simulated, sourceHeight });
+    } else if (kind === 'population') context.push({ kind, point, name });
+  }
+  const buildingFootprint = (polygonComponents(candidate.footprint)[0]?.[0] ?? []).filter(finitePosition).map(toLocal);
+  return {
+    center: { longitude: centerLon, latitude: centerLat }, toLocal,
+    width: se.x - nw.x, depth: se.z - nw.z, areaBounds: { west: nw.x, north: nw.z, east: se.x, south: se.z },
+    context, services, omitted, buildingFootprint, plotRings: selectedPlot ? convert(selectedPlot.geometry) : [],
+    buildingHeight: Number(building.height_m), simulated: dataset?.scenario_status === 'MOCK_SIMULATION' || selectedPlot?.properties?.scenario_only === true,
+    serviceInventory: dataset?.service_inventory ?? null,
+  };
+}
+
+export function makeStreetTiles(model, view = 'closeup') {
+  const zoom = view === 'neighborhood' ? 16 : 18;
+  const count = 2 ** zoom;
+  const { longitude, latitude } = model.center;
+  const centerX = Math.floor((longitude + 180) / 360 * count);
+  const latRad = radians(Math.max(-MERCATOR_LIMIT, Math.min(MERCATOR_LIMIT, latitude)));
+  const centerY = Math.floor((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2 * count);
+  const lon = (x) => x / count * 360 - 180;
+  const lat = (y) => Math.atan(Math.sinh(Math.PI * (1 - 2 * y / count))) * 180 / Math.PI;
+  const tiles = [];
+  for (let y = Math.max(0, centerY - 1); y <= Math.min(count - 1, centerY + 1); y++) {
+    for (let x = Math.max(0, centerX - 1); x <= Math.min(count - 1, centerX + 1); x++) {
+      const nw = model.toLocal([lon(x), lat(y)]); const se = model.toLocal([lon(x + 1), lat(y + 1)]);
+      tiles.push({ x, y, zoom, url: `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`, width: se.x - nw.x, depth: se.z - nw.z, centerX: (nw.x + se.x) / 2, centerZ: (nw.z + se.z) / 2 });
     }
   }
-  if (selectedPlot && !context.some((item) => item.kind === 'plot' && item.rings)) {
-    for (const component of polygonComponents(selectedPlot.geometry)) {
-      const rings = component.map((ring) => ring.filter((p) => Array.isArray(p) && p.length >= 2 && Number.isFinite(p[0]) && Number.isFinite(p[1])).map(toLocal)).filter((ring) => ring.length >= 4);
-      if (rings.length) context.push({ kind: 'plot', rings });
-    }
-  }
-  const footprintRings = polygonComponents(candidate?.footprint)[0] ?? [];
-  const buildingFootprint = (footprintRings[0] ?? []).filter((p) => Array.isArray(p) && p.length >= 2 && Number.isFinite(p[0]) && Number.isFinite(p[1])).map(toLocal);
-  const plotRings = selectedPlot ? polygonComponents(selectedPlot.geometry).map((component) => component.map((ring) => ring.map(toLocal))) : [];
-  return { center: { longitude: centerLon, latitude: centerLat }, width, depth, context, buildingFootprint, plotRings, buildingHeight: Number(building?.height_m) };
+  const west = Math.min(...tiles.map((tile) => tile.centerX - tile.width / 2)); const east = Math.max(...tiles.map((tile) => tile.centerX + tile.width / 2));
+  const north = Math.min(...tiles.map((tile) => tile.centerZ - tile.depth / 2)); const south = Math.max(...tiles.map((tile) => tile.centerZ + tile.depth / 2));
+  return { tiles, zoom, width: east - west, depth: south - north, centerX: (west + east) / 2, centerZ: (north + south) / 2 };
 }
