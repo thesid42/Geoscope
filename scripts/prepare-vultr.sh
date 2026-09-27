@@ -52,14 +52,7 @@ if [[ $role == worker ]]; then
   systemctl restart docker
   docker run --rm --runtime=runsc hello-world
 else
-  # Caddy installs as a host service. Its website is configured separately.
-  apt-get install -y debian-keyring debian-archive-keyring
-  curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
-    | gpg --batch --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-  curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt \
-    -o /etc/apt/sources.list.d/caddy-stable.list
-  chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg /etc/apt/sources.list.d/caddy-stable.list
-  apt-get update
-  apt-get install -y caddy
+  apt-get install -y nginx
+  systemctl enable nginx
 fi
-printf '\n%s host packages are ready. Continue with configuration in docs/VULTR_SETUP.md.\n' "$role"
+printf '\n%s host packages are ready. Continue with configuration in docs/DEPLOY.md.\n' "$role"

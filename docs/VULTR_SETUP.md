@@ -6,10 +6,12 @@ Use **fresh Ubuntu 24.04 x86_64 VMs**. Commands below run in each server's SSH t
 
 ## 1. Create two Vultr servers
 
-| Server | Suggested size | Public inbound ports |
-| --- | --- | --- |
+
+| Server                          | Suggested size   | Public inbound ports                           |
+| ------------------------------- | ---------------- | ---------------------------------------------- |
 | `geoscope-controller` — website | 2 vCPU, 4 GB RAM | TCP 22 from your IP; TCP 80/443 from everyone. |
-| `geoscope-worker` — sandboxes | 2 vCPU, 4 GB RAM | TCP 22 from your IP only. |
+| `geoscope-worker` — sandboxes   | 2 vCPU, 4 GB RAM | TCP 22 from your IP only.                      |
+
 
 Use the same region, attach your SSH key, and connect both VMs to the same dedicated **Vultr VPC**. In Vultr, open **Network → VPC Networks → Add VPC Network**, choose the region, then attach the network to both instances. See [Vultr VPC setup](https://docs.vultr.com/products/network/vpc-networks/provisioning). Keep normal outbound access enabled. **Do not expose ports 8000, 8100, or 5173.** Apply equivalent firewall restrictions to IPv6 if enabled.
 
@@ -17,6 +19,8 @@ Have these ready:
 
 - A **Vultr Serverless Inference** key and an available chat/code model ID.
 - A domain such as `geoscope.example.com`, with its DNS A record pointing to the **controller's public IP**. Remove any incorrect AAAA record.
+
+
 
 ## 2. Prepare each server
 
@@ -48,9 +52,9 @@ Record the **controller VPC IP** and **worker VPC IP** from Vultr. On the worker
 
 On the **worker**, replace the uppercase placeholders below. Allow your SSH address before enabling the host firewall; keep the Vultr console available:
 
-```bash
+```
 sudo ufw allow from YOUR_ADMIN_PUBLIC_IP to any port 22 proto tcp
-sudo ufw insert 1 allow in on VPC_INTERFACE from CONTROLLER_VPC_IP to WORKER_VPC_IP port 8100 proto tcp
+sudo ufw insert 1 allow in on VPC_INTERFACE from 10.12.96.4 to 10.12.96.3 port 8100 proto tcp
 sudo ufw insert 2 deny in to any port 8100 proto tcp
 sudo ufw enable
 sudo ufw status numbered
@@ -91,7 +95,7 @@ Expect `PASS`. The existing `parkscope` paths/service names are intentional.
 
 ### Resume from the Step 4 build error
 
-Your Docker image build failed while downloading packages. Keep the existing VMs and repository; **do not rerun `prepare-vultr.sh` or clone again**. Follow this sequence instead:
+Your Docker image build failed while d=ownloading packages. Keep the existing VMs and repository; **do not rerun** `prepare-vultr.sh` **or clone again**. Follow this sequence instead:
 
 **A. Update both servers.** SSH to each VM using its **public IP**, then run on each:
 
