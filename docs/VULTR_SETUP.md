@@ -2,7 +2,7 @@
 
 **Two servers, six steps.** One server runs the website; the other runs the sandbox jobs. A Vultr VPC connects them privately. The preparation script handles package installation.
 
-Use **fresh Ubuntu 24.04 x86_64 VMs**. Commands below run in each server's SSH terminal, not local PowerShell. Already started the previous setup? Use the [migration steps](VULTR_ADVANCED.md#migrate-an-existing-worker) and keep your existing tokens. Need troubleshooting? Use the [advanced guide](VULTR_ADVANCED.md).
+Use **fresh Ubuntu 24.04 x86_64 VMs**. Commands below run in each server's SSH terminal, not local PowerShell. Stopped at Step 4 with the Shapely/DNS build error? **[Resume here](#resume-from-the-step-4-build-error)** using your existing VMs and tokens. Need troubleshooting? Use the [advanced guide](VULTR_ADVANCED.md).
 
 ## 1. Create two Vultr servers
 
@@ -60,7 +60,9 @@ This allows TCP 8100 only from the controller over the VPC interface. The worker
 
 ## 4. Configure the worker
 
-On the **worker**:
+If your previous attempt failed with `Temporary failure in name resolution`, skip the fresh-install commands and use **[Resume from the Step 4 build error](#resume-from-the-step-4-build-error)** below.
+
+For a fresh install, on the **worker**:
 
 ```bash
 cd "$HOME/Geoscope"
@@ -69,7 +71,7 @@ openssl rand -hex 32
 sudo nano /etc/parkscope/worker.env
 ```
 
-If the image build reports `Temporary failure in name resolution`, use the [build DNS recovery commands](VULTR_ADVANCED.md#docker-build-cannot-resolve-pypi).
+If the image build reports `Temporary failure in name resolution`, continue with the recovery steps below.
 
 The first installer run creates the configuration file. Save the generated random string privately as your **shared worker token**. Change only these two lines; keep the other defaults:
 
@@ -87,6 +89,77 @@ sudo -u parkscope bash -c 'set -a; source /etc/parkscope/worker.env; set +a; /op
 
 Expect `PASS`. The existing `parkscope` paths/service names are intentional.
 
+### Resume from the Step 4 build error
+
+Your Docker image build failed while downloading packages. Keep the existing VMs and repository; **do not rerun `prepare-vultr.sh` or clone again**. Follow this sequence instead:
+
+**A. Update both servers.** SSH to each VM using its **public IP**, then run on each:
+
+```bash
+cd "$HOME/Geoscope"
+git pull --ff-only
+```
+
+**B. Replace the old private connection.** Attach both existing VMs to the same Vultr VPC as described in [Step 1](#1-create-two-vultr-servers). Record their actual VPC IPs, confirm them with `ip -br -4 addr`, and apply the worker firewall rules in [Step 3](#3-allow-the-private-connection). A NetBird IP is not a VPC IP.
+
+Now remove NetBird on **both dedicated Geoscope VMs**, if installed. Keep using public-IP SSH for these commands:
+
+```bash
+if command -v netbird >/dev/null 2>&1; then
+    sudo netbird down
+    sudo systemctl disable --now netbird
+    sudo apt-get remove -y netbird
+fi
+```
+
+**C. Check DNS on the worker.** Run these separately; both should return addresses:
+
+```bash
+getent hosts pypi.org
+getent hosts files.pythonhosted.org
+```
+
+If either fails, stop before rebuilding and inspect `resolvectl status` and `cat /etc/resolv.conf`. The host's DNS needs fixing first; removing NetBird or selecting host-network builds does not guarantee that. If both resolve, continue.
+
+**D. Configure the worker before retrying.** The failed build may not have created its environment file. On the **worker**, create it only if missing:
+
+```bash
+cd "$HOME/Geoscope"
+sudo install -d -m 0750 /etc/parkscope
+if ! sudo test -f /etc/parkscope/worker.env; then
+    sudo install -m 0600 deploy/worker.env.example /etc/parkscope/worker.env
+fi
+```
+
+Keep an existing real `WORKER_TOKEN`. If you have not created one, run `openssl rand -hex 32` in the terminal, save that value privately, and use it below. Then open the file:
+
+```bash
+sudo nano /etc/parkscope/worker.env
+```
+
+The file should contain:
+
+```dotenv
+WORKER_TOKEN=YOUR_SHARED_WORKER_TOKEN
+SANDBOX_IMAGE=parkscope-sandbox:local
+WORKER_BIND_IP=YOUR_ACTUAL_WORKER_VPC_IP
+TMPDIR=/var/lib/parkscope-worker/tmp
+```
+
+Remove old `NETBIRD_WORKER_IP` and `NETBIRD_INTERFACE` lines. Use the worker's actual VPC address, not its public address. Save and exit nano with **Ctrl+O, Enter, Ctrl+X**.
+
+**E. Retry the build and start the worker.** Run on the **worker**:
+
+```bash
+sudo env SANDBOX_BUILD_NETWORK=host bash scripts/install-worker.sh
+sudo systemctl status parkscope-worker --no-pager
+sudo -u parkscope bash -c 'set -a; source /etc/parkscope/worker.env; set +a; /opt/parkscope/venv/bin/python /opt/parkscope/scripts/worker-preflight.py'
+```
+
+Stop if the installer fails. Because you created the environment file first, this successful installer run also starts the service. Expect **active (running)** and **PASS**. The host network is used only for building the trusted image; analysis jobs still have no network.
+
+**F. Continue at [Step 5](#5-configure-the-website)** on the controller. Set `WORKER_URL=http://YOUR_ACTUAL_WORKER_VPC_IP:8100` and use the **same worker token**. If you already configured that file, preserve its inference key and app secret. There is no need to repeat Steps 1–4 after finishing this recovery sequence.
+
 ## 5. Configure the website
 
 On the **controller**:
@@ -99,7 +172,7 @@ openssl rand -hex 32
 nano deploy/controller.env
 ```
 
-Use this new random string for `APP_ACCESS_TOKEN`. Fill the file as follows, replacing the sample hostname and every placeholder:
+For a new configuration, use this new random string for `APP_ACCESS_TOKEN`. If resuming with an existing real app secret, keep it. Fill the file as follows, replacing the sample hostname and every placeholder:
 
 ```dotenv
 VULTR_SERVERLESS_INFERENCE_API_KEY=YOUR_INFERENCE_KEY
