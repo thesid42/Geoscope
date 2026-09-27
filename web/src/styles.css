@@ -793,7 +793,6 @@ body {
 @media (max-height: 860px) {
   .lede { display: none; }
   .task-hint { -webkit-line-clamp: 1; }
-  .source-note { max-height: 1.4em; white-space: nowrap; text-overflow: ellipsis; }
   .map-head .eyebrow { display: none; }
   .scenario-demo-banner.global { display: none; }
 }
