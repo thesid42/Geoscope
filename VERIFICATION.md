@@ -2,7 +2,7 @@
 
 ## Current deployment snapshot (2026-09-26 Pacific / 2026-09-27 UTC)
 
-The latest application release, `8f8143c`, is deployed on Vultr. **137 backend tests, 30 frontend tests, the production build, and final live population/scenario analyses passed**; both live jobs were reference verified on their first execution. The dataset now includes 75 observed OSM facility records alongside real Census population and simulated land. Public assets and worker readiness were checked, and managed sandbox containers were cleaned up.
+The latest application release, `55e8a63`, is deployed on Vultr. **138 backend tests, 30 frontend tests, the production build, and live population/scenario analyses passed**. Live scenario run `813e604c322449d79f6e9b686f6c1840` was reference verified on its third bounded execution attempt after two generated-script repairs. The 1,085-feature scenario dataset includes 75 observed OSM facility records, 556 mapped building footprints, 435 buffered road/footpath corridors, real Census population, and simulated candidate land. Public assets and worker readiness were checked, installed worker module hashes matched the repository, and managed sandbox containers were cleaned up.
 
 **The revised UI and street-context 3D view still need visual browser acceptance.** Browser automation exits during Windows sandbox initialization before navigation. The public deployment currently uses HTTP through Nginx; domain/HTTPS is outstanding.
 

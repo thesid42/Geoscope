@@ -1,6 +1,6 @@
 # Geoscope application handoff
 
-Recorded September 26, 2026 (America/Los_Angeles), September 27 UTC. Last tested and deployed **application** commit: `8f8143c` on `main`. Documentation commits may be newer. This is a status snapshot, not a claim that all future deployments have been tested.
+Recorded September 26, 2026 (America/Los_Angeles), September 27 UTC. Last tested and deployed **application** commit: `55e8a63` on `main`. Documentation commits may be newer. This is a status snapshot, not a claim that all future deployments have been tested.
 
 ## Start here
 
@@ -11,9 +11,9 @@ Recorded September 26, 2026 (America/Los_Angeles), September 27 UTC. Last tested
 - The dataset mixes observed population/facility records with simulated land. Geometric fit is checked; actual land availability is not established.
 - Credentials belong in the existing server environment files or the operator's private credential store. No passwords, API keys, worker tokens, or app secrets belong in this document or Git.
 
-### Local working-tree update after this deployment snapshot
+### Deployed land-context update
 
-The current workspace includes an **undeployed** land-context improvement: the four eligible simulated plots were moved off mapped OSM buildings and transport corridors; 556 mapped building footprints and 435 buffered road/footpath corridors around all seven plots are now enforced as sandbox obstructions. The combined fixture has 1,085 features (915,961 bytes). Local reference results still have four eligible plots; ranked clinic IDs are `sfmock-fit-02`, `sfmock-fit-01`, `sfmock-fit-03`, with additional population weights `2,906`, `2,906`, and `0`. The public server and the deployment evidence below still describe commit `8f8143c` until this change is reviewed, committed, deployed to both controller and worker where applicable, and accepted in the browser.
+Commit `55e8a63` moved the four eligible simulated plots off mapped OSM buildings and transport corridors. The deployed fixture includes 556 mapped building footprints and 435 buffered road/footpath corridors around all seven plots, enforced as sandbox obstructions. It has 1,085 features (915,961 bytes). The verified clinic ranking is `sfmock-fit-02`, `sfmock-fit-01`, `sfmock-fit-03`, with additional population weights `2,906`, `2,906`, and `0`. This is deployed and API-tested on both the controller and worker; deployed visual browser acceptance remains outstanding.
 
 ## Implemented behavior
 
@@ -39,7 +39,7 @@ The default SF study rectangle is `[-122.433, 37.758, -122.417, 37.776]` in west
 | [SF population and parks](../data/real/sf-parks-census.geojson) | 1,837,936 bytes (~1.84 MB); 244 population tracts and 226 selected park features. See its [manifest](../data/real/manifest.json). |
 | [Raw facility download](../data/real-scenario/sf-osm-services-raw.json) | 34,310 bytes; 76 OSM elements in the query response. |
 | [Normalized facilities](../data/real-scenario/sf-osm-services.geojson) | 41,358 bytes (~41.4 kB); 75 records after excluding one explicitly disused clinic: 21 clinics, 4 libraries, 34 schools, 16 community centers. |
-| [Combined SF demo](../data/real-scenario/sf-mock.geojson) | 62,228 bytes; 96 features: 12 unchanged Census tracts, 75 mapped facilities, 7 simulated plots, 1 simulated building, and 1 simulated restriction. |
+| [Combined SF demo](../data/real-scenario/sf-mock.geojson) | 915,961 bytes; 1,085 features: 12 unchanged Census tracts, 75 mapped facilities, 7 simulated plots, 556 mapped building footprints, and 435 buffered road/footpath corridors. |
 
 The facility query covers a neighborhood extract, **not the whole city**. Its source timestamp is **2026-05-06T03:25:00Z**, even though it was downloaded in September. OSM coverage and operating status may be incomplete or stale. Counts are mapped feature records, not a certified directory or a count of distinct architectural structures. Ways and relations use the center returned by Overpass; separate OSM elements may describe the same real facility. Attribution and ODbL terms are recorded in the [facility manifest](../data/real-scenario/sf-osm-services-manifest.json).
 
@@ -52,11 +52,11 @@ Observed default results:
 | Population weight outside the rectangle | 3,425 |
 | Mapped facilities inside the rectangle | 12 clinics; 1 library; 13 schools; 7 community centers |
 | Plot fit | 4 eligible out of 7; top 3 displayed |
-| Ranked clinic plot IDs | `sfmock-fit-04`, `sfmock-fit-01`, `sfmock-fit-02` |
+| Ranked clinic plot IDs | `sfmock-fit-02`, `sfmock-fit-01`, `sfmock-fit-03` |
 | Baseline clinic coverage within 400 m | 34,445 population weight; 2,906 outside |
-| Additional coverage for the ranked clinic proposals | **0 for all three** |
+| Additional coverage for the ranked clinic proposals | **2,906; 2,906; 0**, in rank order |
 
-Zero added coverage is a valid result. These plots fit, but the current proxy calculation does not establish a need for another clinic at those sites. Rankings also use weighted mean distance as a tie-breaker. Do not change data or verification just to produce a positive recommendation.
+The first two alternatives add the same estimated population weight and are ordered by weighted mean distance; the third adds zero. A plot fitting the supplied constraints does not by itself establish a need for another clinic. Do not change data or verification just to produce a positive recommendation.
 
 `existing_services_in_area` counts the selected facility type. `existing_service_counts` contains all four type counts. A service is counted when its projected geometry representative point is covered by the selected area, including boundary points. `service_features` remains the global matching-type inventory count used for baseline distances, including records outside the rectangle. `service_inventory` carries source/date/completeness. Missing records are not evidence of absence.
 
@@ -66,18 +66,18 @@ Last implementation checks, completed before this documentation update:
 
 | Check | Recorded outcome |
 | --- | --- |
-| Full backend suite | **137 passed** in Linux with GIS dependencies; Starlette/HTTPX deprecation warning only. |
+| Full backend suite | **138 passed** in Linux with GIS dependencies; Starlette/HTTPX deprecation warning only. |
 | Frontend suite | **30 passed** across App, map lifecycle, scene geometry, and viewer lifecycle/fallback tests. |
 | Production build | Passed. Lazy Three.js bundle is ~609 kB minified; Vite reports its >500 kB size advisory. |
-| Public deployment | Homepage and built JS/CSS returned 200; all four modes enabled; worker readiness returned `ok: true`; dataset served 75 mapped facilities. |
+| Public deployment | Homepage and built JS/CSS returned 200; all four modes enabled; worker readiness returned `ok: true`; scenario dataset served 1,085 features. |
 | Street texture request | Returned 200 with `Access-Control-Allow-Origin: *`; this is connectivity evidence, not visual verification. |
 | Final live population job | `c956d92a615843b192f723ad47d10ae5`, completed, reference verified, one execution attempt. |
-| Final live scenario job | `79c9ca2987be4289b7195d06643397b2`, completed, reference verified, one execution attempt. |
-| Worker cleanup | No managed analysis containers remained after jobs. Deployed `scenario_program.py` matched the repository checksum. |
+| Final live scenario job | `813e604c322449d79f6e9b686f6c1840`, completed and reference verified on attempt 3 after two bounded repairs. It returned four eligible plots and preferred `sfmock-fit-02`; every ranked candidate reported no building, road, or other restriction overlap. |
+| Worker cleanup | No managed analysis containers remained after the job. Installed `scenario.py` and `scenario_program.py` matched the `55e8a63` repository checksums. |
 | Public worker exposure | TCP 8100 was previously checked as unreachable on the worker's public address; worker communication uses the private VPC. |
 | Final visual browser pass | **Not completed.** Browser runtime exits before navigation with `windows sandbox failed: helper_unknown_error: setup refresh had errors`. Reset/retry also failed. |
 
-The documentation update rechecked public HTML, configuration, worker readiness, and the 96-feature dataset successfully. It did not rerun paid inference jobs or the whole test suite.
+The deployment update rechecked public HTML, configuration, worker readiness, and the 1,085-feature dataset and ran the paid live scenario above. It did not rerun the whole test suite on the server; the recorded 138 backend and 30 frontend tests ran locally before deployment.
 
 Local full run records and downloaded artifacts are in ignored `tmp/live-smoke/`, including `population-area.json`, `scenario.json`, result JSON/GeoJSON, analysis scripts, and traces. They are convenience evidence on this workstation, not a committed test fixture or a public API access grant. Guest-owned run endpoints require the original session or authorized operator access; do not assume another browser can fetch these IDs. Server run data is subject to retention limits. [VERIFICATION.md](../VERIFICATION.md) preserves older verification stages, which must not override this newer status.
 
