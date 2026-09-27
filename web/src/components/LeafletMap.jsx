@@ -20,7 +20,10 @@ function popupNode(feature) {
   const root = document.createElement('div'); root.className = 'tract-popup';
   const name = document.createElement('b'); name.textContent = props.name || props.geoid || props.id || 'Feature';
   const detail = document.createElement('span'); const role = roleOf(feature);
-  detail.textContent = role === 'population' ? ` · ${Number(props.population || 0).toLocaleString()} population estimate` : ` · ${role || 'Feature'}`;
+  const extras = [props.borough, props.service_type && String(props.service_type).replaceAll('_', ' '), props.property_type, props.acres != null && `${Number(props.acres).toLocaleString()} acres`].filter(Boolean);
+  detail.textContent = role === 'population'
+    ? ` · ${Number(props.population || 0).toLocaleString()} population estimate${props.borough ? ` · ${props.borough}` : ''}`
+    : ` · ${[role || 'Feature', ...extras].join(' · ')}`;
   root.append(name, document.createElement('br'), detail);
   return root;
 }
@@ -56,6 +59,7 @@ export default function LeafletMap({ data, datasetId, resultData, mode, candidat
     const layer = L.geoJSON(visible, { style: (feature) => roleOf(feature) === 'candidate_site' ? { ...styleFor(feature), opacity: 0, fillOpacity: 0 } : styleFor(feature), pointToLayer: (feature, latlng) => L.circleMarker(latlng, pointStyle(feature)), onEachFeature: (feature, child) => child.bindPopup(popupNode(feature)) }).addTo(map);
     sourceLayerRef.current = layer;
     if (datasetId === 'sf2020') map.fitBounds([[37.70, -122.53], [37.83, -122.35]]);
+    else if (datasetId === 'nyc2020') map.fitBounds([[40.49, -74.26], [40.92, -73.70]]);
     else { const bounds = layer.getBounds(); if (bounds.isValid()) map.fitBounds(bounds.pad(0.08)); }
     return undefined;
   }, [data, datasetId]);

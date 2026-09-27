@@ -89,6 +89,31 @@ describe('GeoScope React workflows', () => {
     expect(screen.getByText('Fabricated features for demonstration and testing. They do not describe a real neighborhood.')).toBeInTheDocument();
   });
 
+  it('lists the New York City snapshot and uses Midtown comparison defaults', async () => {
+    const user = userEvent.setup();
+    const nycData = { type: 'FeatureCollection', name: 'NYC fixture', features: [population('nyc-p', 120), { ...service, id: 'nyc-clinic', properties: { layer: 'service', service_type: 'clinic', name: 'Clinic', borough: 'Manhattan' }, geometry: { type: 'Point', coordinates: [-73.98, 40.75] } }] };
+    const nycConfig = { ...config, nyc: { id: 'nyc2020', name: 'NYC sample', synthetic: false, features: 7927 } };
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (url === '/api/config') return geojsonResponse(nycConfig);
+      if (url === '/api/worker-status') return geojsonResponse({ ok: true });
+      if (url === '/api/datasets/real') return geojsonResponse(sfData);
+      if (url === '/api/datasets/nyc2020') return geojsonResponse(nycData);
+      if (url === '/api/datasets/demo') return geojsonResponse(demoData);
+      return response(404, {});
+    }));
+    render(<App />);
+    await ready();
+    await user.selectOptions(screen.getByLabelText('Dataset'), 'nyc2020');
+    await screen.findByRole('heading', { name: 'New York City · 2020 Census + parks + facilities' });
+    await ready();
+    expect(screen.getByText(/FacDB clinics, libraries, schools, and community centers/)).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Analysis'), 'compare');
+    expect(screen.getByLabelText('Candidate A longitude')).toHaveValue(-73.9832);
+    expect(screen.getByLabelText('Candidate A latitude')).toHaveValue(40.7536);
+    expect(screen.getByLabelText('Candidate B longitude')).toHaveValue(-73.9903);
+    expect(screen.getByLabelText('Candidate B latitude')).toHaveValue(40.7359);
+  });
+
   it('uses San Francisco comparison defaults for the local mock dataset', async () => {
     const user = userEvent.setup();
     const scenarioData = { ...demoData, features: [...demoData.features, { ...service, id: 'sf-library', geometry: { type: 'Point', coordinates: [-122.425, 37.767] } }] };

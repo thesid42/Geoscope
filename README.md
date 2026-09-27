@@ -28,6 +28,8 @@ Start with the **[application handoff](docs/HANDOFF.md)** for deployment paths, 
 
 Results include metrics, GeoJSON, the input request, analysis code, and a run trace. The local mock enables the facility scenario only; the configured production controller supports all four workflows.
 
+Official city samples are selectable in the dataset list: San Francisco parks + 2020 Census, and a larger New York City snapshot with five-borough Census tracts, selected Parks properties, and FacDB clinics, libraries, schools, and community centers. Facility-site ranking still uses the SF mock parcels. See [data/real-nyc](data/real-nyc/README.md).
+
 ## Quick start: SF mock demo
 
 Requirements: **Node.js 24**, **Python 3.12 or newer**, and a WebGL-capable browser for the 3D view. Run these commands from the repository root in PowerShell:

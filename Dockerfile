@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY --from=frontend /frontend/dist ./web/dist
 COPY data/real ./data/real
+COPY data/real-nyc ./data/real-nyc
 COPY data/real-scenario ./data/real-scenario
 RUN useradd --uid 10001 --create-home app \
     && mkdir -p /data \

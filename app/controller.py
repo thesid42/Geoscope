@@ -111,6 +111,24 @@ if REAL_PATH.is_file():
         REAL_MANIFEST = json.loads(REAL_MANIFEST_PATH.read_text(encoding="utf-8")) if REAL_MANIFEST_PATH.is_file() else {}
     except (ValueError, json.JSONDecodeError, OSError):
         REAL_DATASET = None
+NYC_PATH = Path(__file__).resolve().parents[1] / "data" / "real-nyc" / "nyc-facilities-census.geojson"
+NYC_MANIFEST_PATH = NYC_PATH.with_name("manifest.json")
+NYC_DATASET: dict[str, Any] | None = None
+NYC_MANIFEST: dict[str, Any] = {}
+if NYC_PATH.is_file():
+    try:
+        NYC_DATASET = validate_geojson(json.loads(NYC_PATH.read_text(encoding="utf-8")))
+        DATASETS["nyc2020"] = NYC_DATASET
+        NYC_MANIFEST = json.loads(NYC_MANIFEST_PATH.read_text(encoding="utf-8")) if NYC_MANIFEST_PATH.is_file() else {}
+    except (ValueError, json.JSONDecodeError, OSError):
+        NYC_DATASET = None
+PUBLIC_DATASET_IDS = {"demo", "localdemo", "sf2020", "nyc2020"}
+DATASET_LABELS = {
+    "demo": "Harborview synthetic demo",
+    "localdemo": "San Francisco land simulation · mock",
+    "sf2020": "San Francisco parks + 2020 Census",
+    "nyc2020": "New York City parks, facilities + 2020 Census",
+}
 RUNS: dict[str, dict[str, Any]] = {}
 MAX_RUNS = 100
 MAX_DATASETS = 16
@@ -316,13 +334,15 @@ def public_config(request: Request, response: Response):
     issue_session(request, response)
     return {
         "demo": {"id": "demo", "name": "Harborview synthetic demo", "synthetic": True, "features": len(DEMO["features"])},
-        "real": {"id": "sf2020", "name": "San Francisco parks + 2020 Census", "synthetic": False, "features": len(REAL_DATASET["features"])} if REAL_DATASET else None,
-        "scenario_demo": {"id": "localdemo", "name": "San Francisco land simulation · mock", "synthetic": True, "features": len(LOCAL_DEMO["features"])} if LOCAL_DEMO is not None else None,
+        "real": {"id": "sf2020", "name": DATASET_LABELS["sf2020"], "synthetic": False, "features": len(REAL_DATASET["features"])} if REAL_DATASET else None,
+        "nyc": {"id": "nyc2020", "name": DATASET_LABELS["nyc2020"], "synthetic": False, "features": len(NYC_DATASET["features"])} if NYC_DATASET else None,
+        "scenario_demo": {"id": "localdemo", "name": DATASET_LABELS["localdemo"], "synthetic": True, "features": len(LOCAL_DEMO["features"])} if LOCAL_DEMO is not None else None,
         "real_manifest": REAL_MANIFEST if REAL_DATASET else None,
+        "nyc_manifest": NYC_MANIFEST if NYC_DATASET else None,
         "analysis_enabled": bool(browser_access_enabled() and ((settings.vultr_api_key and settings.vultr_model_id and settings.worker_url and settings.worker_token) or getattr(app.state, "demo_mode", False))),
         "demo_mode": getattr(app.state, "demo_mode", False),
         "supported_modes": ["scenario"] if getattr(app.state, "demo_mode", False) else ["access", "compare", "exposure", "scenario"],
-        "source_note": "Harborview is entirely fabricated. The SF mock combines observed 2020 Census population and mapped OpenStreetMap facilities/buildings/roads with simulated candidate parcels; it is not evidence of actual land availability.",
+        "source_note": "Harborview is entirely fabricated. The SF mock combines observed 2020 Census population and mapped OpenStreetMap facilities/buildings/roads with simulated candidate parcels; it is not evidence of actual land availability. The NYC snapshot adds official 2020 Census tracts, selected Parks properties, and FacDB clinics, libraries, schools, and community centers.",
     }
 
 
@@ -376,6 +396,20 @@ def local_demo():
     return LOCAL_DEMO
 
 
+@app.get("/api/datasets/nyc2020")
+def nyc_data():
+    if not NYC_DATASET:
+        raise HTTPException(404, "The New York City snapshot is not present on this installation.")
+    return NYC_DATASET
+
+
+@app.get("/api/nyc-source-manifest")
+def nyc_source_manifest():
+    if not NYC_DATASET:
+        raise HTTPException(404, "No New York City source snapshot is configured.")
+    return NYC_MANIFEST
+
+
 @app.get("/api/datasets/{dataset_id}")
 def get_dataset(dataset_id: str, request: Request):
     if not re.fullmatch(r"[a-f0-9]{32}", dataset_id) or dataset_id not in DATASETS:
@@ -407,7 +441,7 @@ async def create_run(req: RunRequest, request: Request, background_tasks: Backgr
         raise HTTPException(422, "This local mock supports land scenarios only. Use the configured production controller for other agent workflows.")
     _prune_runs()
     ds = DATASETS[req.dataset_id]
-    if req.dataset_id not in {"demo", "localdemo", "sf2020"}:
+    if req.dataset_id not in PUBLIC_DATASET_IDS:
         assert_owner(DATASET_OWNERS.get(req.dataset_id), principal)
     if req.analysis_mode not in {"access", "compare", "exposure", "scenario"}:
         raise HTTPException(422, "Choose access, compare, exposure, or scenario mode.")
@@ -441,8 +475,8 @@ async def create_run(req: RunRequest, request: Request, background_tasks: Backgr
     run_id = uuid.uuid4().hex
     run = {
         "id": run_id, "owner": principal, "status": "queued", "question": req.question,
-        "dataset_name": "San Francisco land simulation · mock" if req.dataset_id == "localdemo" else "Harborview synthetic demo" if req.dataset_id == "demo" else ("San Francisco parks + 2020 Census" if req.dataset_id == "sf2020" else "Uploaded GeoJSON"),
-        "synthetic": req.dataset_id in {"demo", "localdemo"} or ds.get("scenario_status") == "MOCK_SIMULATION", "source_manifest": REAL_MANIFEST if req.dataset_id == "sf2020" else MOCK_MANIFEST if req.dataset_id == "localdemo" else None, "threshold_m": req.threshold_m,
+        "dataset_name": DATASET_LABELS.get(req.dataset_id, "Uploaded GeoJSON"),
+        "synthetic": req.dataset_id in {"demo", "localdemo"} or ds.get("scenario_status") == "MOCK_SIMULATION", "source_manifest": NYC_MANIFEST if req.dataset_id == "nyc2020" else REAL_MANIFEST if req.dataset_id == "sf2020" else MOCK_MANIFEST if req.dataset_id == "localdemo" else None, "threshold_m": req.threshold_m,
         "analysis_mode": req.analysis_mode, "projected_crs": projected_crs,
         "attempts": [],
         "candidate_a": candidate_a, "candidate_b": candidate_b,

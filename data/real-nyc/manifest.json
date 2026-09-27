@@ -1,0 +1,171 @@
+{
+  "id": "nyc-facilities-census",
+  "kind": "official_snapshot",
+  "synthetic": false,
+  "title": "New York City parks, facilities, and 2020 Census population (official snapshot)",
+  "crs": "EPSG:4326",
+  "sources": [
+    {
+      "id": "nyc_census_tracts_2020",
+      "raw_file": "raw/tracts.geojson",
+      "title": "NYC 2020 Census Tracts",
+      "url": "https://data.cityofnewyork.us/resource/63ge-mke6.geojson?$limit=5000",
+      "metadata_url": "https://data.cityofnewyork.us/City-Government/2020-Census-Tracts/63ge-mke6",
+      "license": "NYC Open Data Terms of Use; U.S. Census Bureau geography",
+      "vintage": "2020 Census tract polygons with NTA and community-district names",
+      "sha256": "2cf430498a673e69382cce3c16603a0d635cd28e38a49ede818afcc719170e18",
+      "bytes": 7766422,
+      "retrieved_at": "2026-09-27T04:29:23.159984+00:00"
+    },
+    {
+      "id": "census2020_population_nyc",
+      "raw_file": "raw/population.json",
+      "title": "U.S. Census Bureau TIGERweb Census2020 Census Tracts POP100 for NYC counties",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/Census2020/tigerWMS_Census2020/MapServer/6/query?where=STATE%3D%2736%27%20AND%20COUNTY%20IN%20(%27005%27%2C%27047%27%2C%27061%27%2C%27081%27%2C%27085%27)&outFields=GEOID,NAME,POP100&returnGeometry=false&f=json",
+      "metadata_url": "https://tigerweb.geo.census.gov/arcgis/rest/services/Census2020/tigerWMS_Census2020/MapServer/6",
+      "license": "U.S. Census Bureau public data; source attribution retained",
+      "vintage": "2020 Census POP100 total population; January 1, 2020 tract boundaries",
+      "sha256": "5a7c3d53df0159fd900399974d5d77866235d3f7e4ef3b4d992667e0d3211c8b",
+      "bytes": 185377,
+      "retrieved_at": "2026-09-27T04:29:35.296699+00:00"
+    },
+    {
+      "id": "nyc_parks_properties",
+      "raw_file": "raw/parks.geojson",
+      "title": "NYC Parks Properties",
+      "url": "https://data.cityofnewyork.us/resource/enfh-gkve.geojson?$limit=5000",
+      "metadata_url": "https://data.cityofnewyork.us/Recreation/Parks-Properties/enfh-gkve/about_data",
+      "license": "NYC Open Data Terms of Use",
+      "vintage": "Live NYC Parks property inventory snapshot; type, acres, borough, and waterfront retained",
+      "sha256": "1eed76acdcdfe351fe94eb3517ee90ef4644c3585e0f223d99504254f5e08acc",
+      "bytes": 7941595,
+      "retrieved_at": "2026-09-27T04:29:23.276607+00:00"
+    },
+    {
+      "id": "nyc_facilities_database",
+      "raw_file": "raw/facilities.json",
+      "title": "NYC City Planning Facilities Database (selected service types)",
+      "url": "https://data.cityofnewyork.us/resource/ji82-xba5.json?$limit=20000",
+      "metadata_url": "https://data.cityofnewyork.us/City-Government/Facilities-Database/ji82-xba5",
+      "license": "NYC Open Data Terms of Use; New York City Department of City Planning",
+      "vintage": "Selected FacDB records: hospitals/clinics, public libraries, public and charter K-12 schools, community centers",
+      "sha256": "3ebf5f55169694e7c7c852f68c91526236cbd0f098361c82a0a3a117ae0acdd0",
+      "bytes": 3560992,
+      "retrieved_at": "2026-09-27T04:29:35.323652+00:00"
+    }
+  ],
+  "dataset_file": "nyc-facilities-census.geojson",
+  "sha256": "19f41d91ef99ccf12262a0a13aeb752ec0ecc283d264f144bf87536703236fee",
+  "bytes": 5913591,
+  "counts": {
+    "population_features": 2325,
+    "total_population_2020": 8804190,
+    "missing_population_joins": 2,
+    "tiger_only_water_or_unmatched_geoids": [
+      "36047990100",
+      "36081990100"
+    ],
+    "source_park_properties": 2061,
+    "park_features": 1868,
+    "park_types": {
+      "Garden": 351,
+      "Neighborhood Park": 295,
+      "Playground": 250,
+      "Jointly Operated Playground": 260,
+      "Triangle/Plaza": 356,
+      "Community Park": 113,
+      "Historic House Park": 12,
+      "Waterfront Facility": 23,
+      "Nature Area": 89,
+      "Parkway": 29,
+      "Flagship Park": 15,
+      "Recreational Field/Courts": 75
+    },
+    "excluded_park_properties": {
+      "property type: Buildings/Institutions": 20,
+      "property type: Undeveloped": 38,
+      "property type: Cemetery": 12,
+      "property type: Strip": 67,
+      "property type: Lot": 5,
+      "property type: Managed Sites": 15,
+      "property type: Mall": 34,
+      "property type: Operations": 2
+    },
+    "repaired_park_geometries": [
+      {
+        "id": "X092",
+        "name": "Van Cortlandt Park"
+      },
+      {
+        "id": "M141",
+        "name": "Percy E. Sutton Playground"
+      },
+      {
+        "id": "M144",
+        "name": "John V. Lindsay East River Park"
+      },
+      {
+        "id": "B166",
+        "name": "Belt Parkway/Shore Parkway"
+      },
+      {
+        "id": "Q012B",
+        "name": "John Golden Park"
+      },
+      {
+        "id": "M107",
+        "name": "Wards Island Park"
+      },
+      {
+        "id": "R129",
+        "name": "Blood Root Valley"
+      },
+      {
+        "id": "X101",
+        "name": "Hutchinson River Parkway"
+      },
+      {
+        "id": "B007",
+        "name": "Bensonhurst Park"
+      },
+      {
+        "id": "X039",
+        "name": "Pelham Bay Park"
+      },
+      {
+        "id": "B082",
+        "name": "Shore Park and Parkway"
+      },
+      {
+        "id": "M039",
+        "name": "Harlem River Park"
+      }
+    ],
+    "repaired_tract_geometries": 0,
+    "source_facility_records": 3734,
+    "service_features": 3734,
+    "service_counts": {
+      "clinic": 1297,
+      "library": 227,
+      "school": 1987,
+      "community_center": 223
+    },
+    "skipped_services": {}
+  },
+  "preparation": {
+    "script": "data/real-nyc/prepare_snapshot.py",
+    "shapely_version": "2.1.2",
+    "geometry_repair": "Shapely make_valid; retain polygon components; simplify 0.00012 degrees (~13 m) with topology preserved",
+    "park_selection": "retired is not true and typecategory in Community Park, Flagship Park, Garden, Historic House Park, Jointly Operated Playground, Nature Area, Neighborhood Park, Parkway, Playground, Recreational Field/Courts, Triangle/Plaza, Waterfront Facility",
+    "population_join": "Exact GEOID match between NYC 2020 tracts and Census2020 POP100 for counties 005, 047, 061, 081, 085",
+    "service_selection": "FacDB hospitals/clinics, public libraries, public and charter K-12 schools, and community centers with usable latitude/longitude"
+  },
+  "limitations": [
+    "2020 population, a later Parks inventory, and a later Facilities Database extract are different vintages; this is an exploratory illustration, not a current service-gap finding.",
+    "Park coverage includes selected NYC Parks property types only. State, federal, private, and other-agency open space can be absent.",
+    "FacDB records are administrative facility points, not building footprints, hours, capacity, or a certified complete directory. Duplicate programs at one address can remain.",
+    "Property boundaries and points do not identify entrances, accessibility, fees, or public access restrictions.",
+    "Distances use one representative point per census tract and straight-line distance to park polygons or facility points, not walking routes or travel time.",
+    "Candidate coordinates describe hypothetical point sites; no site feasibility, ownership, or building suitability has been established."
+  ]
+}

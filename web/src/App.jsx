@@ -11,6 +11,7 @@ const DEFAULT_BUILDING = { width_m: 24, depth_m: 18, height_m: 12, setback_m: 3 
 const roleOf = (f) => f?.properties?.layer === 'park' ? 'service' : f?.properties?.layer;
 const defaultCandidates = (id, dataset) => {
   if (id === 'sf2020' || id === 'localdemo') return [[-122.43, 37.77], [-122.42, 37.76]];
+  if (id === 'nyc2020') return [[-73.9832, 40.7536], [-73.9903, 40.7359]];
   let west = Infinity; let east = -Infinity; let south = Infinity; let north = -Infinity;
   for (const feature of dataset?.features ?? []) {
     const stack = [feature.geometry?.coordinates];
@@ -45,6 +46,7 @@ function datasetExtent(dataset) {
 }
 function defaultStudyArea(id, dataset) {
   if (id === 'localdemo' || id === 'sf2020') return [-122.433, 37.758, -122.417, 37.776];
+  if (id === 'nyc2020') return [-73.995, 40.748, -73.970, 40.764];
   const extent = datasetExtent(dataset);
   if (!extent) return null;
   const [west, south, east, north] = extent; const cx = (west + east) / 2; const cy = (south + north) / 2;
@@ -260,7 +262,7 @@ export default function App() {
     if (!datasetId) return undefined;
     const controller = new AbortController();
     const revision = ++datasetRevision.current;
-    const url = datasetId === 'demo' ? '/api/datasets/demo' : datasetId === 'sf2020' ? '/api/datasets/real' : `/api/datasets/${encodeURIComponent(datasetId)}`;
+    const url = datasetId === 'demo' ? '/api/datasets/demo' : datasetId === 'sf2020' ? '/api/datasets/real' : datasetId === 'nyc2020' ? '/api/datasets/nyc2020' : `/api/datasets/${encodeURIComponent(datasetId)}`;
     setDatasetLoading(true); setDatasetError(''); setDataset(null); setRun(null); setActiveRunId(null);
     activeRunIdRef.current = null; setResultMap(null); setResultMapError(''); setDownloadError('');
     setCandidateA(defaultCandidates(datasetId)[0]); setCandidateB(defaultCandidates(datasetId)[1]); setThreshold(400); setStudyArea(null); setAreaSelectionActive(false); setSelectedScenarioCandidate(null); setBuilding(DEFAULT_BUILDING);
@@ -364,11 +366,12 @@ export default function App() {
 
   const sourceNote = datasetId === 'sf2020'
     ? <>2020 Census TIGERweb POP100 + selected parks inventory. Candidate coordinates are illustrative; inventory coverage has documented limits. <a href="/api/source-manifest" target="_blank" rel="noreferrer">Source dataset ↗</a></>
+    : datasetId === 'nyc2020' ? <>2020 Census tracts for all five boroughs, selected NYC Parks properties, and FacDB clinics, libraries, schools, and community centers. Candidate coordinates are illustrative. <a href="/api/nyc-source-manifest" target="_blank" rel="noreferrer">Source dataset ↗</a></>
     : datasetId === 'localdemo' ? '2020 Census population + mapped OpenStreetMap facilities, buildings, and roads; simulated candidate plots. No real land availability is implied.'
     : datasetId === 'demo' ? 'Fabricated features for demonstration and testing. They do not describe a real neighborhood.'
       : datasetId ? 'User supplied EPSG:4326 GeoJSON. Feature roles and population field were validated.' : '';
   const onCandidateChange = useCallback((which, position) => { (which === 'A' ? setCandidateA : setCandidateB)(position); setRun(null); setResultMap(null); setResultMapError(''); }, []);
-  const mapTitle = datasetId === 'localdemo' ? 'San Francisco · simulated scenario land' : datasetId === 'sf2020' ? 'San Francisco · 2020 Census + selected parks' : datasetId === 'demo' ? 'Harborview · synthetic fixture' : uploadedNames[datasetId] ?? 'Uploaded GeoJSON';
+  const mapTitle = datasetId === 'localdemo' ? 'San Francisco · simulated scenario land' : datasetId === 'sf2020' ? 'San Francisco · 2020 Census + selected parks' : datasetId === 'nyc2020' ? 'New York City · 2020 Census + parks + facilities' : datasetId === 'demo' ? 'Harborview · synthetic fixture' : uploadedNames[datasetId] ?? 'Uploaded GeoJSON';
 
   return <>
     {config?.demo_mode && <div className="scenario-demo-banner global">LOCAL MOCK MODE — no LLM, no generated-code execution, no cloud inference.</div>}<header className="topbar"><a className="brand" href="/"><span className="brand-icon">⌖</span> GEOSCOPE</a><div className="topmeta"><span className={`live-dot${worker.ok ? '' : ' offline'}`}></span><span title={worker.message}>{config?.demo_mode ? 'LOCAL MOCK' : worker.status === 'checking' ? 'CHECKING SERVICE' : worker.ok ? 'ANALYSIS READY' : 'SERVICE UNAVAILABLE'}</span></div></header>
@@ -379,7 +382,7 @@ export default function App() {
         {worker.status !== 'ready' && <div className="worker-readiness" role="status"><span>{worker.status === 'checking' ? 'Checking analysis service…' : worker.message}</span><button type="button" onClick={() => { setWorker({ ok: false, status: 'checking', message: 'Checking worker readiness…' }); setWorkerRefresh((value) => value + 1); }} disabled={worker.status === 'checking'}>{worker.status === 'checking' ? 'Checking…' : 'Retry check'}</button></div>}
         <label htmlFor="dataset">Dataset</label>
         <select id="dataset" value={datasetId} onChange={(e) => { setDatasetLoading(true); setDatasetId(e.target.value); }} disabled={!config || uploading || runStarting || Boolean(activeRunId)}>
-          {config?.scenario_demo && <option value={config.scenario_demo.id}>San Francisco · simulated scenario parcels</option>}{config?.real && <option value={config.real.id}>San Francisco · 2020 Census + parks</option>}{config?.demo && <option value={config.demo.id}>Harborview · synthetic fixture</option>}
+          {config?.nyc && <option value={config.nyc.id}>New York City · 2020 Census + parks + facilities</option>}{config?.scenario_demo && <option value={config.scenario_demo.id}>San Francisco · simulated scenario parcels</option>}{config?.real && <option value={config.real.id}>San Francisco · 2020 Census + parks</option>}{config?.demo && <option value={config.demo.id}>Harborview · synthetic fixture</option>}
           {Object.entries(uploadedNames).map(([id, name]) => <option value={id} key={id}>{name} · uploaded</option>)}
         </select>
         <div className="source-note">{sourceNote}{datasetError && <span role="alert"> {datasetError}</span>}</div>
