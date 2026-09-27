@@ -108,3 +108,10 @@ def test_every_generation_and_repair_contract_names_the_actual_input_shape(mode)
     assert "features = request['features']" in instructions
     assert "NOT wrappers present in the input file" in instructions
     assert "'restricted', NOT 'restriction'" in instructions
+
+
+def test_scenario_generation_and_repair_share_exact_cell_center_formula():
+    instructions = controller._script_instructions("scenario")
+    assert "(col + 0.5) * (maxx - minx) / 5" in instructions
+    assert "(row + 0.5) * (maxy - miny) / 5" in instructions
+    assert "NOT /4" in instructions
