@@ -6,12 +6,12 @@ The San Francisco demo combines **real Census population and mapped OpenStreetMa
 
 ## Current status
 
-The application is deployed at **[Geoscope](http://149.28.204.217/)**. The last verified application release is `84ea118` (September 26, 2026 Pacific / September 27 UTC).
+The application is deployed at **[Geoscope](http://149.28.204.217/)**. The last verified application release is `a8e7ba4` (September 26, 2026 Pacific / September 27 UTC).
 
 - All four analysis workflows are enabled on the live controller. Population estimation accepts a drawn area without preloaded zone polygons.
 - The interface labels plot boundaries and selected sites, puts outcomes first, and includes street context, service markers, scale, and camera controls in the 3D view.
 - Proposal results report mapped facilities already inside the selected area and explicitly identify zero added population coverage.
-- Last recorded verification: **138 backend tests, 31 frontend tests, production build, and live population/scenario jobs passed**. The road/building-aware scenario run matched the fixed GIS reference on its third bounded execution attempt.
+- Last recorded verification: **139 backend tests, 31 frontend tests, production build, and live population/scenario jobs passed**. The road/building-aware scenario run matched the fixed GIS reference on its third bounded execution attempt.
 - **Final visual browser testing is still outstanding.** Browser automation crashes during Windows sandbox initialization before opening the site. DOM/geometry tests and API checks do not establish rendered appearance.
 - The current public endpoint uses **HTTP through Nginx**. A domain and HTTPS are still deployment follow-up work.
 
