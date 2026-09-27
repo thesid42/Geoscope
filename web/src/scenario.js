@@ -57,7 +57,7 @@ export function explainScenarioCandidate(candidate, candidates, metrics) {
   if (noInventory) {
     reasons.push(`No mapped ${facility} records were supplied, so ranking uses plot area only.`);
   } else if (Number.isFinite(distance)) {
-    reasons.push(`The checked placement is ${readableNumber(distance)} m from the nearest mapped ${facility}.`);
+    reasons.push(`The supplied plot is ${readableNumber(distance)} m from the nearest mapped ${facility}.`);
   }
 
   const previous = rank > 0 ? ranked[rank - 1] : null;

@@ -53,9 +53,12 @@ def calculate(request):
     count = lambda value: int(value) if float(value).is_integer() else float(value)
     service_geoms = [geom for _, geom in matching_services]
 
-    def score(point, parcel):
+    def score(parcel):
+        # Lot-level gap: always parcel.representative_point(), never the
+        # footprint, clearance, or a searched placement anchor.
+        origin = parcel.representative_point()
         if service_geoms:
-            distances = [point.distance(geom) for geom in service_geoms]
+            distances = [origin.distance(geom) for geom in service_geoms]
             nearest = min(distances)
             within = sum(1 for distance in distances if distance <= threshold)
         else:
@@ -64,11 +67,7 @@ def calculate(request):
             "plot_area_m2": count(parcel.area),
             "nearest_existing_service_m": nearest,
             "services_within_threshold": within,
-        }
-
-    def placement_rank(metrics, anchor_index, rotation):
-        gap = metrics["nearest_existing_service_m"]
-        return (-(gap if gap is not None else math.inf), -metrics["plot_area_m2"], anchor_index, rotation)
+        }, origin
 
     candidates, checks = [], []
     for feature, parcel in sites:
@@ -113,8 +112,8 @@ def calculate(request):
                     continue
                 if clearance.intersects(buildings_union) or clearance.intersects(roads_union) or clearance.intersects(restricted_union):
                     continue
-                metrics = score(point, parcel)
-                rank = placement_rank(metrics, anchor_index, rotation)
+                metrics, origin = score(parcel)
+                rank = (anchor_index, rotation)
                 if best is None or rank < best[0]:
                     longitude, latitude = unproject(point.x, point.y)
                     candidate = {"id": site_id, "longitude": longitude, "latitude": latitude, **metrics,
@@ -123,7 +122,7 @@ def calculate(request):
                             "plot_fit": True, "area_fit": True, "no_building_overlap": True, "no_road_overlap": True, "no_restriction_overlap": True,
                             "setback_m": building["setback_m"], "rotation_deg": rotation,
                             "footprint_area_m2": building["width_m"]*building["depth_m"]}}
-                    best = (rank, candidate, point)
+                    best = (rank, candidate, origin)
         if best is None:
             check["reason"] = "No fitting footprint found by bounded search with the requested setback, area and obstruction constraints."
         else:

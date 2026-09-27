@@ -49,6 +49,7 @@ it('explains land fit, service gap, and deterministic ranking tie-breaks', () =>
     {id:'plot-c',plot_area_m2:2500,nearest_existing_service_m:120.2,land_check:{setback_m:3,plot_fit:true,area_fit:true,no_building_overlap:true,no_road_overlap:true,no_restriction_overlap:true}},
   ];
   const metrics = {building:{width_m:24,depth_m:18},threshold_m:400,service_type:'clinic',inventory_status:'matching services supplied'};
+  expect(explainScenarioCandidate(candidates[0], candidates, metrics).join(' ')).toMatch(/supplied plot is 380 m from the nearest mapped clinic/);
   expect(explainScenarioCandidate(candidates[0], candidates, metrics).join(' ')).toMatch(/same service gap.*2,100/);
   expect(explainScenarioCandidate(candidates[1], candidates, metrics).join(' ')).toMatch(/ties Site 1.*2,100 m² versus 1,800 m²/);
   expect(explainScenarioCandidate(candidates[2], candidates, metrics).join(' ')).toMatch(/below Site 2.*farther.*380 m versus 120 m/);

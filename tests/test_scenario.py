@@ -133,6 +133,17 @@ def test_service_inventory_provenance_is_reported_without_inventing_completeness
     assert metrics["existing_services_in_area"] == 0
 
 
+def test_service_gap_uses_parcel_representative_point_not_footprint():
+    req = fixture()
+    req["features"].append(feature("clinic", "service", Point(X + 80, Y), service_type="clinic"))
+    candidate = calculate(req)[0]["metrics"]["candidates"][0]
+    parcel = transform(PROJECT, shape(req["features"][1]["geometry"]))
+    footprint = transform(PROJECT, shape(candidate["footprint"]))
+    clinic = Point(X + 80, Y)
+    assert candidate["nearest_existing_service_m"] == pytest.approx(parcel.representative_point().distance(clinic), abs=1e-6)
+    assert candidate["nearest_existing_service_m"] != pytest.approx(footprint.distance(clinic), abs=0.5)
+
+
 def test_parks_never_count_as_clinics_and_external_clinics_still_count():
     req = fixture()
     req["threshold_m"] = 800
