@@ -9,10 +9,42 @@ const MODES = [['access', 'Service access'], ['compare', 'Compare candidate site
 const SERVICE_TYPES = [['clinic', 'Clinic'], ['library', 'Library'], ['school', 'School'], ['community_center', 'Community center']];
 const DEFAULT_BUILDING = { width_m: 24, depth_m: 18, height_m: 12, setback_m: 3 };
 const roleOf = (f) => f?.properties?.layer === 'park' ? 'service' : f?.properties?.layer;
-const defaultCandidates = (id) => id === 'sf2020' ? [[-122.43, 37.77], [-122.42, 37.76]] : [[-122.331, 47.612], [-122.316, 47.615]];
+const defaultCandidates = (id, dataset) => {
+  if (id === 'sf2020' || id === 'localdemo') return [[-122.43, 37.77], [-122.42, 37.76]];
+  let west = Infinity; let east = -Infinity; let south = Infinity; let north = -Infinity;
+  for (const feature of dataset?.features ?? []) {
+    const stack = [feature.geometry?.coordinates];
+    while (stack.length) {
+      const value = stack.pop();
+      if (!Array.isArray(value)) continue;
+      if (typeof value[0] === 'number' && typeof value[1] === 'number') {
+        west = Math.min(west, value[0]); east = Math.max(east, value[0]);
+        south = Math.min(south, value[1]); north = Math.max(north, value[1]);
+      } else for (const child of value) stack.push(child);
+    }
+  }
+  if (![west, east, south, north].every(Number.isFinite)) return [[0, 0], [0.001, 0.001]];
+  const centerX = (west + east) / 2; const centerY = (south + north) / 2;
+  const dx = Math.max((east - west) * 0.18, 0.0001); const dy = Math.max((north - south) * 0.18, 0.0001);
+  return [[Math.max(west, centerX - dx), Math.max(south, centerY - dy)], [Math.min(east, centerX + dx), Math.min(north, centerY + dy)]];
+};
+function formatDetail(detail) {
+  const clean = (value) => String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').slice(0, 400);
+  if (typeof detail === 'string') return clean(detail) || 'Request failed.';
+  if (Array.isArray(detail)) {
+    const messages = detail.slice(0, 5).map((item) => {
+      if (typeof item === 'string') return clean(item);
+      const location = Array.isArray(item?.loc) ? item.loc.filter((part) => !['body', 'query', 'path'].includes(part)).join('.') : '';
+      const message = clean(item?.msg ?? item?.message ?? 'Invalid value.');
+      return location ? `${clean(location)}: ${message}` : message;
+    }).filter(Boolean);
+    return messages.join(' · ') || 'Request validation failed.';
+  }
+  return clean(detail?.msg ?? detail?.message ?? 'Request failed.') || 'Request failed.';
+}
 async function readJson(response) {
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(typeof payload?.detail === 'string' ? payload.detail : `Request failed (${response.status}).`);
+  if (!response.ok) throw new Error(formatDetail(payload?.detail) || `Request failed (${response.status}).`);
   return payload;
 }
 function MetricCard({ value, label }) { return <div className="metric"><div className="value">{value}</div><div className="label">{label}</div></div>; }
@@ -26,6 +58,8 @@ function CandidateInput({ letter, candidate, onChange }) {
 function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenarioCandidate, onSelectScenarioCandidate }) {
   if (!run) return null;
   const m = run.result?.metrics ?? {};
+  const failed = ['failed', 'interrupted'].includes(run.status);
+  const files = Object.entries(run.artifacts ?? {}).filter(([name, available]) => available === true && /^(analysis\.py|result\.json|result\.geojson|request\.json|trace\.json|analysis-attempt-[1-3]\.py)$/.test(name)).map(([name]) => name);
   const verified = run.status === 'completed' && (run.result?.reference_verified === true || (run.demo_mode === true && run.result?.geometry_verified === true));
   const n = (x) => x == null ? 'N/A' : Number(x).toLocaleString();
   const d = (x) => x == null ? 'N/A' : `${Number(x).toFixed(0)} m`;
@@ -52,8 +86,9 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
         {m.site_checks?.length > 0 && <details><summary>Parcel checks ({m.site_checks.length})</summary><ul className="site-checks">{m.site_checks.map((site) => <li key={site.id}><b>{site.id}: {site.status}</b> · {site.reason} <span>Evidence: {site.source || 'not supplied'}</span></li>)}</ul></details>}
         {best && <Suspense fallback={<div role="status">Preparing 3D footprint view…</div>}><ScenarioViewer area={m.study_area} candidate={best} building={m.building} serviceType={m.service_type} dataset={dataset} /></Suspense>}
         {run.plan && <details><summary>Method + agent plan</summary><pre>{run.plan}</pre><ul className="caveats"><li>{run.demo_mode ? 'Local fixed-reference simulation; no LLM execution or independent agent-to-reference verification.' : 'Metrics and parcel checks matched a fixed GIS reference calculation.'}</li><li>Geometric fit is checked against the supplied plot and blocker layers; land status depends on provided evidence.</li></ul></details>}
-        {run.status === 'completed' && <div className="downloads">{['analysis.py', 'result.json', 'result.geojson', 'request.json', 'trace.json', ...(run.attempts ?? []).map((a) => a.script_file)].filter((x, i, all) => x && all.indexOf(x) === i).map((name) => <button className="download-link" type="button" key={name} onClick={() => onDownload(run.id, name)}>{name} ↓</button>)}{downloadError && <span role="alert" className="download-error">{downloadError}</span>}</div>}
-        {run.logs?.length > 0 && <details className="trace"><summary>Run trace</summary><div id="logs">{run.logs.map((log, i) => <div className="log-row" key={`${log.time ?? i}-${i}`}><b>{(log.status || 'step').toUpperCase()}</b> · {log.text}</div>)}</div></details>}
+        {files.length > 0 && <div className="downloads">{files.map((name) => <button className="download-link" type="button" key={name} onClick={() => onDownload(run.id, name)}>{name} ↓</button>)}{downloadError && <span role="alert" className="download-error">{downloadError}</span>}</div>}
+        {run.attempts?.length > 0 && <details className="trace attempt-diagnostics" open={failed}><summary>Execution diagnostics ({run.attempts.length} attempts)</summary>{run.attempts.map((attempt, index) => <section key={`${attempt.attempt ?? index}-${attempt.script_file ?? index}`}><b>Attempt {attempt.attempt ?? index + 1} · {attempt.status || 'unknown'}</b>{attempt.script_file && <p>Script: {attempt.script_file}</p>}{(attempt.diagnostics?.message || attempt.diagnostics?.stderr || attempt.message || attempt.stderr) && <p>{attempt.diagnostics?.message || attempt.message}</p>}{(attempt.diagnostics?.stderr || attempt.stderr) && <pre aria-label={`Attempt ${attempt.attempt ?? index + 1} stderr`}>{attempt.diagnostics?.stderr || attempt.stderr}</pre>}{(attempt.diagnostics?.stdout || attempt.stdout) && <pre aria-label={`Attempt ${attempt.attempt ?? index + 1} stdout`}>{attempt.diagnostics?.stdout || attempt.stdout}</pre>}</section>)}</details>}
+    {run.logs?.length > 0 && <details className="trace"><summary>Run trace</summary><div id="logs">{run.logs.map((log, i) => <div className="log-row" key={`${log.time ?? i}-${i}`}><b>{(log.status || 'step').toUpperCase()}</b> · {log.text}</div>)}</div></details>}
       </div>;
     }
     if (run.analysis_mode === 'exposure') cards = [
@@ -72,9 +107,7 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
       <MetricCard key="distance" value={d(m.baseline?.weighted_mean_nearest_m)} label="weighted mean distance" />,
     ];
   }
-  const failed = ['failed', 'interrupted'].includes(run.status);
   const title = failed ? 'Run stopped' : ({ access: 'Service access', compare: 'Candidate comparison', exposure: 'Population inside zones', scenario: 'Facility scenario' }[run.analysis_mode] ?? 'GIS analysis');
-  const files = ['analysis.py', 'result.json', 'result.geojson', 'request.json', 'trace.json', ...(run.attempts ?? []).map((a) => a.script_file)].filter((x, i, all) => x && all.indexOf(x) === i);
   return <div className="result-panel">
     <div className="result-top"><div><div className="eyebrow">AGENT FINDINGS</div><h2>{title}</h2></div><span className={`status-pill${failed ? ' failed' : ''}`}>{run.status}</span></div>
     <p id="summary">{run.summary || run.error || 'The agent is working through the analysis steps.'}</p>
@@ -84,14 +117,16 @@ function ResultsPanel({ run, onDownload, downloadError, dataset, selectedScenari
       <li>{run.analysis_mode === 'exposure' ? 'The whole population estimate for each polygon is assigned according to its representative point; this is not an exact resident count inside the zone.' : run.analysis_mode === 'compare' ? 'Candidate ranking uses newly served population within the threshold; sites are illustrative, not feasibility recommendations.' : 'Population proximity is not a walking route or a measure of actual access.'}</li>
       <li>{run.synthetic ? 'Synthetic fixture only; not real-world evidence.' : `Source: ${run.dataset_name}.`}</li>
     </ul></details>}
-    {run.status === 'completed' && <div className="downloads">{files.map((name) => <button className="download-link" type="button" key={name} onClick={() => onDownload(run.id, name)}>{name} ↓</button>)}{downloadError && <span role="alert" className="download-error">{downloadError}</span>}</div>}
+    {files.length > 0 && <div className="downloads">{files.map((name) => <button className="download-link" type="button" key={name} onClick={() => onDownload(run.id, name)}>{name} ↓</button>)}{downloadError && <span role="alert" className="download-error">{downloadError}</span>}</div>}
+    {run.attempts?.length > 0 && <details className="trace attempt-diagnostics" open={failed}><summary>Execution diagnostics ({run.attempts.length} attempts)</summary>{run.attempts.map((attempt, index) => <section key={`${attempt.attempt ?? index}-${attempt.script_file ?? index}`}><b>Attempt {attempt.attempt ?? index + 1} · {attempt.status || 'unknown'}</b>{attempt.script_file && <p>Script: {attempt.script_file}</p>}{(attempt.diagnostics?.message || attempt.diagnostics?.stderr || attempt.message || attempt.stderr) && <p>{attempt.diagnostics?.message || attempt.message}</p>}{(attempt.diagnostics?.stderr || attempt.stderr) && <pre aria-label={`Attempt ${attempt.attempt ?? index + 1} stderr`}>{attempt.diagnostics?.stderr || attempt.stderr}</pre>}{(attempt.diagnostics?.stdout || attempt.stdout) && <pre aria-label={`Attempt ${attempt.attempt ?? index + 1} stdout`}>{attempt.diagnostics?.stdout || attempt.stdout}</pre>}</section>)}</details>}
     {run.logs?.length > 0 && <details className="trace"><summary>Run trace</summary><div id="logs">{run.logs.map((log, i) => <div className="log-row" key={`${log.time ?? i}-${i}`}><b>{(log.status || 'step').toUpperCase()}</b> · {log.text}</div>)}</div></details>}
   </div>;
 }
 export default function App() {
   useEffect(() => { try { window.sessionStorage.removeItem("geoscope_access_key"); } catch { /* No browser-stored bearer remains. */ } }, []);
   const [config, setConfig] = useState(null);
-  const [worker, setWorker] = useState({ ok: false, message: 'Checking worker' });
+  const [worker, setWorker] = useState({ ok: false, status: 'checking', message: 'Checking worker readiness…' });
+  const [workerRefresh, setWorkerRefresh] = useState(0);
   const [datasetId, setDatasetId] = useState('');
   const [dataset, setDataset] = useState(null);
   const [datasetLoading, setDatasetLoading] = useState(true);
@@ -141,15 +176,30 @@ export default function App() {
         const c = await readJson(await fetch('/api/config', { signal: controller.signal }));
         setConfig(c);
         setDatasetId(c.scenario_demo?.id ?? c.real?.id ?? c.demo?.id ?? 'demo');
-        try { setWorker(await readJson(await fetch('/api/worker-status', { signal: controller.signal }))); }
-        catch (error) { if (error.name === 'AbortError') throw error; setWorker({ ok: false, message: error.message || 'Worker is unavailable.' }); }
       } catch (error) {
-        if (error.name !== 'AbortError') { setDatasetError(error.message || 'Service configuration is unavailable.'); setWorker({ ok: false, message: 'Service status unavailable.' }); }
+        if (error.name !== 'AbortError') { setDatasetError(error.message || 'Service configuration is unavailable.'); setWorker({ ok: false, status: 'unavailable', message: 'Service status unavailable.' }); }
       }
     })();
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    let disposed = false; let checking = false; let requestController = null;
+    const checkWorker = async () => {
+      if (disposed || checking) return;
+      checking = true; requestController = new AbortController();
+      const timeout = window.setTimeout(() => requestController?.abort(), 5000);
+      try {
+        const status = await readJson(await fetch('/api/worker-status', { signal: requestController.signal }));
+        if (!disposed) setWorker({ ...status, ok: Boolean(status.ok), status: status.ok ? 'ready' : 'unavailable', message: status.message || (typeof status.sandbox === 'string' ? status.sandbox : status.sandbox?.reason) || (status.ok ? 'Analysis worker is ready.' : 'Analysis worker is not ready.') });
+      } catch (error) {
+        if (!disposed) setWorker({ ok: false, status: 'unavailable', message: error.name === 'AbortError' ? 'Worker readiness check timed out.' : error.message || 'Worker status could not be checked.' });
+      } finally { window.clearTimeout(timeout); requestController = null; checking = false; }
+    };
+    checkWorker();
+    const interval = window.setInterval(checkWorker, 15000);
+    return () => { disposed = true; window.clearInterval(interval); requestController?.abort(); };
+  }, [workerRefresh]);
   useEffect(() => {
     if (!datasetId) return undefined;
     const controller = new AbortController();
@@ -161,6 +211,7 @@ export default function App() {
     fetch(url, { signal: controller.signal }).then(readJson).then((data) => {
       if (revision !== datasetRevision.current) return;
       setDataset(data);
+      const suggestions = defaultCandidates(datasetId, data); setCandidateA(suggestions[0]); setCandidateB(suggestions[1]);
       const plotCoordinates = (data.features ?? []).filter((f) => roleOf(f) === 'candidate_site').flatMap((f) => { const out = []; const walk = (v) => Array.isArray(v) && (typeof v[0] === 'number' ? out.push(v) : v.forEach(walk)); walk(f.geometry?.coordinates); return out; });
       if (datasetId === 'localdemo') setStudyArea([-122.433, 37.758, -122.417, 37.776]);
       else if (plotCoordinates.length) { const centerLon = plotCoordinates.reduce((sum, point) => sum + point[0], 0) / plotCoordinates.length; const centerLat = plotCoordinates.reduce((sum, point) => sum + point[1], 0) / plotCoordinates.length; setStudyArea([centerLon - 0.005, centerLat - 0.005, centerLon + 0.005, centerLat + 0.005].map((v) => Number(v.toFixed(6)))); }
@@ -263,11 +314,12 @@ export default function App() {
   const mapTitle = datasetId === 'localdemo' ? 'San Francisco · simulated scenario land' : datasetId === 'sf2020' ? 'San Francisco · 2020 Census + selected parks' : datasetId === 'demo' ? 'Harborview · synthetic fixture' : uploadedNames[datasetId] ?? 'Uploaded GeoJSON';
 
   return <>
-    {config?.demo_mode && <div className="scenario-demo-banner global">LOCAL MOCK MODE — no LLM, no generated-code execution, no cloud inference.</div>}<header className="topbar"><a className="brand" href="/"><span className="brand-icon">⌖</span> GEOSCOPE</a><div className="topmeta"><span className={`live-dot${worker.ok ? '' : ' offline'}`}></span><span title={worker.message}>{config?.demo_mode ? 'LOCAL MOCK · NO LLM' : worker.ok ? 'WORKER READY' : 'WORKER UNAVAILABLE'}</span><span className="top-divider"></span><span>FIELD NOTE&nbsp; 01</span></div></header>
+    {config?.demo_mode && <div className="scenario-demo-banner global">LOCAL MOCK MODE — no LLM, no generated-code execution, no cloud inference.</div>}<header className="topbar"><a className="brand" href="/"><span className="brand-icon">⌖</span> GEOSCOPE</a><div className="topmeta"><span className={`live-dot${worker.ok ? '' : ' offline'}`}></span><span title={worker.message}>{config?.demo_mode ? 'LOCAL MOCK · NO LLM' : worker.status === 'checking' ? 'WORKER CHECKING' : worker.ok ? 'WORKER READY' : 'WORKER UNAVAILABLE'}</span><span className="top-divider"></span><span>FIELD NOTE&nbsp; 01</span></div></header>
     <main className="shell">
       <section className="intro"><div><div className="eyebrow">POPULATION · PLACES · PATTERNS</div><h1>Ask a question.<br />See it on the map.</h1><p className="lede">A geospatial analyst for service access, candidate sites, and population inside supplied zones. Inspect the method, map, and generated code.</p></div><div className="issue-stamp"><span>RESEARCH<br />DESK</span><span className="stamp-mark">✳</span></div></section>
       <div className="workspace"><aside className="controls">
         <div className="section-heading"><span className="number">01</span><div><h2>Set the study area</h2><p>Choose source features and an analysis.</p></div></div>
+        <div className="worker-readiness" role="status"><span>{worker.status === 'checking' ? 'Checking worker readiness…' : worker.message}</span><button type="button" onClick={() => { setWorker({ ok: false, status: 'checking', message: 'Checking worker readiness…' }); setWorkerRefresh((value) => value + 1); }} disabled={worker.status === 'checking'}>Retry worker check</button></div>
         <label htmlFor="dataset">Population + places or zones</label>
         <select id="dataset" value={datasetId} onChange={(e) => { setDatasetLoading(true); setDatasetId(e.target.value); }} disabled={!config || uploading || runStarting || Boolean(activeRunId)}>
           {config?.scenario_demo && <option value={config.scenario_demo.id}>San Francisco · simulated scenario parcels</option>}{config?.real && <option value={config.real.id}>San Francisco · 2020 Census + parks</option>}{config?.demo && <option value={config.demo.id}>Harborview · synthetic fixture</option>}

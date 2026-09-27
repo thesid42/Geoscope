@@ -19,13 +19,13 @@ const completedExposure = {
   id: 'run-1', status: 'completed', analysis_mode: 'exposure', synthetic: true,
   summary: 'Zero-population test result.', plan: '{"steps":["fixture"]}', reference_verified: true,
   result: { mode: 'exposure', reference_verified: true, metrics: { population_total: 0, inside_population: 0, outside_population: 0, share_inside_pct: null, inside_feature_count: 0 } },
-  logs: [], attempts: [],
+  logs: [], attempts: [], artifacts: { 'result.json': true, 'trace.json': true },
 };
 const completedAccess = {
   id: 'run-1', status: 'completed', analysis_mode: 'access', synthetic: true,
   summary: 'Access fixture complete.', plan: '{"steps":["fixture"]}',
   result: { mode: 'access', reference_verified: true, metrics: { baseline: { served_population: 42, underserved_population: 8, weighted_mean_nearest_m: 20 } } },
-  logs: [], attempts: [],
+  logs: [], attempts: [], artifacts: { 'analysis.py': true, 'result.json': true, 'trace.json': true },
 };
 const geojsonResponse = (value, status = 200) => response(status, value);
 function response(status, payload, extra = {}) {
@@ -86,6 +86,25 @@ describe('GeoScope React workflows', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.getByRole('heading', { name: 'Harborview · synthetic fixture' })).toBeInTheDocument();
     expect(screen.getByText(/1 population areas · 1 services · 1 zones · 0 candidate plots/)).toBeInTheDocument();
+  });
+
+  it('uses San Francisco comparison defaults for the local mock dataset', async () => {
+    const user = userEvent.setup();
+    const scenarioData = { ...demoData, features: [...demoData.features, { ...service, id: 'sf-library', geometry: { type: 'Point', coordinates: [-122.425, 37.767] } }] };
+    const localConfig = { ...config, scenario_demo: { id: 'localdemo', name: 'SF mock' }, supported_modes: ['scenario', 'compare'] };
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (url === '/api/config') return geojsonResponse(localConfig);
+      if (url === '/api/worker-status') return geojsonResponse({ ok: true });
+      if (url === '/api/datasets/localdemo') return geojsonResponse(scenarioData);
+      return response(404, {});
+    }));
+    render(<App />);
+    await screen.findByRole('heading', { name: 'San Francisco · simulated scenario land' });
+    await user.selectOptions(screen.getByLabelText('Analysis'), 'compare');
+    expect(screen.getByLabelText('Candidate A longitude')).toHaveValue(-122.43);
+    expect(screen.getByLabelText('Candidate A latitude')).toHaveValue(37.77);
+    expect(screen.getByLabelText('Candidate B longitude')).toHaveValue(-122.42);
+    expect(screen.getByLabelText('Candidate B latitude')).toHaveValue(37.76);
   });
 
   it('renders null exposure metrics as N/A and clears success cards after a polling HTTP failure', async () => {
@@ -162,7 +181,7 @@ describe('GeoScope React workflows', () => {
   it('keeps the public map preview when worker readiness cannot be fetched', async () => {
     const fetchMock = vi.fn(async (url) => {
       if (url === '/api/config') return geojsonResponse(config);
-      if (url === '/api/worker-status') throw new Error('worker endpoint offline');
+      if (url === '/api/worker-status') return response(503, { detail: 'worker endpoint offline' });
       if (url === '/api/datasets/real') return geojsonResponse(sfData);
       return response(404, {});
     });
@@ -199,6 +218,65 @@ describe('GeoScope React workflows', () => {
     expect(JSON.parse(post[1].body).dataset_id).toBe('sf2020');
     pendingCreate.resolve(geojsonResponse({ id: 'run-pending', status: 'queued' }, 202));
     await screen.findByText('Access fixture complete.');
+  });
+
+  it('shows checking state, retries worker readiness without reloading the selected dataset, and updates the reason', async () => {
+    const user = userEvent.setup();
+    let checks = 0; let datasetRequests = 0;
+    const fetchMock = vi.fn(async (url) => {
+      if (url === '/api/config') return geojsonResponse(config);
+      if (url === '/api/worker-status') { checks++; return checks === 1 ? response(503, { detail: 'worker still starting' }) : geojsonResponse({ ok: true, sandbox: 'runsc verified' }); }
+      if (url === '/api/datasets/real') { datasetRequests++; return geojsonResponse(sfData); }
+      return response(404, {});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+    await screen.findByRole('heading', { name: 'San Francisco · 2020 Census + selected parks' });
+    expect(await screen.findByText('worker still starting')).toBeInTheDocument();
+    expect(screen.getByText('WORKER UNAVAILABLE')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry worker check' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Retry worker check' }));
+    await waitFor(() => expect(screen.getByText('WORKER READY')).toBeInTheDocument());
+    expect(screen.getByText('runsc verified')).toBeInTheDocument();
+    expect(datasetRequests).toBe(1);
+  });
+
+  it('shows failed attempt diagnostics and only offers artifacts the server marked available', async () => {
+    const user = userEvent.setup();
+    const failedRun = { id: 'run-1', status: 'failed', analysis_mode: 'access', error: 'analysis failed', plan: 'plan exists', logs: [], artifacts: { 'trace.json': true, 'result.json': false, 'analysis.py': false }, attempts: [{ attempt: 1, status: 'failed', script_file: 'analysis-attempt-1.py', diagnostics: { message: 'Execution failed during the generated analysis.', stderr: 'NameError: missing value', stdout: '' } }] };
+    const fetchMock = baseFetch({});
+    fetchMock.mockImplementation(async (url, init = {}) => {
+      if (url === '/api/config') return geojsonResponse(config);
+      if (url === '/api/worker-status') return geojsonResponse({ ok: true });
+      if (url === '/api/datasets/real') return geojsonResponse(sfData);
+      if (url === '/api/runs' && init.method === 'POST') return geojsonResponse({ id: 'run-1', status: 'queued' }, 202);
+      if (url === '/api/runs/run-1') return geojsonResponse(failedRun);
+      return response(404, {});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />); await ready();
+    await user.click(screen.getByRole('button', { name: /Run the analysis/ }));
+    await screen.findByText('analysis failed');
+    expect(screen.getByText('NameError: missing value')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'trace.json ↓' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'result.json ↓' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'analysis.py ↓' })).not.toBeInTheDocument();
+  });
+
+  it('renders Pydantic validation details as a useful field-specific error', async () => {
+    const user = userEvent.setup();
+    const fetchMock = baseFetch({});
+    fetchMock.mockImplementation(async (url, init = {}) => {
+      if (url === '/api/config') return geojsonResponse(config);
+      if (url === '/api/worker-status') return geojsonResponse({ ok: true });
+      if (url === '/api/datasets/real') return geojsonResponse(sfData);
+      if (url === '/api/runs' && init.method === 'POST') return response(422, { detail: [{ type: 'less_than', loc: ['body', 'threshold_m'], msg: 'Input should be less than 5000' }] });
+      return response(404, {});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />); await ready();
+    await user.click(screen.getByRole('button', { name: /Run the analysis/ }));
+    expect(await screen.findByText('threshold_m: Input should be less than 5000')).toBeInTheDocument();
   });
 
   it('does not claim reference verification for a planned but failed run', async () => {
